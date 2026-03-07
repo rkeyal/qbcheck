@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"{{file_path}}\"",
+            "statusMessage": "Formatting code with Prettier",
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"{{file_path}}\"",
+            "statusMessage": "Formatting code with Prettier",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
