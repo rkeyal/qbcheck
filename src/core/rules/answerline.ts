@@ -333,8 +333,12 @@ function isMetaInstruction(content: string): boolean {
     /^answers?\s+in\s+(either|any)\s+order\b/.test(normalized) ||
     /\b(partial|equivalent|reasonable|similar|obvious|clear|specific|either|any)\s+(answer|response|mention|description|form)s?\b/.test(normalized) ||
     /\b(equivalents|partial answers?|either answer|any answer|word forms?)\b/.test(normalized) ||
-    // "X" in place of "Y" substitution instructions
-    /\bin\s+place\s+of\b/.test(normalized);
+    // Substitution instructions: "X" in place of "Y" or "X" instead of "Y"
+    /\b(in\s+place\s+of|instead\s+of)\b/.test(normalized) ||
+    // Descriptive class-level accepts: "answers (that) describe/indicating/mentioning X"
+    /^(answers?|other\s+answers?|the\s+aforementioned\s+answers?)\s+(that\s+)?(describ|indicat|mention|involv|such\s+as)\w*\b/.test(normalized) ||
+    // "other answers" without qualification is always meta
+    /^other\s+answers?\b/.test(normalized);
 }
 
 // ---------- new rules ----------
@@ -450,6 +454,9 @@ function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
         if (/^answers?\s+(like|that|describing|mentioning|involving|such\s+as)\b/.test(lower)) continue;
         // Skip if the content already contains internal quotes (compound reject)
         if (/[\u201c\u201d"'].*[\u201c\u201d"']/.test(content) && !/^[\u201c\u201d"']/.test(content)) continue;
+        // Skip if content starts with quotes and has trailing meta-text after closing quote
+        // e.g., "answer" alone, "answer" without indication
+        if (/^[\u201c\u201d"'][^"'\u201c\u201d]+[\u201c\u201d"']\s+(alone|without)\b/.test(content)) continue;
         // Skip if it contains "or other" / "or any" (describing a class)
         if (/\bor\s+(other|any)\b/.test(lower)) continue;
         // Skip conditional instructions (e.g. "X" until "Y" is read and accept afterwards)
@@ -693,13 +700,25 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
       const content = m[1].trim();
       // Skip power marks
       if (content === "*") continue;
-      // Skip pronunciation guides: ("foo-BAR")
+      // Skip pronunciation guides: ("foo-BAR") or all-caps/hyphenated
       if (/^".*"$/.test(content)) continue;
       if (/^[\u201c].*[\u201d]$/.test(content)) continue;
-      // Skip if it looks like a clause with conjunctions
+      if (/^[A-Z\-]+$/.test(content)) continue; // All-caps with optional hyphens
+      if (content.includes("-") && /[A-Z]/.test(content)) continue; // Contains hyphen and uppercase
+      // Skip chemical/mathematical notation: single character, single digit, or patterns like (1), (S), (I)
+      if (/^[a-zA-Z0-9]$/.test(content)) continue;
+      if (/^[IVX]+$/.test(content)) continue; // Roman numerals
+      // Skip if it looks like a clause with conjunctions or punctuation (likely subtitle)
       if (/\b(or|and|also)\b/i.test(content)) continue;
+      if (/[:,.]/.test(content)) continue; // Contains punctuation typical of subtitles
       // Skip attributions: (by Author Name)
       if (/^by\s/i.test(content)) continue;
+      // Skip clarifying adjectives that appear before the core answer
+      // (these are typically descriptive prefixes, not optional parts)
+      const matchPos = m.index!;
+      const beforeParen = answerText.substring(0, matchPos).trim();
+      // If there's nothing or very little before the parenthesis, it's likely a prefix
+      if (beforeParen.length < 5) continue;
 
       // Only flag if it's short enough to be an optional word/article
       if (content.split(/\s+/).length <= 3) {
@@ -710,6 +729,63 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
           message: `Avoid parentheses for optional parts in answers: "(${content})". List alternatives explicitly with [or] or [accept] instead.`,
         });
         break; // One per answer line
+      }
+    }
+  }
+
+  return diags;
+}
+
+function checkPromptWithNotByAsking(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAnswerLines(packet)) {
+    const brackets = findBracketSpans(para.rawText);
+
+    for (const bracket of brackets) {
+      const subs = parseSubDirectives(bracket, para.rawText);
+      for (const sub of subs) {
+        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+
+        // Look for "with" followed by a quoted question
+        const withMatch = sub.contentText.match(/\s+with\s+[\u201c\u201d"']/i);
+        if (withMatch) {
+          diags.push({
+            rule: "answerline.prompt-with-not-by-asking",
+            severity: "info",
+            paragraph: para.index,
+            message: 'Directed prompts should use "by asking" instead of "with".',
+            sourceText: para.rawText,
+          });
+        }
+      }
+    }
+  }
+
+  return diags;
+}
+
+function checkPromptPartialAnswers(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAnswerLines(packet)) {
+    const brackets = findBracketSpans(para.rawText);
+
+    for (const bracket of brackets) {
+      const subs = parseSubDirectives(bracket, para.rawText);
+      for (const sub of subs) {
+        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+
+        // Look for "partial answer(s)" in prompt directives
+        if (/\bpartial\s+answers?\b/i.test(sub.contentText)) {
+          diags.push({
+            rule: "answerline.prompt-partial-answers",
+            severity: "info",
+            paragraph: para.index,
+            message: 'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
+            sourceText: para.rawText,
+          });
+        }
       }
     }
   }
@@ -762,6 +838,8 @@ export const answerlineRules: LintRule[] = [
   checkPromptFormatting,
   checkRejectQuotes,
   checkPromptQuestionQuotes,
+  checkPromptWithNotByAsking,
+  checkPromptPartialAnswers,
   checkPostNotes,
   checkDeprecatedDirectives,
   checkPostNoteQuotationMark,

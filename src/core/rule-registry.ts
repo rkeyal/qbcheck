@@ -17,7 +17,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "packet.blank-paragraphs",    category: "packet",        description: "No consecutive blank paragraphs",         defaultSeverity: "info" },
   { id: "packet.expected-count",      category: "packet",        description: "Expected number of tossups and bonuses",  defaultSeverity: "warning" },
   { id: "packet.numbering-sequence", category: "packet",        description: "Question numbers strictly increase",      defaultSeverity: "error" },
-  // question (10 rules)
+  // question (11 rules)
   { id: "question.ftp-format",             category: "question",      description: "FTP clue formatting",                    defaultSeverity: "warning" },
   { id: "question.ftpe-format",            category: "question",      description: "FTPE bonus formatting",                  defaultSeverity: "warning" },
   { id: "question.bonus-part-marker",      category: "question",      description: "Bonus part value markers present",       defaultSeverity: "error" },
@@ -26,9 +26,10 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "question.bonus-leadin-punctuation", category: "question",    description: "Bonus lead-in punctuation",              defaultSeverity: "warning" },
   { id: "question.bonus-difficulty-spread", category: "question",     description: "Bonus difficulty value spread",          defaultSeverity: "warning" },
   { id: "question.no-ftp-midsentence",     category: "question",      description: "FTP not mid-sentence",                  defaultSeverity: "warning" },
+  { id: "question.pre-question-note-italics", category: "question",   description: "Pre-question notes should be italicized", defaultSeverity: "info" },
   { id: "question.multiline-answer",      category: "question",      description: "Answer lines must be single paragraph",  defaultSeverity: "error" },
   { id: "question.bonus-part-order",      category: "question",      description: "Bonus parts interleaved with answers",   defaultSeverity: "error" },
-  // answerline (13 rules)
+  // answerline (15 rules)
   { id: "answerline.answer-prefix",              category: "answerline",    description: "ANSWER: prefix format",                 defaultSeverity: "warning" },
   { id: "answerline.answer-formatting",          category: "answerline",    description: "Answer has required bold/underline",    defaultSeverity: "warning" },
   { id: "answerline.bracket-balance",            category: "answerline",    description: "Brackets are balanced",                 defaultSeverity: "error" },
@@ -37,6 +38,8 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "answerline.prompt-formatting",          category: "answerline",    description: "Prompt directive formatting",           defaultSeverity: "warning" },
   { id: "answerline.reject-quotes",             category: "answerline",    description: "Reject directive quoting",              defaultSeverity: "warning" },
   { id: "answerline.prompt-question-quotes",     category: "answerline",    description: "Prompt question in quotes",             defaultSeverity: "warning" },
+  { id: "answerline.prompt-with-not-by-asking",  category: "answerline",    description: "Directed prompts use 'by asking' not 'with'", defaultSeverity: "info" },
+  { id: "answerline.prompt-partial-answers",     category: "answerline",    description: "Avoid 'prompt on partial answers'",    defaultSeverity: "info" },
   { id: "answerline.post-notes",                 category: "answerline",    description: "Post-note formatting",                  defaultSeverity: "info" },
   { id: "answerline.deprecated-directive",       category: "answerline",    description: "No deprecated directives",              defaultSeverity: "warning" },
   { id: "answerline.post-note-no-quote-start",   category: "answerline",    description: "Post-note quote formatting",            defaultSeverity: "warning" },

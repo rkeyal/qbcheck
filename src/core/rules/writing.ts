@@ -82,10 +82,15 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
     const text = stripTitleText(para);
 
     for (const [bad, good] of Object.entries(WORD_REPLACEMENTS)) {
-      // Skip "following" when preceded by "the" (adjective/noun sense)
+      // Skip "following" when it's a verb or means "according to"
       if (bad === "following") {
+        // Skip "the following" (adjective/noun sense)
         if (/\bthe following\b/i.test(text)) continue;
         if (/\banswer the following\b/i.test(text)) continue;
+        // Skip verb forms: "was/were/is/are following"
+        if (/\b(was|were|is|are)\s+following\b/i.test(text)) continue;
+        // Skip when meaning "according to": "following the/this/that"
+        if (/\bfollowing\s+(the|this|that|a|an)\s+(same|similar|method|approach|pattern|model|technique|procedure)\b/i.test(text)) continue;
       }
 
       // Skip "upon" in phrasal verbs and "upon + gerund" constructions
@@ -133,10 +138,30 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
     const stripped = stripTitleText(para);
     const matches = [...stripped.matchAll(relativeTime)];
     for (const match of matches) {
-      // Skip "this year" when used as a factual clue (e.g. "in this year", "during this year")
-      if (/^this year$/i.test(match[1])) {
+      const word = match[1].toLowerCase();
+
+      // Skip "to date" when it's a verb phrase (refuse to date, continue to date)
+      if (word === "to date") {
         const before = stripped.substring(Math.max(0, match.index! - 15), match.index!);
+        if (/\bto\s*$/i.test(before)) continue; // Part of infinitive "to date"
+      }
+
+      // Skip "this year"/"last year" when used as a factual clue or as the answer itself
+      if (word === "this year" || word === "last year") {
+        const before = stripped.substring(Math.max(0, match.index! - 20), match.index!);
+        const after = stripped.substring(match.index! + match[1].length, match.index! + match[1].length + 20);
+        // Skip "in this year", "during this year", etc. (temporal context clues)
         if (/\b(in|during|of|from|since)\s*$/i.test(before)) continue;
+        // Skip when it appears to be the answer (near "Name" or "What")
+        if (/\b(name|what|identify)\b/i.test(before) || /\b(name|what|identify)\b/i.test(after)) continue;
+      }
+
+      // Skip "recently" in past-tense historical narrative
+      // Look for past-tense verbs nearby
+      if (word === "recently") {
+        const context = stripped.substring(Math.max(0, match.index! - 50), match.index! + match[1].length + 50);
+        // If the surrounding context contains past-tense markers, it's likely historical narrative
+        if (/\b(had|was|were|did|became|moved|wrote|created|established|founded)\s+(recently\s+)?(moved|stepped|emerged|opened)/i.test(context)) continue;
       }
 
       // Find the true offset in the original (un-stripped) text

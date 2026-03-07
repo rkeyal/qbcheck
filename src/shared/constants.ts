@@ -82,20 +82,14 @@ export const VALID_CATEGORIES = new Set([
 export const WEASEL_WORDS = [
   "famous",
   "famously",
-  "notably",
   "notable",
-  "noted",
   "well-known",
   "well known",
   "best known",
   "best-known",
   "important",
-  "significant",
-  "influential",
-  "legendary",
   "iconic",
   "renowned",
-  "celebrated",
   "prominent",
 ];
 
@@ -106,7 +100,6 @@ export const WORD_REPLACEMENTS: Record<string, string> = {
   following: "after",
   "in order to": "to",
   "located in": "in",
-  nation: "country",
   possess: "have",
   sans: "without",
   upon: "on",

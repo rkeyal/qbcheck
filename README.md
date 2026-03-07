@@ -58,7 +58,7 @@ Filter results by severity (click the error/warning/info chips) or by category (
 
 ## What it checks
 
-qbcheck runs 55 rules across 7 categories.
+qbcheck runs 58 rules across 7 categories.
 
 ### Packet structure
 Validates that the packet is organized correctly for downstream parsing.
@@ -89,6 +89,7 @@ Checks the structure and markers within question text.
 | `missing-answer` | Every tossup and bonus part has an `ANSWER:` line |
 | `multiline-answer` | Answer lines are a single paragraph (multi-line answers break YAPP) |
 | `no-ftp-midsentence` | "For 10 points" appears in the final sentence, not mid-paragraph |
+| `pre-question-note-italics` | Pre-question notes like "Description acceptable." should be italicized |
 
 ### Answer lines
 Validates `ANSWER:` line formatting, directives, and structure.
@@ -103,6 +104,8 @@ Validates `ANSWER:` line formatting, directives, and structure.
 | `prompt-formatting` | Text in `[prompt]` directives is underlined |
 | `reject-quotes` | Text in `[reject]` directives is quoted |
 | `prompt-question-quotes` | "by asking" questions are quoted |
+| `prompt-with-not-by-asking` | Directed prompts use "by asking" instead of "with" |
+| `prompt-partial-answers` | Avoid "prompt on partial answers" — spell out what's promptable |
 | `directive-typo` | Catches typos in directive keywords |
 | `deprecated-directive` | Flags deprecated directives (anti-prompt, do not accept, etc.) |
 | `post-notes` | Text after the last bracket is in parentheses |

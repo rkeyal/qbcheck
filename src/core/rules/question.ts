@@ -393,6 +393,62 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  // Patterns for pre-question notes that should be italicized
+  const notePatterns = [
+    /^(Description acceptable\.?)/i,
+    /^(Note to (players?|moderators?|readers?):\s*[^.]*\.)/i,
+    /^(Two answers? required\.?)/i,
+    /^(Names? acceptable\.?)/i,
+  ];
+
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    const text = q.numberParagraph.rawText;
+
+    // Strip the question number prefix to check the actual question text
+    const body = text.replace(/^\s*\d+\.\s*/, "");
+
+    for (const pattern of notePatterns) {
+      const match = body.match(pattern);
+      if (!match) continue;
+
+      const noteText = match[1];
+      const noteStart = text.indexOf(noteText);
+      if (noteStart === -1) continue;
+
+      // Check if this text is italicized in the runs
+      let isItalic = false;
+      let charPos = 0;
+      for (const run of q.numberParagraph.runs) {
+        const runEnd = charPos + run.text.length;
+        // Check if the note text falls within this run
+        if (charPos <= noteStart && noteStart < runEnd) {
+          isItalic = run.italic;
+          break;
+        }
+        charPos = runEnd;
+      }
+
+      if (!isItalic) {
+        diags.push({
+          rule: "question.pre-question-note-italics",
+          severity: "info",
+          paragraph: q.numberParagraph.index,
+          message: `Pre-question notes like "${noteText}" should be italicized.`,
+          sourceText: text,
+          offset: noteStart,
+          length: noteText.length,
+        });
+        break; // One diagnostic per question
+      }
+    }
+  }
+
+  return diags;
+}
+
 function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
   const PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
@@ -447,5 +503,6 @@ export const questionRules: LintRule[] = [
   checkBonusLeadinPunctuation,
   checkBonusDifficultySpread,
   checkFtpMidSentence,
+  checkPreQuestionNoteItalics,
   checkBonusPartOrder,
 ];
