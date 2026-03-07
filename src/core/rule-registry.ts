@@ -8,7 +8,7 @@ export interface RuleMeta {
 }
 
 export const RULE_REGISTRY: RuleMeta[] = [
-  // packet (7 rules)
+  // packet (8 rules)
   { id: "packet.section-headers",     category: "packet",        description: "Tossups/Bonuses section headers present", defaultSeverity: "error" },
   { id: "packet.section-order",       category: "packet",        description: "Tossups section appears before Bonuses",  defaultSeverity: "error" },
   { id: "packet.question-numbering",  category: "packet",        description: "Questions numbered sequentially",         defaultSeverity: "warning" },
@@ -17,7 +17,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "packet.blank-paragraphs",    category: "packet",        description: "No consecutive blank paragraphs",         defaultSeverity: "info" },
   { id: "packet.expected-count",      category: "packet",        description: "Expected number of tossups and bonuses",  defaultSeverity: "warning" },
   { id: "packet.numbering-sequence", category: "packet",        description: "Question numbers strictly increase",      defaultSeverity: "error" },
-  // question (8 rules)
+  // question (10 rules)
   { id: "question.ftp-format",             category: "question",      description: "FTP clue formatting",                    defaultSeverity: "warning" },
   { id: "question.ftpe-format",            category: "question",      description: "FTPE bonus formatting",                  defaultSeverity: "warning" },
   { id: "question.bonus-part-marker",      category: "question",      description: "Bonus part value markers present",       defaultSeverity: "error" },
@@ -28,7 +28,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "question.no-ftp-midsentence",     category: "question",      description: "FTP not mid-sentence",                  defaultSeverity: "warning" },
   { id: "question.multiline-answer",      category: "question",      description: "Answer lines must be single paragraph",  defaultSeverity: "error" },
   { id: "question.bonus-part-order",      category: "question",      description: "Bonus parts interleaved with answers",   defaultSeverity: "error" },
-  // answerline (12 rules)
+  // answerline (13 rules)
   { id: "answerline.prefix",                    category: "answerline",    description: "ANSWER: prefix format",                 defaultSeverity: "warning" },
   { id: "answerline.required-formatting",        category: "answerline",    description: "Answer has required bold/underline",    defaultSeverity: "warning" },
   { id: "answerline.bracket-balance",            category: "answerline",    description: "Brackets are balanced",                 defaultSeverity: "error" },
@@ -57,7 +57,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "formatting.bce-ce-system",             category: "formatting",    description: "Use BCE/CE date system",                defaultSeverity: "warning" },
   { id: "formatting.no-latin-abbrev",           category: "formatting",    description: "No Latin abbreviations (e.g., i.e.)",   defaultSeverity: "warning" },
   { id: "formatting.punctuation-inside-quotes", category: "formatting",    description: "Punctuation inside quotation marks",    defaultSeverity: "warning" },
-  // tag (4 rules)
+  // tag (5 rules)
   { id: "tag.exists",                category: "tag",           description: "Author tag present on each question",     defaultSeverity: "warning" },
   { id: "tag.format",                category: "tag",           description: "Tag format: <Author, Category>",          defaultSeverity: "warning" },
   { id: "tag.valid-category",        category: "tag",           description: "Category is recognized",                  defaultSeverity: "warning" },
