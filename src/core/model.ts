@@ -49,6 +49,9 @@ export interface LintDiagnostic {
   suggestion?: string;
   questionLabel?: string;   // e.g. "T5", "B17"
   answerPreview?: string;   // truncated answer text
+  sourceText?: string;      // paragraph rawText for snippet rendering
+  offset?: number;          // char offset of match within sourceText
+  length?: number;          // length of matched text
 }
 
 export type LintRule = (packet: Packet) => LintDiagnostic[];

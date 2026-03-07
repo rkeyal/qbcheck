@@ -7,13 +7,17 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
     const text = q.numberParagraph.rawText;
 
     // Check for "For ten points" (words instead of numerals)
-    if (/for ten points/i.test(text) && !/for 10 points/i.test(text)) {
+    const ftenMatch = text.match(/for ten points/i);
+    if (ftenMatch && !/for 10 points/i.test(text)) {
       diags.push({
         rule: "question.ftp-format",
         severity: "error",
         paragraph: q.numberParagraph.index,
         message:
           'Use "For 10 points" with numerals, not "For ten points".',
+        sourceText: text,
+        offset: ftenMatch.index!,
+        length: ftenMatch[0].length,
       });
     }
 
@@ -25,6 +29,7 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
         paragraph: q.numberParagraph.index,
         message:
           'Tossup is missing "For 10 points" marker.',
+        sourceText: text,
       });
     }
 
@@ -37,6 +42,9 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
         paragraph: q.numberParagraph.index,
         message:
           '"For 10 points" should be followed by a comma.',
+        sourceText: text,
+        offset: ftpMatch.index!,
+        length: ftpMatch[0].length,
       });
     }
   }
@@ -58,6 +66,7 @@ function checkFtpePlacement(packet: Packet): LintDiagnostic[] {
         paragraph: q.numberParagraph.index,
         message:
           'Bonus lead-in should contain "For 10 points each".',
+        sourceText: text,
       });
     }
   }
@@ -115,6 +124,7 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
           severity: "info",
           paragraph: q.numberParagraph.index,
           message: "Tossup has no power mark (*).",
+          sourceText: text,
         });
       }
       continue;
@@ -127,6 +137,9 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
         severity: "warning",
         paragraph: q.numberParagraph.index,
         message: "Power mark (*) should be preceded by a space.",
+        sourceText: text,
+        offset: powerIdx,
+        length: 3,
       });
     }
   }
@@ -277,18 +290,43 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
   for (const q of packet.tossups) {
     const text = q.numberParagraph.rawText;
 
-    // Detect "for 10 points" interjected mid-sentence with surrounding
-    // commas or en dashes, e.g. ", for 10 points," or " – for 10 points – "
-    if (
-      /,\s*for\s+10\s+points\s*,/i.test(text) ||
-      /\u2013\s*for\s+10\s+points\s*\u2013/i.test(text)
-    ) {
+    // Match comma-embedded or en-dash-embedded FTP
+    const ftpMatch =
+      text.match(/,\s*for\s+10\s+points\s*,/i) ||
+      text.match(/\u2013\s*for\s+10\s+points\s*\u2013/i);
+    if (!ftpMatch) continue;
+
+    // Check whether this FTP is in the final sentence.
+    // Find the last sentence boundary (.!?) before the FTP position.
+    const ftpIdx = ftpMatch.index!;
+    const beforeFtp = text.substring(0, ftpIdx);
+
+    // Find the last sentence-ending punctuation before FTP
+    // (look for ". " or "? " or "! " patterns, skipping abbreviations)
+    const sentenceEndRe = /[.!?]\s+(?=[A-Z])/g;
+    let lastSentenceEnd = -1;
+    let m: RegExpExecArray | null;
+    while ((m = sentenceEndRe.exec(beforeFtp)) !== null) {
+      lastSentenceEnd = m.index;
+    }
+
+    // Check if there's a sentence-ending punctuation AFTER the FTP
+    // (meaning more sentences follow — so FTP is truly mid-paragraph)
+    const afterFtp = text.substring(ftpIdx + ftpMatch[0].length);
+    const hasSentenceAfter = /[.!?]\s+[A-Z]/.test(afterFtp);
+
+    // Only flag if the FTP is NOT in the final sentence
+    // (i.e., there are full sentences after it)
+    if (hasSentenceAfter) {
       diags.push({
         rule: "question.no-ftp-midsentence",
         severity: "warning",
         paragraph: q.numberParagraph.index,
         message:
-          'Do not interject "for 10 points" in the middle of a sentence. It should begin the final sentence.',
+          'Do not interject "for 10 points" in the middle of the tossup. It should appear in the final sentence.',
+        sourceText: text,
+        offset: ftpIdx,
+        length: ftpMatch[0].length,
       });
     }
   }

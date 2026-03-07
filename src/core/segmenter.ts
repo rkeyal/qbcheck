@@ -25,11 +25,11 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
 
   for (let i = 0; i < processed.length; i++) {
     const text = processed[i].rawText.trim().toLowerCase();
-    if ((text === "tossups" || text === "tossups:") && tossupIdx === -1) {
+    if (/\btossups:?\s*$/.test(text) && tossupIdx === -1) {
       tossupIdx = i;
       packet.tossupHeader = processed[i];
     } else if (
-      (text === "bonuses" || text === "bonuses:") &&
+      /\bbonuses:?\s*$/.test(text) &&
       bonusIdx === -1
     ) {
       bonusIdx = i;

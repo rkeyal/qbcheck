@@ -43,6 +43,9 @@ function checkContractions(packet: Packet): LintDiagnostic[] {
         severity: "warning",
         paragraph: para.index,
         message: `Avoid contraction "${match[1]}". Spell it out.`,
+        sourceText: para.rawText,
+        offset: match.index!,
+        length: match[1].length,
       });
     }
   }
@@ -58,12 +61,17 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
 
     for (const word of WEASEL_WORDS) {
       const re = new RegExp(`\\b${word.replace(/-/g, "[-\\s]?")}\\b`, "gi");
-      if (re.test(textLower)) {
+      const m = para.rawText.match(re);
+      if (m) {
+        const idx = para.rawText.search(re);
         diags.push({
           rule: "writing.no-weasel-words",
           severity: "info",
           paragraph: para.index,
           message: `Avoid "${word}" — if it appears in quizbowl, it's already notable.`,
+          sourceText: para.rawText,
+          offset: idx !== -1 ? idx : undefined,
+          length: m[0].length,
         });
         break; // One per paragraph to avoid noise
       }
@@ -73,6 +81,9 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+// Phrasal verbs where "upon" is idiomatic and "on" would be unnatural
+const UPON_PHRASAL_VERBS = /\b(called|stumbled|relied|based|bestow(?:ed)?|confer(?:red)?|impose[ds]?|inflict(?:ed)?|look(?:ed|ing)?|act(?:ed|ing)?|draw[ns]?|built?|expand(?:ed|ing)?|improv(?:e[ds]?|ing)|decided?|agree[ds]?|embark(?:ed|ing)?|depend(?:ed|s|ing)?|hit|come|came|happen(?:ed|s)?|chance[ds]?|settle[ds]?|insist(?:ed|s|ing)?|enter(?:ed)?|seize[ds]?|descend(?:ed)?|reflect(?:ed|ing)?|verge[ds]?)\s+upon\b/i;
+
 function checkWordReplacements(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -80,16 +91,45 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
     const text = stripQuotedText(para.rawText);
 
     for (const [bad, good] of Object.entries(WORD_REPLACEMENTS)) {
-      // Skip "following" when used in "answer the following"
-      if (bad === "following" && /\banswer the following\b/i.test(text)) continue;
+      // Skip "following" when preceded by "the" (adjective/noun sense)
+      if (bad === "following") {
+        if (/\bthe following\b/i.test(text)) continue;
+        if (/\banswer the following\b/i.test(text)) continue;
+      }
+
+      // Skip "upon" in phrasal verbs and "upon + gerund" constructions
+      if (bad === "upon") {
+        if (UPON_PHRASAL_VERBS.test(text)) continue;
+        if (/\bupon\s+[a-z]+ing\b/i.test(text)) continue;
+      }
+
+      // Skip "nation" when part of a proper name or title
+      if (bad === "nation") {
+        // Remove the word in isolation and check — skip if all occurrences
+        // are inside capitalized multi-word sequences (titles)
+        const matches = [...text.matchAll(/\bnation\b/gi)];
+        const allInTitle = matches.every((m) => {
+          const before = text.substring(Math.max(0, m.index! - 30), m.index!);
+          const after = text.substring(m.index!, m.index! + 30);
+          // Preceded by a capitalized word or part of a known title
+          return /[A-Z][a-z]+\s+$/.test(before) || /^nation\s+of\s+[A-Z]/i.test(after) ||
+            /\bBirth of a\s*$/i.test(before) || /\bof a Nation/i.test(after);
+        });
+        if (allInTitle) continue;
+      }
 
       const re = new RegExp(`\\b${bad}\\b`, "gi");
-      if (re.test(text)) {
+      const m = para.rawText.match(re);
+      if (m) {
+        const idx = para.rawText.search(re);
         diags.push({
           rule: "writing.word-replacements",
           severity: "info",
           paragraph: para.index,
           message: `Consider replacing "${bad}" with "${good}".`,
+          sourceText: para.rawText,
+          offset: idx !== -1 ? idx : undefined,
+          length: m[0].length,
         });
       }
     }
@@ -118,6 +158,9 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
         severity: "warning",
         paragraph: para.index,
         message: `Use absolute dates instead of "${match[1]}".`,
+        sourceText: para.rawText,
+        offset: match.index!,
+        length: match[1].length,
       });
     }
   }
@@ -130,13 +173,17 @@ function checkAnswerSomeQuestions(packet: Packet): LintDiagnostic[] {
 
   for (const q of packet.bonuses) {
     const text = q.numberParagraph.rawText;
-    if (/\banswer\s+some\s+questions?\s+about\b/i.test(text)) {
+    const asqMatch = text.match(/\banswer\s+some\s+questions?\s+about\b/i);
+    if (asqMatch) {
       diags.push({
         rule: "writing.answer-some-questions",
         severity: "warning",
         paragraph: q.numberParagraph.index,
         message:
           'Use "Answer the following about" instead of "Answer some questions about".',
+        sourceText: text,
+        offset: asqMatch.index!,
+        length: asqMatch[0].length,
       });
     }
   }
@@ -150,23 +197,31 @@ function checkWouldGoOnTo(packet: Packet): LintDiagnostic[] {
   for (const para of getQuestionTextParagraphs(packet)) {
     const text = stripQuotedText(para.rawText);
 
-    if (/\bwould\s+go\s+on\s+to\b/i.test(text)) {
+    const wgotMatch = text.match(/\bwould\s+go\s+on\s+to\b/i);
+    if (wgotMatch) {
       diags.push({
         rule: "writing.would-go-on-to",
         severity: "info",
         paragraph: para.index,
         message:
           'Avoid "would go on to." Use simple past tense instead (e.g. "He wrote" not "He would go on to write").',
+        sourceText: para.rawText,
+        offset: wgotMatch.index!,
+        length: wgotMatch[0].length,
       });
     }
 
-    if (/\bwent\s+on\s+to\b/i.test(text)) {
+    const wotMatch = text.match(/\bwent\s+on\s+to\b/i);
+    if (wotMatch) {
       diags.push({
         rule: "writing.would-go-on-to",
         severity: "info",
         paragraph: para.index,
         message:
           'Avoid "went on to." Use simple past tense instead (e.g. "He wrote" not "He went on to write").',
+        sourceText: para.rawText,
+        offset: wotMatch.index!,
+        length: wotMatch[0].length,
       });
     }
   }

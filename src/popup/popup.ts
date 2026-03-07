@@ -254,18 +254,53 @@ function renderDiagnostics() {
   diagnosticsList.innerHTML = filtered
     .map(
       (d) => `
-    <div class="diagnostic severity-${d.severity}">
+    <div class="diagnostic severity-${d.severity}${d.sourceText ? " has-snippet" : ""}">
       <div class="diag-icon">${severityIcon[d.severity]}</div>
       <div class="diag-body">
         <div class="diag-rule">${d.rule}</div>
         <div class="diag-message">${escapeHtml(d.message)}</div>
         <div class="diag-location">${d.questionLabel || "Paragraph " + (d.paragraph + 1)}${d.answerPreview ? " \u2014 " + escapeHtml(d.answerPreview) : ""}</div>
         ${d.suggestion ? `<div class="diag-suggestion">${escapeHtml(d.suggestion)}</div>` : ""}
+        ${d.sourceText ? `<div class="diag-snippet" hidden>${buildSnippet(d.sourceText, d.offset, d.length)}</div>` : ""}
       </div>
     </div>
   `
     )
     .join("");
+
+  // Add click handlers for expandable snippets
+  for (const el of Array.from(diagnosticsList.querySelectorAll(".has-snippet"))) {
+    el.addEventListener("click", () => {
+      const snippet = el.querySelector(".diag-snippet") as HTMLElement;
+      if (snippet) {
+        snippet.hidden = !snippet.hidden;
+        el.classList.toggle("expanded");
+      }
+    });
+  }
+}
+
+function buildSnippet(sourceText: string, offset?: number, length?: number): string {
+  const CONTEXT = 50;
+
+  if (offset != null && length != null) {
+    const start = Math.max(0, offset - CONTEXT);
+    const end = Math.min(sourceText.length, offset + length + CONTEXT);
+
+    const before = sourceText.substring(start, offset);
+    const match = sourceText.substring(offset, offset + length);
+    const after = sourceText.substring(offset + length, end);
+
+    return (start > 0 ? "\u2026" : "") +
+      escapeHtml(before) +
+      `<mark>${escapeHtml(match)}</mark>` +
+      escapeHtml(after) +
+      (end < sourceText.length ? "\u2026" : "");
+  }
+
+  // No offset — show first ~100 chars as preview
+  const preview = sourceText.substring(0, 100);
+  return escapeHtml(preview) + (sourceText.length > 100 ? "\u2026" : "");
 }
 
 function escapeHtml(str: string): string {

@@ -46,17 +46,52 @@ function checkQuestionNumbering(packet: Packet): LintDiagnostic[] {
     ["Tossup", packet.tossups],
     ["Bonus", packet.bonuses],
   ] as const) {
-    for (let i = 0; i < questions.length; i++) {
-      const expected = i + 1;
-      if (questions[i].number !== expected) {
+    // Collect runs of consecutive misnumbered questions with the same offset
+    let runStart = -1;
+    let runOffset = 0;
+
+    const flushRun = (runEnd: number) => {
+      if (runStart === -1) return;
+      const len = runEnd - runStart;
+      if (len === 1) {
+        const expected = runStart + 1;
         diags.push({
           rule: "packet.question-numbering",
           severity: "error",
-          paragraph: questions[i].numberParagraph.index,
-          message: `${label} ${i + 1} is numbered ${questions[i].number} (expected ${expected}).`,
+          paragraph: questions[runStart].numberParagraph.index,
+          message: `${label} ${expected} is numbered ${questions[runStart].number} (expected ${expected}).`,
+        });
+      } else {
+        const firstExpected = runStart + 1;
+        const lastExpected = runEnd;
+        const firstActual = questions[runStart].number;
+        const lastActual = questions[runEnd - 1].number;
+        diags.push({
+          rule: "packet.question-numbering",
+          severity: "error",
+          paragraph: questions[runStart].numberParagraph.index,
+          message: `${label}s ${firstExpected}\u2013${lastExpected} are numbered ${firstActual}\u2013${lastActual} (off by ${runOffset > 0 ? "+" : ""}${runOffset}).`,
         });
       }
+      runStart = -1;
+    };
+
+    for (let i = 0; i < questions.length; i++) {
+      const expected = i + 1;
+      const offset = questions[i].number - expected;
+      if (offset !== 0) {
+        if (runStart !== -1 && offset === runOffset) {
+          // Continue the current run
+        } else {
+          flushRun(i);
+          runStart = i;
+          runOffset = offset;
+        }
+      } else {
+        flushRun(i);
+      }
     }
+    flushRun(questions.length);
   }
 
   return diags;
@@ -103,7 +138,6 @@ function checkExtrasLabel(packet: Packet): LintDiagnostic[] {
 }
 
 function checkBlankParagraphs(packet: Packet): LintDiagnostic[] {
-  const diags: LintDiagnostic[] = [];
   const paras = packet.allParagraphs;
 
   // Only check within question sections (from tossup header onward)
@@ -113,6 +147,9 @@ function checkBlankParagraphs(packet: Packet): LintDiagnostic[] {
   const sectionHeaderIndices = new Set<number>();
   if (packet.tossupHeader) sectionHeaderIndices.add(packet.tossupHeader.index);
   if (packet.bonusHeader) sectionHeaderIndices.add(packet.bonusHeader.index);
+
+  let groupCount = 0;
+  let firstGroupPara = -1;
 
   for (let i = 0; i < paras.length - 1; i++) {
     // Skip paragraphs before the question sections
@@ -125,26 +162,30 @@ function checkBlankParagraphs(packet: Packet): LintDiagnostic[] {
       );
       if (nearHeader) continue;
 
-      // Count consecutive blanks and report once per group
+      // Count consecutive blanks and skip past this group
       let blankEnd = i + 1;
       while (blankEnd + 1 < paras.length && paras[blankEnd + 1].rawText.trim() === "") {
         blankEnd++;
       }
-      const blankCount = blankEnd - i + 1;
 
-      diags.push({
-        rule: "packet.blank-paragraphs",
-        severity: "info",
-        paragraph: paras[i].index,
-        message: `${blankCount} consecutive blank paragraphs.`,
-      });
+      groupCount++;
+      if (firstGroupPara === -1) firstGroupPara = paras[i].index;
 
-      // Skip past this group
       i = blankEnd;
     }
   }
 
-  return diags;
+  // Report once per packet instead of once per group
+  if (groupCount > 0) {
+    return [{
+      rule: "packet.blank-paragraphs",
+      severity: "info",
+      paragraph: firstGroupPara,
+      message: `${groupCount} group${groupCount > 1 ? "s" : ""} of consecutive blank paragraphs.`,
+    }];
+  }
+
+  return [];
 }
 
 function checkExpectedCount(packet: Packet): LintDiagnostic[] {

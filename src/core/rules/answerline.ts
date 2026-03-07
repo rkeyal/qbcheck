@@ -698,6 +698,8 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
       if (/^[\u201c].*[\u201d]$/.test(content)) continue;
       // Skip if it looks like a clause with conjunctions
       if (/\b(or|and|also)\b/i.test(content)) continue;
+      // Skip attributions: (by Author Name)
+      if (/^by\s/i.test(content)) continue;
 
       // Only flag if it's short enough to be an optional word/article
       if (content.split(/\s+/).length <= 3) {
