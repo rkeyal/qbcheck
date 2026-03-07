@@ -3,3 +3,6 @@ dist/
 *.mjs
 
 .DS_STORE
+ExamplePackets
+lint-results.json
+dist.zip

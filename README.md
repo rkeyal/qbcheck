@@ -27,13 +27,13 @@ Click the qbcheck icon in your toolbar. You can:
 
 - **Drag and drop** one or more `.docx` files onto the drop zone
 - **Choose Files** to select individual `.docx` packets
-- **Choose Folder** to lint an entire folder of packets at once
+- **Choose Folder** to check an entire folder of packets at once
 
 When multiple packets are loaded, use the navigation bar to switch between them. Categories that appear in fewer than half the packets are flagged as potentially non-standard.
 
-### Paste from Google Docs
+### Paste from Google Docs / Microsoft Word
 
-If you're drafting or proofreading questions in Google Docs:
+If you're drafting or proofreading questions in Docs / Word:
 
 1. Select and copy your questions (Ctrl+C / Cmd+C)
 2. Click the qbcheck paste area
@@ -168,7 +168,7 @@ qbcheck runs entirely in the browser -- no data is sent to any server. The exten
 
 2. **Segment**: Paragraphs are grouped into a packet structure. The segmenter looks for "Tossups" / "Bonuses" headers and numbered questions. For unstructured input (pasted text without headers), it falls back to inferring question boundaries from `ANSWER:` lines and detecting bonus type from part markers or "For 10 points each."
 
-3. **Lint**: Each rule function receives the structured packet and returns diagnostics. Rules are independent and can be individually disabled.
+3. **Check**: Each rule function receives the structured packet and returns diagnostics. Rules are independent and can be individually disabled.
 
 4. **Display**: Diagnostics are sorted, enriched with question labels and answer previews, and rendered in the popup. Settings (disabled rules, ignored instances) persist via `chrome.storage.local`.
 
