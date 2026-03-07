@@ -23,7 +23,7 @@ function checkPronunciationDelimiters(packet: Packet): LintDiagnostic[] {
       const content = match[1];
       if (content.includes("-") || /^[a-zA-Z\s-]+$/.test(content)) {
         diags.push({
-          rule: "pronunciation.delimiter",
+          rule: "pronunciation.paren-delimiter",
           severity: "warning",
           paragraph: para.index,
           message: `Pronunciation guide should use parentheses with double quotes: ("${content}"), not ["${content}"].`,

@@ -20,19 +20,19 @@ function tossupWithAnswer(answer: string, answerRuns?: Run[]) {
   });
 }
 
-describe("answerline.prefix", () => {
+describe("answerline.answer-prefix", () => {
   it("flags lowercase 'answer:'", () => {
     const t = tossupWithAnswer("answer: thing");
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.prefix")).toBe(true);
+    expect(hasDiag(diags, "answerline.answer-prefix")).toBe(true);
   });
 
   it("passes 'ANSWER: '", () => {
     const t = tossupWithAnswer("ANSWER: thing", [plain("ANSWER: "), bu("thing")]);
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.prefix")).toBe(false);
+    expect(hasDiag(diags, "answerline.answer-prefix")).toBe(false);
   });
 });
 
@@ -52,19 +52,19 @@ describe("answerline.bracket-balance", () => {
   });
 });
 
-describe("answerline.required-formatting", () => {
+describe("answerline.answer-formatting", () => {
   it("flags answer without bold/underline", () => {
     const t = tossupWithAnswer("ANSWER: thing", [plain("ANSWER: thing")]);
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.required-formatting")).toBe(true);
+    expect(hasDiag(diags, "answerline.answer-formatting")).toBe(true);
   });
 
   it("passes bold+underlined answer", () => {
     const t = tossupWithAnswer("ANSWER: thing", [plain("ANSWER: "), bu("thing")]);
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.required-formatting")).toBe(false);
+    expect(hasDiag(diags, "answerline.answer-formatting")).toBe(false);
   });
 });
 

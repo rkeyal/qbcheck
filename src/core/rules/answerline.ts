@@ -157,7 +157,7 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
       if (/^\s*ANSWER\s*:/i.test(text)) {
         if (!/^\s*ANSWER:/.test(text)) {
           diags.push({
-            rule: "answerline.prefix",
+            rule: "answerline.answer-prefix",
             severity: "error",
             paragraph: para.index,
             message: '"ANSWER" must be in all caps.',
@@ -166,7 +166,7 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
         }
         if (!/ANSWER:\s/.test(text)) {
           diags.push({
-            rule: "answerline.prefix",
+            rule: "answerline.answer-prefix",
             severity: "warning",
             paragraph: para.index,
             message: 'Missing space after "ANSWER:".',
@@ -174,7 +174,7 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
         }
       } else if (/^\s*answer/i.test(text)) {
         diags.push({
-          rule: "answerline.prefix",
+          rule: "answerline.answer-prefix",
           severity: "error",
           paragraph: para.index,
           message: 'Answer line must start with "ANSWER: ".',
@@ -238,7 +238,7 @@ function checkRequiredAnswerFormatting(packet: Packet): LintDiagnostic[] {
       }
 
       diags.push({
-        rule: "answerline.required-formatting",
+        rule: "answerline.answer-formatting",
         severity: "error",
         paragraph: para.index,
         message,
@@ -738,7 +738,7 @@ function checkNonstandardPrefix(packet: Packet): LintDiagnostic[] {
 
     const prefix = match[1].trim();
     diags.push({
-      rule: "answerline.nonstandard-prefix",
+      rule: "answerline.no-nonstandard-prefix",
       severity: "error",
       paragraph: para.index,
       message: `"${prefix}" is not recognized as an answer line. Use "ANSWER: " (all caps, colon, space).`,

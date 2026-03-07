@@ -30,7 +30,7 @@ function checkTagExists(packet: Packet): LintDiagnostic[] {
   for (const q of [...packet.tossups, ...packet.bonuses]) {
     if (!q.tag) {
       diags.push({
-        rule: "tag.exists",
+        rule: "tag.tag-present",
         severity: "warning",
         paragraph: q.numberParagraph.index,
         message: `${q.type === "tossup" ? "Tossup" : "Bonus"} ${q.number} has no tag line.`,
@@ -51,7 +51,7 @@ function checkTagFormat(packet: Packet): LintDiagnostic[] {
     const text = stripEditorialSuffix(rawText);
     if (!TAG_PATTERN.test(text) && !TAG_CATEGORY_ONLY.test(text)) {
       diags.push({
-        rule: "tag.format",
+        rule: "tag.tag-format",
         severity: "warning",
         paragraph: q.tag.index,
         message: `Tag "${rawText}" does not match expected format <Author, Category> or <Category>.`,
@@ -76,7 +76,7 @@ function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
     const afterFirst = inner.substring(openBracket + 1);
     if (afterFirst.includes("<") || (afterFirst.indexOf(">") < afterFirst.lastIndexOf(">"))) {
       diags.push({
-        rule: "tag.nested-brackets",
+        rule: "tag.no-nested-brackets",
         severity: "error",
         paragraph: q.tag.index,
         message: `Tag contains nested angle brackets, which will break downstream parsers: "${rawText}".`,

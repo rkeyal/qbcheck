@@ -29,8 +29,8 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "question.multiline-answer",      category: "question",      description: "Answer lines must be single paragraph",  defaultSeverity: "error" },
   { id: "question.bonus-part-order",      category: "question",      description: "Bonus parts interleaved with answers",   defaultSeverity: "error" },
   // answerline (13 rules)
-  { id: "answerline.prefix",                    category: "answerline",    description: "ANSWER: prefix format",                 defaultSeverity: "warning" },
-  { id: "answerline.required-formatting",        category: "answerline",    description: "Answer has required bold/underline",    defaultSeverity: "warning" },
+  { id: "answerline.answer-prefix",              category: "answerline",    description: "ANSWER: prefix format",                 defaultSeverity: "warning" },
+  { id: "answerline.answer-formatting",          category: "answerline",    description: "Answer has required bold/underline",    defaultSeverity: "warning" },
   { id: "answerline.bracket-balance",            category: "answerline",    description: "Brackets are balanced",                 defaultSeverity: "error" },
   { id: "answerline.directive-typo",             category: "answerline",    description: "No typos in accept/prompt/reject",      defaultSeverity: "warning" },
   { id: "answerline.accept-formatting",          category: "answerline",    description: "Accept directive formatting",           defaultSeverity: "warning" },
@@ -41,9 +41,9 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "answerline.deprecated-directive",       category: "answerline",    description: "No deprecated directives",              defaultSeverity: "warning" },
   { id: "answerline.post-note-no-quote-start",   category: "answerline",    description: "Post-note quote formatting",            defaultSeverity: "warning" },
   { id: "answerline.no-parenthetical-optional",  category: "answerline",    description: "No parenthetical optional text",        defaultSeverity: "info" },
-  { id: "answerline.nonstandard-prefix",         category: "answerline",    description: "No nonstandard answer prefixes (Ans:, Answer.)", defaultSeverity: "error" },
+  { id: "answerline.no-nonstandard-prefix",      category: "answerline",    description: "No nonstandard answer prefixes (Ans:, Answer.)", defaultSeverity: "error" },
   // pronunciation (2 rules)
-  { id: "pronunciation.delimiter",     category: "pronunciation", description: "Pronunciation guide delimiters",           defaultSeverity: "warning" },
+  { id: "pronunciation.paren-delimiter", category: "pronunciation", description: "Pronunciation guide delimiters",           defaultSeverity: "warning" },
   { id: "pronunciation.trailing-punct", category: "pronunciation", description: "No trailing punctuation in guides",       defaultSeverity: "warning" },
   // formatting (11 rules)
   { id: "formatting.smart-quotes",              category: "formatting",    description: "Use smart (curly) quotes",              defaultSeverity: "warning" },
@@ -58,10 +58,10 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "formatting.no-latin-abbrev",           category: "formatting",    description: "No Latin abbreviations (e.g., i.e.)",   defaultSeverity: "warning" },
   { id: "formatting.punctuation-inside-quotes", category: "formatting",    description: "Punctuation inside quotation marks",    defaultSeverity: "warning" },
   // tag (5 rules)
-  { id: "tag.exists",                category: "tag",           description: "Author tag present on each question",     defaultSeverity: "warning" },
-  { id: "tag.format",                category: "tag",           description: "Tag format: <Author, Category>",          defaultSeverity: "warning" },
+  { id: "tag.tag-present",            category: "tag",           description: "Author tag present on each question",     defaultSeverity: "warning" },
+  { id: "tag.tag-format",            category: "tag",           description: "Tag format: <Author, Category>",          defaultSeverity: "warning" },
   { id: "tag.valid-category",        category: "tag",           description: "Category is recognized",                  defaultSeverity: "warning" },
-  { id: "tag.nested-brackets",       category: "tag",           description: "No nested angle brackets in tags",        defaultSeverity: "error" },
+  { id: "tag.no-nested-brackets",    category: "tag",           description: "No nested angle brackets in tags",        defaultSeverity: "error" },
   { id: "tag.consistent-categories", category: "tag",           description: "Consistent tossup/bonus category pairing", defaultSeverity: "warning" },
   // writing (6 rules)
   { id: "writing.no-contractions",     category: "writing",       description: "No contractions in question text",        defaultSeverity: "warning" },

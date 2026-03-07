@@ -124,9 +124,28 @@ dropZone.addEventListener("dragleave", () => {
   dropZone.classList.remove("drag-over");
 });
 
-dropZone.addEventListener("drop", (e) => {
+dropZone.addEventListener("drop", async (e) => {
   e.preventDefault();
   dropZone.classList.remove("drag-over");
+
+  // Try to read directory entries first (handles dropped folders)
+  const items = e.dataTransfer?.items;
+  if (items) {
+    const entries: FileSystemEntry[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry?.();
+      if (entry) entries.push(entry);
+    }
+
+    const hasDirectory = entries.some((e) => e.isDirectory);
+    if (hasDirectory) {
+      const files = await readEntriesRecursive(entries);
+      const docx = files.filter((f) => f.name.endsWith(".docx"));
+      if (docx.length > 0) processFiles(docx);
+      return;
+    }
+  }
+
   const files = collectDocxFiles(e.dataTransfer?.files ?? null);
   if (files.length > 0) processFiles(files);
 });
@@ -365,6 +384,37 @@ function relintAll() {
       }
     }
   }
+}
+
+function readEntriesRecursive(entries: FileSystemEntry[]): Promise<File[]> {
+  const files: File[] = [];
+
+  function readEntry(entry: FileSystemEntry): Promise<void> {
+    if (entry.isFile) {
+      return new Promise((resolve) => {
+        (entry as FileSystemFileEntry).file((f) => {
+          files.push(f);
+          resolve();
+        }, () => resolve());
+      });
+    }
+    if (entry.isDirectory) {
+      return new Promise((resolve) => {
+        const reader = (entry as FileSystemDirectoryEntry).createReader();
+        const readBatch = () => {
+          reader.readEntries(async (batch) => {
+            if (batch.length === 0) { resolve(); return; }
+            await Promise.all(batch.map(readEntry));
+            readBatch(); // readEntries may return partial results
+          }, () => resolve());
+        };
+        readBatch();
+      });
+    }
+    return Promise.resolve();
+  }
+
+  return Promise.all(entries.map(readEntry)).then(() => files);
 }
 
 function collectDocxFiles(fileList: FileList | null): File[] {
@@ -620,6 +670,7 @@ function toggleActionMenu(actionBtn: HTMLElement) {
 
   const fp = actionBtn.dataset.fp!;
   const ruleId = actionBtn.dataset.rule!;
+
   const shortName = ruleId.split(".")[1];
 
   const menu = document.createElement("div");

@@ -95,9 +95,9 @@ Validates `ANSWER:` line formatting, directives, and structure.
 
 | Rule | Description |
 |------|-------------|
-| `prefix` | Answer lines start with `ANSWER: ` (all caps, colon, space) |
-| `nonstandard-prefix` | Flags `Ans:`, `Answer.`, and other non-standard prefixes |
-| `required-formatting` | Primary answer is bold and underlined |
+| `answer-prefix` | Answer lines start with `ANSWER: ` (all caps, colon, space) |
+| `no-nonstandard-prefix` | Flags `Ans:`, `Answer.`, and other non-standard prefixes |
+| `answer-formatting` | Primary answer is bold and underlined |
 | `bracket-balance` | Square brackets are balanced |
 | `accept-formatting` | Text in `[accept]` / `[or]` directives is bold and underlined |
 | `prompt-formatting` | Text in `[prompt]` directives is underlined |
@@ -114,7 +114,7 @@ Checks pronunciation guide formatting.
 
 | Rule | Description |
 |------|-------------|
-| `delimiter` | Guides use parentheses, not square brackets |
+| `paren-delimiter` | Guides use parentheses, not square brackets |
 | `trailing-punct` | Punctuation goes after the closing parenthesis, not inside |
 
 ### Formatting
@@ -139,10 +139,10 @@ Validates author/category tags.
 
 | Rule | Description |
 |------|-------------|
-| `exists` | Every question has a tag line |
-| `format` | Tags match `<Author, Category>` format |
+| `tag-present` | Every question has a tag line |
+| `tag-format` | Tags match `<Author, Category>` format |
 | `valid-category` | Category is a recognized QMOS category |
-| `nested-brackets` | No nested angle brackets (breaks YAPP) |
+| `no-nested-brackets` | No nested angle brackets (breaks YAPP) |
 | `consistent-categories` | Same category is spelled the same way throughout the packet |
 
 ### Writing style

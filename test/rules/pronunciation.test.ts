@@ -18,7 +18,7 @@ function tossupWith(text: string) {
   });
 }
 
-describe("pronunciation.delimiter", () => {
+describe("pronunciation.paren-delimiter", () => {
   it("flags square bracket pronunciation guides", () => {
     const t = tossupWith('For 10 points, name this composer ["BAHK"].');
     const packet = makePacket({
@@ -26,7 +26,7 @@ describe("pronunciation.delimiter", () => {
       allParagraphs: [...t.paragraphs, ...packet_extras()],
     });
     const diags = lint(packet);
-    expect(hasDiag(diags, "pronunciation.delimiter")).toBe(true);
+    expect(hasDiag(diags, "pronunciation.paren-delimiter")).toBe(true);
   });
 
   it("passes parenthetical pronunciation guides", () => {
@@ -36,7 +36,7 @@ describe("pronunciation.delimiter", () => {
       allParagraphs: t.paragraphs,
     });
     const diags = lint(packet);
-    expect(hasDiag(diags, "pronunciation.delimiter")).toBe(false);
+    expect(hasDiag(diags, "pronunciation.paren-delimiter")).toBe(false);
   });
 });
 

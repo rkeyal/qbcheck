@@ -33,7 +33,7 @@ describe("packet.numbering-sequence", () => {
   });
 });
 
-describe("tag.nested-brackets", () => {
+describe("tag.no-nested-brackets", () => {
   it("fires on nested angle brackets", () => {
     const t = makeQuestion("tossup", 1, "Q. For 10 points, name it.", "ANSWER: **__a__**", {
       tag: "<Author <nickname>, History>",
@@ -46,8 +46,8 @@ describe("tag.nested-brackets", () => {
     });
 
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.nested-brackets")).toBe(true);
-    expect(findDiag(diags, "tag.nested-brackets")!.severity).toBe("error");
+    expect(hasDiag(diags, "tag.no-nested-brackets")).toBe(true);
+    expect(findDiag(diags, "tag.no-nested-brackets")!.severity).toBe("error");
   });
 
   it("does not fire on normal tags", () => {
@@ -62,7 +62,7 @@ describe("tag.nested-brackets", () => {
     });
 
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.nested-brackets")).toBe(false);
+    expect(hasDiag(diags, "tag.no-nested-brackets")).toBe(false);
   });
 });
 
@@ -119,7 +119,7 @@ describe("question.bonus-part-order", () => {
   });
 });
 
-describe("answerline.nonstandard-prefix", () => {
+describe("answerline.no-nonstandard-prefix", () => {
   it("fires on 'Ans:' in non-answer paragraphs", () => {
     const q = makeParagraph("1. A question for 10 points.", { index: 0 });
     const ans = makeParagraph("Ans: some answer", { index: 1 });
@@ -140,8 +140,8 @@ describe("answerline.nonstandard-prefix", () => {
     });
 
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.nonstandard-prefix")).toBe(true);
-    expect(findDiag(diags, "answerline.nonstandard-prefix")!.severity).toBe("error");
+    expect(hasDiag(diags, "answerline.no-nonstandard-prefix")).toBe(true);
+    expect(findDiag(diags, "answerline.no-nonstandard-prefix")!.severity).toBe("error");
   });
 
   it("fires on 'Answer.' in non-answer paragraphs", () => {
@@ -164,7 +164,7 @@ describe("answerline.nonstandard-prefix", () => {
     });
 
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.nonstandard-prefix")).toBe(true);
+    expect(hasDiag(diags, "answerline.no-nonstandard-prefix")).toBe(true);
   });
 
   it("does not fire on recognized ANSWER: lines", () => {
@@ -178,7 +178,7 @@ describe("answerline.nonstandard-prefix", () => {
     });
 
     const diags = lint(packet);
-    expect(hasDiag(diags, "answerline.nonstandard-prefix")).toBe(false);
+    expect(hasDiag(diags, "answerline.no-nonstandard-prefix")).toBe(false);
   });
 });
 

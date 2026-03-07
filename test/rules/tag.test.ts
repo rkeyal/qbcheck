@@ -18,42 +18,42 @@ function tossupWithTag(tag?: string) {
   });
 }
 
-describe("tag.exists", () => {
+describe("tag.tag-present", () => {
   it("flags missing tag", () => {
     const t = tossupWithTag(undefined);
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.exists")).toBe(true);
+    expect(hasDiag(diags, "tag.tag-present")).toBe(true);
   });
 
   it("passes with tag present", () => {
     const t = tossupWithTag("<Author, Biology>");
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.exists")).toBe(false);
+    expect(hasDiag(diags, "tag.tag-present")).toBe(false);
   });
 });
 
-describe("tag.format", () => {
+describe("tag.tag-format", () => {
   it("flags invalid tag format", () => {
     const t = tossupWithTag("<Bad Tag");
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.format")).toBe(true);
+    expect(hasDiag(diags, "tag.tag-format")).toBe(true);
   });
 
   it("passes <Author, Category>", () => {
     const t = tossupWithTag("<Author, Biology>");
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.format")).toBe(false);
+    expect(hasDiag(diags, "tag.tag-format")).toBe(false);
   });
 
   it("passes <Category>", () => {
     const t = tossupWithTag("<Biology>");
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, "tag.format")).toBe(false);
+    expect(hasDiag(diags, "tag.tag-format")).toBe(false);
   });
 });
 
