@@ -1,4 +1,5 @@
 import { Packet, LintDiagnostic, LintRule, Question } from "../model.js";
+import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from "../patterns.js";
 
 function checkFtpFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -336,10 +337,6 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
 
 function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
-  const ANS_RE = /^\s*ANSWER\s*:\s*/i;
-  const NUM_RE = /^\s*\d+\.\s/;
-  const TAG_RE_LOCAL = /^\s*<[^>]+>\s*(?:[\[{][^\]\}]*[\]\}])?\s*$/;
-  const PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
 
   // Build a map of answer line paragraph indices → the question they belong to
   const answerParaIndices = new Set<number>();
@@ -357,10 +354,10 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
     const next = paras[i + 1];
     const nextText = next.rawText.trim();
     if (!nextText) continue; // blank line — fine
-    if (ANS_RE.test(nextText)) continue; // next answer line
-    if (NUM_RE.test(nextText)) continue; // next question number
-    if (TAG_RE_LOCAL.test(nextText)) continue; // tag line
-    if (PART_RE.test(nextText)) continue; // bonus part marker
+    if (ANSWER.test(nextText)) continue; // next answer line
+    if (QUESTION_NUMBER.test(nextText)) continue; // next question number
+    if (TAG.test(nextText)) continue; // tag line
+    if (BONUS_PART.test(nextText)) continue; // bonus part marker
 
     // Check if the answer line has unbalanced brackets (suggesting continuation)
     const answerText = paras[i].rawText;
@@ -451,8 +448,6 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
 
 function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
-  const PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
-  const ANS_RE = /^\s*ANSWER\s*:\s*/i;
 
   for (const q of packet.bonuses) {
     if (q.parts.length === 0) continue;
@@ -465,8 +460,8 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
       const text = para.rawText.trim();
       if (!text) continue;
 
-      const isPart = PART_RE.test(text);
-      const isAnswer = ANS_RE.test(text);
+      const isPart = BONUS_PART.test(text);
+      const isAnswer = ANSWER.test(text);
 
       if (isPart && expectingAnswer) {
         // Found a new part before the previous part's answer

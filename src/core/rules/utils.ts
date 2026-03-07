@@ -1,4 +1,5 @@
-import { Paragraph } from "../model.js";
+import { Paragraph, Packet } from "../model.js";
+import { ANSWER } from "../patterns.js";
 
 /**
  * Replace all quoted regions with spaces (preserving string length).
@@ -55,4 +56,66 @@ export function stripTitleText(para: Paragraph): string {
   const italicMap = buildItalicMap(para);
   text = stripItalicText(text, italicMap);
   return text;
+}
+
+/**
+ * Get paragraphs from all questions in the packet, with optional filtering.
+ *
+ * @param packet - The packet to extract paragraphs from
+ * @param filter - Optional filter mode:
+ *   - undefined or 'all': returns all question paragraphs
+ *   - 'non-answer': excludes ANSWER: lines
+ *   - 'text-only': excludes both ANSWER: lines and tag lines
+ * @returns Array of paragraphs matching the filter criteria
+ */
+export function getQuestionParagraphs(
+  packet: Packet,
+  filter?: 'all' | 'non-answer' | 'text-only'
+): Paragraph[] {
+  const paras: Paragraph[] = [];
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    for (const p of q.paragraphs) {
+      const text = p.rawText.trim();
+
+      // Apply filters
+      if (filter === 'non-answer' || filter === 'text-only') {
+        if (ANSWER.test(text)) continue;
+      }
+      if (filter === 'text-only') {
+        if (/^\s*<[^>]+>\s*$/.test(text)) continue;
+      }
+
+      paras.push(p);
+    }
+  }
+  return paras;
+}
+
+/**
+ * Find the character offset of a search string within raw text,
+ * with optional approximate starting position for more efficient searching.
+ *
+ * When stripping/filtering produces an approximate index from the processed text,
+ * this function searches backward a bit from that position to account for
+ * characters that were removed during processing.
+ *
+ * @param rawText - The original text to search in
+ * @param searchText - The text to find
+ * @param approximateIndex - Optional hint about where the match might be
+ * @returns The character offset of the match, or -1 if not found
+ */
+export function findOffsetInRawText(
+  rawText: string,
+  searchText: string,
+  approximateIndex?: number
+): number {
+  // If we have an approximate index, search nearby first (with a small lookback)
+  if (approximateIndex !== undefined && approximateIndex > 0) {
+    const searchStart = Math.max(0, approximateIndex - 10);
+    const nearbyMatch = rawText.indexOf(searchText, searchStart);
+    if (nearbyMatch !== -1) return nearbyMatch;
+  }
+
+  // Fall back to searching from the beginning
+  return rawText.indexOf(searchText);
 }

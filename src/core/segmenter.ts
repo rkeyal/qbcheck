@@ -1,4 +1,5 @@
 import { Paragraph, Packet, Question, BonusPart, Run } from "./model.js";
+import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from "./patterns.js";
 
 /**
  * Segment a flat list of paragraphs into a structured Packet.
@@ -65,11 +66,6 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
   return packet;
 }
 
-const QUESTION_NUM_RE = /^\s*(\d+)\.\s/;
-const ANSWER_RE = /^\s*ANSWER\s*:\s*/i;
-const TAG_RE = /^\s*<[^>]+>\s*(?:[\[{][^\]\}]*[\]\}])?\s*$/;
-const BONUS_PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
-
 function parseQuestions(
   paragraphs: Paragraph[],
   type: "tossup" | "bonus"
@@ -88,7 +84,7 @@ function parseQuestions(
       continue;
     }
 
-    const numMatch = text.match(QUESTION_NUM_RE);
+    const numMatch = text.match(QUESTION_NUMBER);
     if (numMatch && !current) {
       // Start of a new question
       current = {
@@ -116,17 +112,17 @@ function parseQuestions(
     } else if (current) {
       current.paragraphs.push(para);
 
-      if (ANSWER_RE.test(text)) {
+      if (ANSWER.test(text)) {
         // If this is a bonus and we have parts, assign to the last part
         if (type === "bonus" && current.parts.length > 0) {
           current.parts[current.parts.length - 1].answerLine = para;
         } else {
           current.answerLine = para;
         }
-      } else if (TAG_RE.test(text)) {
+      } else if (TAG.test(text)) {
         current.tag = para;
-      } else if (type === "bonus" && BONUS_PART_RE.test(text)) {
-        const markerMatch = text.match(BONUS_PART_RE)!;
+      } else if (type === "bonus" && BONUS_PART.test(text)) {
+        const markerMatch = text.match(BONUS_PART)!;
         // Check if this paragraph also contains an embedded ANSWER:
         const restOfText = text.slice(markerMatch[0].length);
         const hasEmbeddedAnswer = /ANSWER\s*:/i.test(restOfText);
@@ -166,7 +162,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
   // Find all ANSWER: line indices
   const answerIndices: number[] = [];
   for (let i = 0; i < processed.length; i++) {
-    if (ANSWER_RE.test(processed[i].rawText.trim())) {
+    if (ANSWER.test(processed[i].rawText.trim())) {
       answerIndices.push(i);
     }
   }
@@ -192,8 +188,8 @@ function segmentFlatList(processed: Paragraph[]): Packet {
     for (let j = firstAnswer - 1; j >= 0; j--) {
       const text = processed[j].rawText.trim();
       if (!text) break; // blank line
-      if (ANSWER_RE.test(text)) break; // previous answer
-      if (TAG_RE.test(text) && assigned.has(j)) break; // previous tag already assigned
+      if (ANSWER.test(text)) break; // previous answer
+      if (TAG.test(text) && assigned.has(j)) break; // previous tag already assigned
       start = j;
     }
 
@@ -215,11 +211,11 @@ function segmentFlatList(processed: Paragraph[]): Packet {
 
       // Check if lines between are bonus parts or question text (not a new question start)
       const betweenLines = processed.slice(lastIdx + 1, nextAnswer);
-      const hasBonusPartMarker = betweenLines.some(p => BONUS_PART_RE.test(p.rawText.trim()));
+      const hasBonusPartMarker = betweenLines.some(p => BONUS_PART.test(p.rawText.trim()));
       if (!hasBonusPartMarker && betweenLines.length > 0) {
         // Could still be bonus text without markers if the first chunk had markers
         const firstChunkText = processed.slice(start, firstAnswer + 1).map(p => p.rawText).join(" ");
-        if (!BONUS_PART_RE.test(firstChunkText) && !FTPE_RE.test(firstChunkText)) {
+        if (!BONUS_PART.test(firstChunkText) && !FTPE_RE.test(firstChunkText)) {
           break; // Separate question
         }
       }
@@ -233,7 +229,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
     let end = lastIdx;
     if (lastIdx + 1 < processed.length) {
       const nextText = processed[lastIdx + 1].rawText.trim();
-      if (TAG_RE.test(nextText)) {
+      if (TAG.test(nextText)) {
         end = lastIdx + 1;
       }
     }
@@ -252,7 +248,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
     const fullText = paras.map(p => p.rawText).join(" ");
 
     // Infer type
-    const hasBonusPartMarkers = paras.some(p => BONUS_PART_RE.test(p.rawText.trim()));
+    const hasBonusPartMarkers = paras.some(p => BONUS_PART.test(p.rawText.trim()));
     const hasFTPE = FTPE_RE.test(fullText);
     const multipleAnswers = group.answerLines.length > 1;
     const isBonus = hasBonusPartMarkers || hasFTPE || multipleAnswers;
@@ -272,7 +268,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
 
     // Assign tag
     const lastPara = paras[paras.length - 1];
-    if (TAG_RE.test(lastPara.rawText.trim())) {
+    if (TAG.test(lastPara.rawText.trim())) {
       q.tag = lastPara;
     }
 
@@ -280,8 +276,8 @@ function segmentFlatList(processed: Paragraph[]): Packet {
       // Parse bonus parts
       for (const para of paras) {
         const text = para.rawText.trim();
-        if (BONUS_PART_RE.test(text)) {
-          const markerMatch = text.match(BONUS_PART_RE)!;
+        if (BONUS_PART.test(text)) {
+          const markerMatch = text.match(BONUS_PART)!;
           const restOfText = text.slice(markerMatch[0].length);
           const hasEmbeddedAnswer = /ANSWER\s*:/i.test(restOfText);
           q.parts.push({
@@ -289,7 +285,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
             textParagraph: para,
             answerLine: hasEmbeddedAnswer ? para : null,
           });
-        } else if (ANSWER_RE.test(text)) {
+        } else if (ANSWER.test(text)) {
           if (q.parts.length > 0 && !q.parts[q.parts.length - 1].answerLine) {
             q.parts[q.parts.length - 1].answerLine = para;
           } else {
@@ -300,7 +296,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
     } else {
       // Tossup: find the ANSWER: line
       for (const para of paras) {
-        if (ANSWER_RE.test(para.rawText.trim())) {
+        if (ANSWER.test(para.rawText.trim())) {
           q.answerLine = para;
           break;
         }

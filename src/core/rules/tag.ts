@@ -1,15 +1,9 @@
 import { Packet, LintDiagnostic, LintRule } from "../model.js";
 import { VALID_CATEGORIES } from "../../shared/constants.js";
-
-// Matches <Author, Category> (with comma) or <Category> (without comma)
-const TAG_PATTERN = /^<([^,]+),\s*(.+)>$/;
-const TAG_CATEGORY_ONLY = /^<([^,>]+)>$/;
-
-// Strip editorial suffixes like [Edited], [Ed. CT], {Ed. CT] from tag text
-const EDITORIAL_SUFFIX_RE = /\s*[\[{][^\]\}]*[\]\}]\s*$/;
+import { TAG_WITH_AUTHOR, TAG_CATEGORY_ONLY, EDITORIAL_SUFFIX } from "../patterns.js";
 
 function stripEditorialSuffix(text: string): string {
-  return text.replace(EDITORIAL_SUFFIX_RE, "");
+  return text.replace(EDITORIAL_SUFFIX, "");
 }
 
 /**
@@ -18,7 +12,7 @@ function stripEditorialSuffix(text: string): string {
  */
 export function extractTagCategory(tagRawText: string): string | null {
   const text = stripEditorialSuffix(tagRawText.trim());
-  const match = text.match(TAG_PATTERN);
+  const match = text.match(TAG_WITH_AUTHOR);
   const catOnlyMatch = !match ? text.match(TAG_CATEGORY_ONLY) : null;
   if (!match && !catOnlyMatch) return null;
   return match ? match[2].trim() : catOnlyMatch![1].trim();
@@ -49,7 +43,7 @@ function checkTagFormat(packet: Packet): LintDiagnostic[] {
 
     const rawText = q.tag.rawText.trim();
     const text = stripEditorialSuffix(rawText);
-    if (!TAG_PATTERN.test(text) && !TAG_CATEGORY_ONLY.test(text)) {
+    if (!TAG_WITH_AUTHOR.test(text) && !TAG_CATEGORY_ONLY.test(text)) {
       diags.push({
         rule: "tag.tag-format",
         severity: "warning",
@@ -70,7 +64,7 @@ function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
 
     const rawText = q.tag.rawText.trim();
     // Strip outer < and > then check for nested ones
-    const inner = rawText.replace(EDITORIAL_SUFFIX_RE, "");
+    const inner = rawText.replace(EDITORIAL_SUFFIX, "");
     const openBracket = inner.indexOf("<");
     if (openBracket === -1) continue;
     const afterFirst = inner.substring(openBracket + 1);
@@ -95,7 +89,7 @@ function checkValidCategory(packet: Packet): LintDiagnostic[] {
     if (!q.tag) continue;
 
     const text = stripEditorialSuffix(q.tag.rawText.trim());
-    const match = text.match(TAG_PATTERN);
+    const match = text.match(TAG_WITH_AUTHOR);
     const catOnlyMatch = !match ? text.match(TAG_CATEGORY_ONLY) : null;
     if (!match && !catOnlyMatch) continue;
 
@@ -121,7 +115,7 @@ function checkConsistentCategories(packet: Packet): LintDiagnostic[] {
     if (!q.tag) continue;
 
     const text = stripEditorialSuffix(q.tag.rawText.trim());
-    const match = text.match(TAG_PATTERN);
+    const match = text.match(TAG_WITH_AUTHOR);
     const catOnlyMatch = !match ? text.match(TAG_CATEGORY_ONLY) : null;
     if (!match && !catOnlyMatch) continue;
 

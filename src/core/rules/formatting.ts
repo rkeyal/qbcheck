@@ -1,31 +1,10 @@
 import { Packet, LintDiagnostic, LintRule, Paragraph } from "../model.js";
-import { stripTitleText, stripItalicOnly } from "./utils.js";
-
-function getQuestionParagraphs(packet: Packet): Paragraph[] {
-  const paras: Paragraph[] = [];
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
-    for (const p of q.paragraphs) {
-      paras.push(p);
-    }
-  }
-  return paras;
-}
-
-function getNonAnswerLineParagraphs(packet: Packet): Paragraph[] {
-  const paras: Paragraph[] = [];
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
-    for (const p of q.paragraphs) {
-      if (/^\s*ANSWER/i.test(p.rawText)) continue;
-      paras.push(p);
-    }
-  }
-  return paras;
-}
+import { stripTitleText, stripItalicOnly, getQuestionParagraphs } from "./utils.js";
 
 function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getNonAnswerLineParagraphs(packet)) {
+  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
     const text = para.rawText;
 
     // Check for straight double quotes (not inside pronunciation guides)
@@ -163,7 +142,7 @@ function checkSpellOutNumbers(packet: Packet): LintDiagnostic[] {
 function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getNonAnswerLineParagraphs(packet)) {
+  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
     const text = para.rawText;
     // Skip tag lines (e.g. <Painting & Sculpture>)
     if (/^\s*<[^>]+>\s*$/.test(text)) continue;
@@ -188,7 +167,7 @@ function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
 function checkPoetrySlash(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getNonAnswerLineParagraphs(packet)) {
+  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
     const text = para.rawText;
     // Only strip italic text (titles), not quoted text — poetry slashes
     // appear inside quoted passages
@@ -330,7 +309,7 @@ function checkLatinAbbreviations(packet: Packet): LintDiagnostic[] {
 function checkPunctuationInsideQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getNonAnswerLineParagraphs(packet)) {
+  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
     const text = para.rawText;
     // Skip tag lines
     if (/^\s*<[^>]+>/.test(text)) continue;
