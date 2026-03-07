@@ -17,6 +17,7 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
     tossups: [],
     bonuses: [],
     allParagraphs: processed,
+    structured: false,
   };
 
   // Find section dividers
@@ -36,6 +37,13 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
       packet.bonusHeader = processed[i];
     }
   }
+
+  // If no section headers found, use flat-list fallback
+  if (tossupIdx === -1 && bonusIdx === -1) {
+    return segmentFlatList(processed);
+  }
+
+  packet.structured = true;
 
   // Header: everything before "Tossups"
   const headerEnd = tossupIdx !== -1 ? tossupIdx : processed.length;
@@ -136,6 +144,177 @@ function parseQuestions(
   }
 
   return questions;
+}
+
+// ---------------------------------------------------------------------------
+// Flat-list fallback: infer questions from ANSWER: lines
+// ---------------------------------------------------------------------------
+
+const FTPE_RE = /for\s+10\s+points?\s+each|FTPE/i;
+
+function segmentFlatList(processed: Paragraph[]): Packet {
+  const packet: Packet = {
+    header: [],
+    tossupHeader: null,
+    bonusHeader: null,
+    tossups: [],
+    bonuses: [],
+    allParagraphs: processed,
+    structured: false,
+  };
+
+  // Find all ANSWER: line indices
+  const answerIndices: number[] = [];
+  for (let i = 0; i < processed.length; i++) {
+    if (ANSWER_RE.test(processed[i].rawText.trim())) {
+      answerIndices.push(i);
+    }
+  }
+
+  if (answerIndices.length === 0) return packet;
+
+  // Group answer lines into questions.
+  // Walk backward from each answer line to find question start,
+  // walk forward to find tag line.
+  const questions: Question[] = [];
+  const assigned = new Set<number>();
+
+  // First pass: group consecutive ANSWER: lines that belong to bonuses
+  // A question boundary is: previous tag line, blank line, or start of doc
+  const questionGroups: { start: number; end: number; answerLines: number[] }[] = [];
+
+  let gi = 0;
+  while (gi < answerIndices.length) {
+    const firstAnswer = answerIndices[gi];
+
+    // Walk backward to find question start
+    let start = firstAnswer;
+    for (let j = firstAnswer - 1; j >= 0; j--) {
+      const text = processed[j].rawText.trim();
+      if (!text) break; // blank line
+      if (ANSWER_RE.test(text)) break; // previous answer
+      if (TAG_RE.test(text) && assigned.has(j)) break; // previous tag already assigned
+      start = j;
+    }
+
+    // Collect consecutive answer lines that belong to this question
+    const answerLines = [firstAnswer];
+    let lastIdx = firstAnswer;
+
+    // Look ahead for more answer lines that are part of this question (bonus parts)
+    let ni = gi + 1;
+    while (ni < answerIndices.length) {
+      const nextAnswer = answerIndices[ni];
+      // Check if there's a blank line or tag-only gap between
+      let gapHasBlank = false;
+      for (let k = lastIdx + 1; k < nextAnswer; k++) {
+        const text = processed[k].rawText.trim();
+        if (!text) { gapHasBlank = true; break; }
+      }
+      if (gapHasBlank) break;
+
+      // Check if lines between are bonus parts or question text (not a new question start)
+      const betweenLines = processed.slice(lastIdx + 1, nextAnswer);
+      const hasBonusPartMarker = betweenLines.some(p => BONUS_PART_RE.test(p.rawText.trim()));
+      if (!hasBonusPartMarker && betweenLines.length > 0) {
+        // Could still be bonus text without markers if the first chunk had markers
+        const firstChunkText = processed.slice(start, firstAnswer + 1).map(p => p.rawText).join(" ");
+        if (!BONUS_PART_RE.test(firstChunkText) && !FTPE_RE.test(firstChunkText)) {
+          break; // Separate question
+        }
+      }
+
+      answerLines.push(nextAnswer);
+      lastIdx = nextAnswer;
+      ni++;
+    }
+
+    // Walk forward from last answer to find tag line
+    let end = lastIdx;
+    if (lastIdx + 1 < processed.length) {
+      const nextText = processed[lastIdx + 1].rawText.trim();
+      if (TAG_RE.test(nextText)) {
+        end = lastIdx + 1;
+      }
+    }
+
+    for (let k = start; k <= end; k++) assigned.add(k);
+    questionGroups.push({ start, end, answerLines });
+    gi = ni;
+  }
+
+  // Build Question objects
+  let tossupNum = 1;
+  let bonusNum = 1;
+
+  for (const group of questionGroups) {
+    const paras = processed.slice(group.start, group.end + 1);
+    const fullText = paras.map(p => p.rawText).join(" ");
+
+    // Infer type
+    const hasBonusPartMarkers = paras.some(p => BONUS_PART_RE.test(p.rawText.trim()));
+    const hasFTPE = FTPE_RE.test(fullText);
+    const multipleAnswers = group.answerLines.length > 1;
+    const isBonus = hasBonusPartMarkers || hasFTPE || multipleAnswers;
+
+    const type = isBonus ? "bonus" : "tossup";
+    const number = type === "tossup" ? tossupNum++ : bonusNum++;
+
+    const q: Question = {
+      type,
+      number,
+      numberParagraph: paras[0],
+      paragraphs: paras,
+      answerLine: null,
+      tag: null,
+      parts: [],
+    };
+
+    // Assign tag
+    const lastPara = paras[paras.length - 1];
+    if (TAG_RE.test(lastPara.rawText.trim())) {
+      q.tag = lastPara;
+    }
+
+    if (type === "bonus") {
+      // Parse bonus parts
+      for (const para of paras) {
+        const text = para.rawText.trim();
+        if (BONUS_PART_RE.test(text)) {
+          const markerMatch = text.match(BONUS_PART_RE)!;
+          const restOfText = text.slice(markerMatch[0].length);
+          const hasEmbeddedAnswer = /ANSWER\s*:/i.test(restOfText);
+          q.parts.push({
+            marker: markerMatch[0].trim(),
+            textParagraph: para,
+            answerLine: hasEmbeddedAnswer ? para : null,
+          });
+        } else if (ANSWER_RE.test(text)) {
+          if (q.parts.length > 0 && !q.parts[q.parts.length - 1].answerLine) {
+            q.parts[q.parts.length - 1].answerLine = para;
+          } else {
+            q.answerLine = para;
+          }
+        }
+      }
+    } else {
+      // Tossup: find the ANSWER: line
+      for (const para of paras) {
+        if (ANSWER_RE.test(para.rawText.trim())) {
+          q.answerLine = para;
+          break;
+        }
+      }
+    }
+
+    if (type === "tossup") {
+      packet.tossups.push(q);
+    } else {
+      packet.bonuses.push(q);
+    }
+  }
+
+  return packet;
 }
 
 // ---------------------------------------------------------------------------

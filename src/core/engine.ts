@@ -17,6 +17,17 @@ const allRules: LintRule[] = [
   ...writingRules,
 ];
 
+const PACKET_STRUCTURE_RULES = new Set([
+  "packet.section-headers",
+  "packet.section-order",
+  "packet.question-numbering",
+  "packet.no-bold-numbers",
+  "packet.no-extras-label",
+  "packet.blank-paragraphs",
+  "packet.expected-count",
+  "tag.consistent-categories",
+]);
+
 export function lint(
   packet: Packet,
   disabledRules?: Set<string>
@@ -27,6 +38,7 @@ export function lint(
     const results = rule(packet);
     for (const d of results) {
       if (disabledRules && disabledRules.has(d.rule)) continue;
+      if (!packet.structured && PACKET_STRUCTURE_RULES.has(d.rule)) continue;
       diagnostics.push(d);
     }
   }

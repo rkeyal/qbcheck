@@ -1,7 +1,8 @@
-import { parseDocx } from "../core/parser.js";
+import { parseDocx, parseHtml } from "../core/parser.js";
 import { segmentPacket } from "../core/segmenter.js";
 import { lint, inferCrossPacketCategories } from "../core/engine.js";
 import { LintDiagnostic, Severity, Packet } from "../core/model.js";
+import { RULE_REGISTRY } from "../core/rule-registry.js";
 
 const uploadArea = document.getElementById("upload-area")!;
 const resultsArea = document.getElementById("results-area")!;
@@ -13,6 +14,7 @@ const clearBtn = document.getElementById("clear-btn")!;
 const countError = document.getElementById("count-error")!;
 const countWarning = document.getElementById("count-warning")!;
 const countInfo = document.getElementById("count-info")!;
+const countIgnored = document.getElementById("count-ignored")!;
 const statsBar = document.getElementById("stats-bar")!;
 const filterCategory = document.getElementById(
   "filter-category"
@@ -28,18 +30,77 @@ const packetSelect = document.getElementById(
   "packet-select"
 ) as HTMLSelectElement;
 const packetCounter = document.getElementById("packet-counter")!;
+const settingsBtn = document.getElementById("settings-btn")!;
+const settingsView = document.getElementById("settings-view")!;
+const settingsRules = document.getElementById("settings-rules")!;
+const settingsBackBtn = document.getElementById("settings-back-btn")!;
+const resetDefaultsBtn = document.getElementById("reset-defaults-btn")!;
+const ignoredChip = document.querySelector('.stat-ignored') as HTMLButtonElement;
+const pasteTarget = document.getElementById("paste-target")!;
+const unstructuredBanner = document.getElementById("unstructured-banner")!;
 
 interface PacketResult {
   filename: string;
   diagnostics: LintDiagnostic[];
 }
 
+interface QBLintSettings {
+  disabledRules: string[];
+  ignoredDiagnostics: string[];
+}
+
+const DEFAULT_SETTINGS: QBLintSettings = {
+  disabledRules: [],
+  ignoredDiagnostics: [],
+};
+
 let packetResults: PacketResult[] = [];
 let currentIndex: number = 0;
+let settings: QBLintSettings = { ...DEFAULT_SETTINGS };
+let showIgnored = false;
+// Track raw parsed data for re-linting after rule changes
+let lastParsedPackets: (Packet | null)[] = [];
+let lastSortedFiles: File[] = [];
 
 function getCurrentDiagnostics(): LintDiagnostic[] {
   return packetResults[currentIndex]?.diagnostics ?? [];
 }
+
+// --- Settings persistence ---
+
+async function loadSettings(): Promise<QBLintSettings> {
+  try {
+    const result = await chrome.storage.local.get("qblintSettings");
+    return result.qblintSettings ?? { ...DEFAULT_SETTINGS };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+async function saveSettings(s: QBLintSettings): Promise<void> {
+  try {
+    await chrome.storage.local.set({ qblintSettings: s });
+  } catch {
+    // Storage unavailable (e.g., dev mode without extension context)
+  }
+}
+
+// --- Diagnostic fingerprinting ---
+
+function diagnosticFingerprint(d: LintDiagnostic): string {
+  const label = d.questionLabel || `p${d.paragraph}`;
+  let h = 0;
+  for (let i = 0; i < d.message.length; i++) {
+    h = (h * 31 + d.message.charCodeAt(i)) | 0;
+  }
+  return `${d.rule}::${label}::${h}`;
+}
+
+// --- Initialization ---
+
+loadSettings().then((s) => {
+  settings = s;
+});
 
 // File input handler
 fileInput.addEventListener("change", () => {
@@ -70,12 +131,63 @@ dropZone.addEventListener("drop", (e) => {
   if (files.length > 0) processFiles(files);
 });
 
+// Paste from clipboard — click focuses the target, then user pastes with Ctrl+V/Cmd+V
+pasteTarget.addEventListener("click", () => {
+  pasteTarget.focus();
+  pasteTarget.classList.add("paste-active");
+});
+
+pasteTarget.addEventListener("blur", () => {
+  pasteTarget.classList.remove("paste-active");
+});
+
+pasteTarget.addEventListener("paste", (e) => {
+  e.preventDefault();
+  const clipboardData = (e as ClipboardEvent).clipboardData;
+  if (!clipboardData) return;
+
+  const html = clipboardData.getData("text/html");
+  const plainText = clipboardData.getData("text/plain");
+
+  if (!html && !plainText) {
+    alert("No text found in clipboard. Copy some questions first.");
+    return;
+  }
+
+  const paragraphs = html
+    ? parseHtml(html)
+    : parseHtml(`<p>${escapeHtml(plainText).split("\n").join("</p><p>")}</p>`);
+
+  if (paragraphs.length === 0) {
+    alert("No content found in clipboard.");
+    return;
+  }
+
+  const packet = segmentPacket(paragraphs);
+  const disabledSet = new Set(settings.disabledRules);
+  const diagnostics = lint(packet, disabledSet);
+
+  lastParsedPackets = [packet];
+  lastSortedFiles = [];
+  packetResults = [{ filename: "Pasted text", diagnostics }];
+  currentIndex = 0;
+
+  settingsView.hidden = true;
+  uploadArea.hidden = true;
+  resultsArea.hidden = false;
+  populatePacketSelect();
+  showCurrentPacket();
+});
+
 // Clear button
 clearBtn.addEventListener("click", () => {
   packetResults = [];
   currentIndex = 0;
+  lastParsedPackets = [];
+  lastSortedFiles = [];
   uploadArea.hidden = false;
   resultsArea.hidden = true;
+  settingsView.hidden = true;
   fileInput.value = "";
   folderInput.value = "";
 });
@@ -85,8 +197,15 @@ statsBar.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest("[data-severity]") as HTMLElement | null;
   if (!btn) return;
   const sev = btn.dataset.severity!;
+
+  if (sev === "ignored") {
+    showIgnored = !showIgnored;
+    btn.classList.toggle("active", showIgnored);
+    renderDiagnostics();
+    return;
+  }
+
   if (activeSeverities.has(sev)) {
-    // Don't allow deactivating all chips
     if (activeSeverities.size === 1) return;
     activeSeverities.delete(sev);
     btn.classList.remove("active");
@@ -114,6 +233,140 @@ packetSelect.addEventListener("change", () => {
   showCurrentPacket();
 });
 
+// Settings view
+settingsBtn.addEventListener("click", () => {
+  if (!settingsView.hidden) {
+    closeSettings();
+    return;
+  }
+  openSettings();
+});
+
+settingsBackBtn.addEventListener("click", closeSettings);
+
+resetDefaultsBtn.addEventListener("click", async () => {
+  settings = { ...DEFAULT_SETTINGS, disabledRules: [], ignoredDiagnostics: [] };
+  await saveSettings(settings);
+  renderSettingsRules();
+  // Re-lint if we have packets loaded
+  if (lastParsedPackets.length > 0) {
+    relintAll();
+  }
+});
+
+function openSettings() {
+  uploadArea.hidden = true;
+  resultsArea.hidden = true;
+  settingsView.hidden = false;
+  renderSettingsRules();
+}
+
+function closeSettings() {
+  settingsView.hidden = true;
+  if (packetResults.length > 0) {
+    resultsArea.hidden = false;
+    // Re-lint with possibly updated rules
+    relintAll();
+    showCurrentPacket();
+  } else {
+    uploadArea.hidden = false;
+  }
+}
+
+function renderSettingsRules() {
+  // Group rules by category
+  const groups = new Map<string, typeof RULE_REGISTRY>();
+  for (const rule of RULE_REGISTRY) {
+    if (!groups.has(rule.category)) groups.set(rule.category, []);
+    groups.get(rule.category)!.push(rule);
+  }
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    packet: "Packet Structure",
+    question: "Question Text",
+    answerline: "Answer Lines",
+    pronunciation: "Pronunciation",
+    formatting: "Formatting",
+    tag: "Tags",
+    writing: "Writing Style",
+  };
+
+  settingsRules.innerHTML = Array.from(groups.entries())
+    .map(([cat, rules]) => `
+      <div class="rule-group">
+        <div class="rule-group-header">${CATEGORY_LABELS[cat] || cat}</div>
+        ${rules.map((r) => {
+          const checked = !settings.disabledRules.includes(r.id);
+          const shortId = r.id.split(".")[1];
+          return `
+            <label class="rule-item">
+              <input type="checkbox" data-rule-id="${r.id}" ${checked ? "checked" : ""}>
+              <div class="rule-item-text">
+                <div class="rule-item-id">${shortId}</div>
+                <div class="rule-item-desc">${escapeHtml(r.description)}</div>
+              </div>
+            </label>`;
+        }).join("")}
+      </div>
+    `)
+    .join("");
+
+  // Bind change handlers
+  for (const cb of Array.from(settingsRules.querySelectorAll("input[type=checkbox]"))) {
+    cb.addEventListener("change", async (e) => {
+      const input = e.target as HTMLInputElement;
+      const ruleId = input.dataset.ruleId!;
+      if (input.checked) {
+        settings.disabledRules = settings.disabledRules.filter((r) => r !== ruleId);
+      } else {
+        if (!settings.disabledRules.includes(ruleId)) {
+          settings.disabledRules.push(ruleId);
+        }
+      }
+      await saveSettings(settings);
+    });
+  }
+}
+
+// --- Re-lint with current settings ---
+
+function relintAll() {
+  if (lastParsedPackets.length === 0) return;
+
+  const useInference = lastParsedPackets.length > 3;
+  const disabledSet = new Set(settings.disabledRules);
+  if (useInference) disabledSet.add("tag.valid-category");
+
+  for (let i = 0; i < lastParsedPackets.length; i++) {
+    const packet = lastParsedPackets[i];
+    if (!packet) {
+      packetResults[i] = { filename: packetResults[i].filename, diagnostics: [] };
+      continue;
+    }
+    packetResults[i] = {
+      filename: packetResults[i].filename,
+      diagnostics: lint(packet, disabledSet),
+    };
+  }
+
+  // Cross-packet inference
+  if (useInference) {
+    const validPackets = lastParsedPackets.filter((p): p is Packet => p !== null);
+    if (validPackets.length > 3) {
+      const crossDiags = inferCrossPacketCategories(validPackets);
+      let validIdx = 0;
+      for (let i = 0; i < lastParsedPackets.length; i++) {
+        if (lastParsedPackets[i] === null) continue;
+        const diags = crossDiags[validIdx++];
+        if (diags.length > 0) {
+          packetResults[i].diagnostics.push(...diags);
+          packetResults[i].diagnostics.sort((a, b) => a.paragraph - b.paragraph);
+        }
+      }
+    }
+  }
+}
+
 function collectDocxFiles(fileList: FileList | null): File[] {
   if (!fileList) return [];
   const files: File[] = [];
@@ -127,21 +380,21 @@ function collectDocxFiles(fileList: FileList | null): File[] {
 
 async function processFiles(files: File[]) {
   const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+  lastSortedFiles = sorted;
 
+  // Close settings if open
+  settingsView.hidden = true;
   uploadArea.hidden = true;
   resultsArea.hidden = false;
   noIssues.hidden = true;
   diagnosticsList.innerHTML = `<div class="loading">Analyzing 0 / ${sorted.length}...</div>`;
 
-  // When 4+ files are uploaded, disable the static category check and
-  // use cross-packet frequency inference instead.
   const useInference = sorted.length > 3;
-  const disabledRules = useInference
-    ? new Set(["tag.valid-category"])
-    : undefined;
+  const disabledSet = new Set(settings.disabledRules);
+  if (useInference) disabledSet.add("tag.valid-category");
 
   packetResults = [];
-  const packets: Packet[] = [];
+  const packets: (Packet | null)[] = [];
 
   for (let i = 0; i < sorted.length; i++) {
     diagnosticsList.innerHTML = `<div class="loading">Analyzing ${i + 1} / ${sorted.length}...</div>`;
@@ -151,11 +404,11 @@ async function processFiles(files: File[]) {
       const buffer = await file.arrayBuffer();
       const paragraphs = await parseDocx(buffer);
       const packet = segmentPacket(paragraphs);
-      const diagnostics = lint(packet, disabledRules);
+      const diagnostics = lint(packet, disabledSet);
       packets.push(packet);
       packetResults.push({ filename: file.name, diagnostics });
     } catch (err) {
-      packets.push(null as unknown as Packet);
+      packets.push(null);
       packetResults.push({
         filename: sorted[i].name,
         diagnostics: [],
@@ -163,13 +416,14 @@ async function processFiles(files: File[]) {
     }
   }
 
+  lastParsedPackets = packets;
+
   // Cross-packet tag category inference
   if (useInference) {
     const validPackets = packets.filter((p): p is Packet => p !== null);
     if (validPackets.length > 3) {
       const crossDiags = inferCrossPacketCategories(validPackets);
 
-      // Map inferred diagnostics back to packetResults, skipping failed packets
       let validIdx = 0;
       for (let i = 0; i < packets.length; i++) {
         if (packets[i] === null) continue;
@@ -210,34 +464,59 @@ function showCurrentPacket() {
   prevBtn.disabled = currentIndex === 0;
   nextBtn.disabled = currentIndex === packetResults.length - 1;
 
+  // Show/hide unstructured banner
+  const currentPacket = lastParsedPackets[currentIndex];
+  unstructuredBanner.hidden = !currentPacket || currentPacket.structured !== false;
+
   updateCounts();
   renderDiagnostics();
 }
 
 function updateCounts() {
   const diags = getCurrentDiagnostics();
-  countError.textContent = String(
-    diags.filter((d) => d.severity === "error").length
-  );
-  countWarning.textContent = String(
-    diags.filter((d) => d.severity === "warning").length
-  );
-  countInfo.textContent = String(
-    diags.filter((d) => d.severity === "info").length
-  );
+  const ignoredFps = new Set(settings.ignoredDiagnostics);
+
+  let errors = 0, warnings = 0, infos = 0, ignoredCount = 0;
+  for (const d of diags) {
+    if (ignoredFps.has(diagnosticFingerprint(d))) {
+      ignoredCount++;
+    } else {
+      if (d.severity === "error") errors++;
+      else if (d.severity === "warning") warnings++;
+      else infos++;
+    }
+  }
+
+  countError.textContent = String(errors);
+  countWarning.textContent = String(warnings);
+  countInfo.textContent = String(infos);
+  countIgnored.textContent = String(ignoredCount);
+  ignoredChip.hidden = ignoredCount === 0;
 }
 
 function renderDiagnostics() {
   const catFilter = filterCategory.value;
+  const allDiags = getCurrentDiagnostics();
 
-  const filtered = getCurrentDiagnostics().filter((d) => {
-    if (!activeSeverities.has(d.severity)) return false;
-    if (catFilter !== "all" && !d.rule.startsWith(catFilter + "."))
-      return false;
-    return true;
-  });
+  // Close any open menus
+  closeAllMenus();
 
-  if (filtered.length === 0) {
+  // Separate ignored from visible
+  const visible: LintDiagnostic[] = [];
+  const ignored: LintDiagnostic[] = [];
+
+  for (const d of allDiags) {
+    if (!activeSeverities.has(d.severity)) continue;
+    if (catFilter !== "all" && !d.rule.startsWith(catFilter + ".")) continue;
+
+    if (settings.ignoredDiagnostics.includes(diagnosticFingerprint(d))) {
+      ignored.push(d);
+    } else {
+      visible.push(d);
+    }
+  }
+
+  if (visible.length === 0 && (!showIgnored || ignored.length === 0)) {
     diagnosticsList.innerHTML = "";
     noIssues.hidden = false;
     return;
@@ -251,10 +530,10 @@ function renderDiagnostics() {
     info: "i",
   };
 
-  diagnosticsList.innerHTML = filtered
+  let html = visible
     .map(
-      (d) => `
-    <div class="diagnostic severity-${d.severity}${d.sourceText ? " has-snippet" : ""}">
+      (d, idx) => `
+    <div class="diagnostic severity-${d.severity}${d.sourceText ? " has-snippet" : ""}" data-diag-index="${idx}">
       <div class="diag-icon">${severityIcon[d.severity]}</div>
       <div class="diag-body">
         <div class="diag-rule">${d.rule}</div>
@@ -263,14 +542,39 @@ function renderDiagnostics() {
         ${d.suggestion ? `<div class="diag-suggestion">${escapeHtml(d.suggestion)}</div>` : ""}
         ${d.sourceText ? `<div class="diag-snippet" hidden>${buildSnippet(d.sourceText, d.offset, d.length)}</div>` : ""}
       </div>
+      <button class="diag-action" data-fp="${escapeHtml(diagnosticFingerprint(d))}" data-rule="${escapeHtml(d.rule)}" title="Actions">\u2026</button>
     </div>
   `
     )
     .join("");
 
+  // Render ignored diagnostics if toggled on
+  if (showIgnored && ignored.length > 0) {
+    html += `<div class="ignored-separator">Ignored (${ignored.length})</div>`;
+    html += ignored
+      .map(
+        (d) => `
+      <div class="diagnostic severity-${d.severity} ignored">
+        <div class="diag-icon">${severityIcon[d.severity]}</div>
+        <div class="diag-body">
+          <div class="diag-rule">${d.rule}</div>
+          <div class="diag-message">${escapeHtml(d.message)}</div>
+          <div class="diag-location">${d.questionLabel || "Paragraph " + (d.paragraph + 1)}${d.answerPreview ? " \u2014 " + escapeHtml(d.answerPreview) : ""}</div>
+        </div>
+        <button class="diag-unignore" data-fp="${escapeHtml(diagnosticFingerprint(d))}" title="Un-ignore">&#x2715;</button>
+      </div>
+    `
+      )
+      .join("");
+  }
+
+  diagnosticsList.innerHTML = html;
+
   // Add click handlers for expandable snippets
   for (const el of Array.from(diagnosticsList.querySelectorAll(".has-snippet"))) {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e) => {
+      // Don't toggle snippet when clicking action button
+      if ((e.target as HTMLElement).closest(".diag-action, .diag-menu")) return;
       const snippet = el.querySelector(".diag-snippet") as HTMLElement;
       if (snippet) {
         snippet.hidden = !snippet.hidden;
@@ -278,7 +582,82 @@ function renderDiagnostics() {
       }
     });
   }
+
+  // Add action button handlers
+  for (const btn of Array.from(diagnosticsList.querySelectorAll(".diag-action"))) {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const actionBtn = btn as HTMLElement;
+      toggleActionMenu(actionBtn);
+    });
+  }
+
+  // Add un-ignore button handlers
+  for (const btn of Array.from(diagnosticsList.querySelectorAll(".diag-unignore"))) {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const fp = (btn as HTMLElement).dataset.fp!;
+      settings.ignoredDiagnostics = settings.ignoredDiagnostics.filter((f) => f !== fp);
+      await saveSettings(settings);
+      updateCounts();
+      renderDiagnostics();
+    });
+  }
 }
+
+// --- Action menu ---
+
+function closeAllMenus() {
+  for (const menu of Array.from(document.querySelectorAll(".diag-menu"))) {
+    menu.remove();
+  }
+}
+
+function toggleActionMenu(actionBtn: HTMLElement) {
+  const existing = actionBtn.parentElement?.querySelector(".diag-menu");
+  closeAllMenus();
+  if (existing) return; // Was open, now closed
+
+  const fp = actionBtn.dataset.fp!;
+  const ruleId = actionBtn.dataset.rule!;
+  const shortName = ruleId.split(".")[1];
+
+  const menu = document.createElement("div");
+  menu.className = "diag-menu";
+  menu.innerHTML = `
+    <button data-action="ignore">Ignore this instance</button>
+    <button data-action="disable">Disable &ldquo;${escapeHtml(shortName)}&rdquo; rule</button>
+  `;
+
+  menu.querySelector('[data-action="ignore"]')!.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (!settings.ignoredDiagnostics.includes(fp)) {
+      settings.ignoredDiagnostics.push(fp);
+    }
+    await saveSettings(settings);
+    closeAllMenus();
+    updateCounts();
+    renderDiagnostics();
+  });
+
+  menu.querySelector('[data-action="disable"]')!.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (!settings.disabledRules.includes(ruleId)) {
+      settings.disabledRules.push(ruleId);
+    }
+    await saveSettings(settings);
+    closeAllMenus();
+    relintAll();
+    showCurrentPacket();
+  });
+
+  actionBtn.parentElement!.appendChild(menu);
+}
+
+// Close menus on click outside
+document.addEventListener("click", () => {
+  closeAllMenus();
+});
 
 function buildSnippet(sourceText: string, offset?: number, length?: number): string {
   const CONTEXT = 50;

@@ -38,13 +38,14 @@ function checkContractions(packet: Packet): LintDiagnostic[] {
     const text = stripQuotedText(para.rawText);
     const matches = [...text.matchAll(CONTRACTION_RE)];
     for (const match of matches) {
+      const rawOffset = para.rawText.indexOf(match[1], match.index! > 10 ? match.index! - 10 : 0);
       diags.push({
         rule: "writing.no-contractions",
         severity: "warning",
         paragraph: para.index,
         message: `Avoid contraction "${match[1]}". Spell it out.`,
         sourceText: para.rawText,
-        offset: match.index!,
+        offset: rawOffset !== -1 ? rawOffset : match.index!,
         length: match[1].length,
       });
     }
@@ -57,20 +58,21 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const textLower = stripQuotedText(para.rawText).toLowerCase();
+    const stripped = stripQuotedText(para.rawText);
 
     for (const word of WEASEL_WORDS) {
       const re = new RegExp(`\\b${word.replace(/-/g, "[-\\s]?")}\\b`, "gi");
-      const m = para.rawText.match(re);
+      const m = stripped.match(re);
       if (m) {
-        const idx = para.rawText.search(re);
+        // Find offset in original text for correct highlighting
+        const rawIdx = para.rawText.search(re);
         diags.push({
           rule: "writing.no-weasel-words",
           severity: "info",
           paragraph: para.index,
           message: `Avoid "${word}" — if it appears in quizbowl, it's already notable.`,
           sourceText: para.rawText,
-          offset: idx !== -1 ? idx : undefined,
+          offset: rawIdx !== -1 ? rawIdx : undefined,
           length: m[0].length,
         });
         break; // One per paragraph to avoid noise
@@ -119,16 +121,17 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
       }
 
       const re = new RegExp(`\\b${bad}\\b`, "gi");
-      const m = para.rawText.match(re);
+      const m = text.match(re);
       if (m) {
-        const idx = para.rawText.search(re);
+        // Find offset in original text for correct highlighting
+        const rawIdx = para.rawText.search(re);
         diags.push({
           rule: "writing.word-replacements",
           severity: "info",
           paragraph: para.index,
           message: `Consider replacing "${bad}" with "${good}".`,
           sourceText: para.rawText,
-          offset: idx !== -1 ? idx : undefined,
+          offset: rawIdx !== -1 ? rawIdx : undefined,
           length: m[0].length,
         });
       }
@@ -150,8 +153,11 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
       // Skip "this year" when used as a factual clue (e.g. "in this year", "during this year")
       if (/^this year$/i.test(match[1])) {
         const before = stripped.substring(Math.max(0, match.index! - 15), match.index!);
-        if (/\b(in|during|of|from)\s*$/i.test(before)) continue;
+        if (/\b(in|during|of|from|since)\s*$/i.test(before)) continue;
       }
+
+      // Find the true offset in the original (un-stripped) text
+      const rawOffset = para.rawText.indexOf(match[1], match.index! > 10 ? match.index! - 10 : 0);
 
       diags.push({
         rule: "writing.absolute-time",
@@ -159,7 +165,7 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
         paragraph: para.index,
         message: `Use absolute dates instead of "${match[1]}".`,
         sourceText: para.rawText,
-        offset: match.index!,
+        offset: rawOffset !== -1 ? rawOffset : match.index!,
         length: match[1].length,
       });
     }
@@ -199,6 +205,7 @@ function checkWouldGoOnTo(packet: Packet): LintDiagnostic[] {
 
     const wgotMatch = text.match(/\bwould\s+go\s+on\s+to\b/i);
     if (wgotMatch) {
+      const rawOffset = para.rawText.search(/\bwould\s+go\s+on\s+to\b/i);
       diags.push({
         rule: "writing.would-go-on-to",
         severity: "info",
@@ -206,13 +213,14 @@ function checkWouldGoOnTo(packet: Packet): LintDiagnostic[] {
         message:
           'Avoid "would go on to." Use simple past tense instead (e.g. "He wrote" not "He would go on to write").',
         sourceText: para.rawText,
-        offset: wgotMatch.index!,
+        offset: rawOffset !== -1 ? rawOffset : wgotMatch.index!,
         length: wgotMatch[0].length,
       });
     }
 
     const wotMatch = text.match(/\bwent\s+on\s+to\b/i);
     if (wotMatch) {
+      const rawOffset = para.rawText.search(/\bwent\s+on\s+to\b/i);
       diags.push({
         rule: "writing.would-go-on-to",
         severity: "info",
@@ -220,7 +228,7 @@ function checkWouldGoOnTo(packet: Packet): LintDiagnostic[] {
         message:
           'Avoid "went on to." Use simple past tense instead (e.g. "He wrote" not "He went on to write").',
         sourceText: para.rawText,
-        offset: wotMatch.index!,
+        offset: rawOffset !== -1 ? rawOffset : wotMatch.index!,
         length: wotMatch[0].length,
       });
     }

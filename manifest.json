@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "QBLint",
+  "name": "qbcheck",
   "version": "0.1.0",
   "description": "Lint quizbowl question packets for QMOS style violations",
-  "permissions": ["storage"],
+  "permissions": ["storage", "clipboardRead"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "QBLint"
+    "default_title": "qbcheck"
   },
   "icons": {}
 }

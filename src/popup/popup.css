@@ -35,10 +35,30 @@ header {
   margin-bottom: 12px;
 }
 
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 h1 {
   font-size: 18px;
   font-weight: 700;
   color: #1a1a2e;
+}
+
+#settings-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #888;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+#settings-btn:hover {
+  color: #333;
 }
 
 .subtitle {
@@ -102,6 +122,82 @@ h1 {
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+/* Paste divider and button */
+.paste-divider {
+  display: flex;
+  align-items: center;
+  margin: 12px 0;
+  gap: 12px;
+}
+
+.paste-divider::before,
+.paste-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #ddd;
+}
+
+.paste-divider span {
+  font-size: 11px;
+  color: #999;
+}
+
+.paste-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 2px dashed #4a6cf7;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  outline: none;
+}
+
+.paste-target:hover,
+.paste-target:focus {
+  background: #f0f4ff;
+  border-color: #3a5ce5;
+}
+
+.paste-target.paste-active {
+  background: #e8eeff;
+  border-style: solid;
+}
+
+.paste-target-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a6cf7;
+}
+
+.paste-target-hint {
+  font-size: 11px;
+  color: #999;
+}
+
+/* Info banner */
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #e8f4fd;
+  border: 1px solid #b3d9f2;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #0066b8;
+}
+
+.info-banner-icon {
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 /* Results */
@@ -387,4 +483,223 @@ h1 {
   text-align: center;
   padding: 20px;
   color: #666;
+}
+
+/* Ignored severity chip */
+.stat-ignored {
+  background: #f0f0f0;
+  color: #888;
+  border: 1px solid transparent;
+}
+
+.stat-ignored.active {
+  background: #d0d0d0;
+  color: #333;
+  border-color: #999;
+}
+
+/* Separator before ignored diagnostics */
+.ignored-separator {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 0 2px;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 4px;
+}
+
+/* Per-diagnostic action button */
+.diagnostic {
+  position: relative;
+}
+
+.diag-action {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.diag-action:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #666;
+  border-color: #ddd;
+}
+
+/* Action dropdown menu */
+.diag-menu {
+  position: absolute;
+  top: 24px;
+  right: 4px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  z-index: 100;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.diag-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+  color: #333;
+}
+
+.diag-menu button:hover {
+  background: #f0f4ff;
+}
+
+/* Ignored diagnostic style */
+.diagnostic.ignored {
+  opacity: 0.45;
+}
+
+.diagnostic.ignored .diag-action {
+  display: none;
+}
+
+.diag-unignore {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  color: #888;
+  padding: 2px 6px;
+}
+
+.diag-unignore:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* Settings view */
+#settings-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#settings-view[hidden] {
+  display: none;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#settings-back-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+#settings-back-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.settings-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+#settings-rules {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.rule-group {
+  margin-bottom: 12px;
+}
+
+.rule-group-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+.rule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 2px;
+}
+
+.rule-item input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.rule-item-text {
+  min-width: 0;
+}
+
+.rule-item-id {
+  font-family: monospace;
+  font-size: 11px;
+  color: #333;
+}
+
+.rule-item-desc {
+  font-size: 10px;
+  color: #888;
+}
+
+.settings-footer {
+  padding-top: 8px;
+  text-align: center;
+}
+
+#reset-defaults-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: #888;
+}
+
+#reset-defaults-btn:hover {
+  background: #fee;
+  color: #c00;
+  border-color: #fcc;
 }

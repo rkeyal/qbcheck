@@ -37,6 +37,7 @@ export interface Packet {
   tossups: Question[];
   bonuses: Question[];
   allParagraphs: Paragraph[];
+  structured: boolean;
 }
 
 export type Severity = "error" | "warning" | "info";
