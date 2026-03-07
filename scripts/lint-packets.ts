@@ -16,12 +16,12 @@
  *   --json              Output raw JSON for further processing
  */
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from "fs";
-import { join, relative } from "path";
-import { parseDocx } from "../src/core/parser.js";
-import { segmentPacket } from "../src/core/segmenter.js";
-import { lint } from "../src/core/engine.js";
-import { LintDiagnostic, Packet } from "../src/core/model.js";
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { join, relative } from 'path';
+import { parseDocx } from '../src/core/parser.js';
+import { segmentPacket } from '../src/core/segmenter.js';
+import { lint } from '../src/core/engine.js';
+import { LintDiagnostic, Packet } from '../src/core/model.js';
 
 // ── CLI argument parsing ────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ interface Options {
 function parseArgs(): Options {
   const args = process.argv.slice(2);
   const opts: Options = {
-    dir: "ExamplePackets",
+    dir: 'ExamplePackets',
     rule: null,
     severity: null,
     summaryOnly: false,
@@ -51,28 +51,28 @@ function parseArgs(): Options {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--dir":
+      case '--dir':
         opts.dir = args[++i];
         break;
-      case "--rule":
+      case '--rule':
         opts.rule = args[++i];
         break;
-      case "--severity":
+      case '--severity':
         opts.severity = args[++i];
         break;
-      case "--summary":
+      case '--summary':
         opts.summaryOnly = true;
         break;
-      case "--examples":
+      case '--examples':
         opts.examples = parseInt(args[++i], 10);
         break;
-      case "--verbose":
+      case '--verbose':
         opts.verbose = true;
         break;
-      case "--context":
+      case '--context':
         opts.context = true;
         break;
-      case "--json":
+      case '--json':
         opts.json = true;
         break;
       default:
@@ -95,7 +95,7 @@ function findDocxFiles(dir: string): string[] {
       const stat = statSync(full);
       if (stat.isDirectory()) {
         walk(full);
-      } else if (entry.endsWith(".docx") && !entry.startsWith("~$")) {
+      } else if (entry.endsWith('.docx') && !entry.startsWith('~$')) {
         files.push(full);
       }
     }
@@ -116,7 +116,11 @@ interface FileDiagnostic extends LintDiagnostic {
 async function processFile(
   filePath: string,
   baseDir: string
-): Promise<{ diags: FileDiagnostic[]; packet: Packet | null; error: string | null }> {
+): Promise<{
+  diags: FileDiagnostic[];
+  packet: Packet | null;
+  error: string | null;
+}> {
   const relPath = relative(baseDir, filePath);
 
   try {
@@ -136,8 +140,9 @@ async function processFile(
     }));
 
     return { diags, packet, error: null };
-  } catch (err: any) {
-    return { diags: [], packet: null, error: `${relPath}: ${err.message}` };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { diags: [], packet: null, error: `${relPath}: ${message}` };
   }
 }
 
@@ -157,7 +162,13 @@ function buildSummary(diags: FileDiagnostic[]): Map<string, RuleSummary> {
   for (const d of diags) {
     let entry = map.get(d.rule);
     if (!entry) {
-      entry = { rule: d.rule, severity: d.severity, count: 0, files: new Set(), examples: [] };
+      entry = {
+        rule: d.rule,
+        severity: d.severity,
+        count: 0,
+        files: new Set(),
+        examples: [],
+      };
       map.set(d.rule, entry);
     }
     entry.count++;
@@ -171,10 +182,16 @@ function buildSummary(diags: FileDiagnostic[]): Map<string, RuleSummary> {
 function printSummaryTable(summary: Map<string, RuleSummary>) {
   const rows = [...summary.values()].sort((a, b) => b.count - a.count);
 
-  console.log("");
-  console.log("┌─────────────────────────────────────────────┬──────────┬───────┬───────┐");
-  console.log("│ Rule                                        │ Severity │ Count │ Files │");
-  console.log("├─────────────────────────────────────────────┼──────────┼───────┼───────┤");
+  console.log('');
+  console.log(
+    '┌─────────────────────────────────────────────┬──────────┬───────┬───────┐'
+  );
+  console.log(
+    '│ Rule                                        │ Severity │ Count │ Files │'
+  );
+  console.log(
+    '├─────────────────────────────────────────────┼──────────┼───────┼───────┤'
+  );
 
   for (const row of rows) {
     const rule = row.rule.padEnd(43);
@@ -184,23 +201,31 @@ function printSummaryTable(summary: Map<string, RuleSummary>) {
     console.log(`│ ${rule} │ ${sev} │ ${count} │ ${files} │`);
   }
 
-  console.log("└─────────────────────────────────────────────┴──────────┴───────┴───────┘");
+  console.log(
+    '└─────────────────────────────────────────────┴──────────┴───────┴───────┘'
+  );
 
   const total = rows.reduce((s, r) => s + r.count, 0);
   console.log(`\nTotal: ${total} diagnostics across ${rows.length} rules`);
 }
 
-function printExamples(summary: Map<string, RuleSummary>, maxExamples: number, showContext: boolean) {
+function printExamples(
+  summary: Map<string, RuleSummary>,
+  maxExamples: number,
+  showContext: boolean
+) {
   const rules = [...summary.values()].sort((a, b) => b.count - a.count);
 
   for (const rule of rules) {
-    console.log(`\n${"═".repeat(70)}`);
-    console.log(`  ${rule.rule}  (${rule.severity})  —  ${rule.count} occurrences in ${rule.files.size} files`);
-    console.log("═".repeat(70));
+    console.log(`\n${'═'.repeat(70)}`);
+    console.log(
+      `  ${rule.rule}  (${rule.severity})  —  ${rule.count} occurrences in ${rule.files.size} files`
+    );
+    console.log('═'.repeat(70));
 
     const examples = rule.examples.slice(0, maxExamples);
     for (const ex of examples) {
-      const label = ex.questionLabel ? ` [${ex.questionLabel}]` : "";
+      const label = ex.questionLabel ? ` [${ex.questionLabel}]` : '';
       console.log(`\n  📄 ${ex.file}${label}  (para ${ex.paragraph})`);
       console.log(`     ${ex.message}`);
       if (ex.suggestion) {
@@ -209,7 +234,7 @@ function printExamples(summary: Map<string, RuleSummary>, maxExamples: number, s
       if (showContext && ex.paragraphText) {
         const truncated =
           ex.paragraphText.length > 120
-            ? ex.paragraphText.slice(0, 120) + "…"
+            ? ex.paragraphText.slice(0, 120) + '…'
             : ex.paragraphText;
         console.log(`     ▸ ${truncated}`);
       }
@@ -226,10 +251,11 @@ function printExamples(summary: Map<string, RuleSummary>, maxExamples: number, s
 
 function printVerbose(diags: FileDiagnostic[], showContext: boolean) {
   for (const d of diags) {
-    const label = d.questionLabel ? ` [${d.questionLabel}]` : "";
-    const ctx = showContext && d.paragraphText
-      ? `  ▸ ${d.paragraphText.length > 100 ? d.paragraphText.slice(0, 100) + "…" : d.paragraphText}`
-      : "";
+    const label = d.questionLabel ? ` [${d.questionLabel}]` : '';
+    const ctx =
+      showContext && d.paragraphText
+        ? `  ▸ ${d.paragraphText.length > 100 ? d.paragraphText.slice(0, 100) + '…' : d.paragraphText}`
+        : '';
     console.log(
       `${d.severity.toUpperCase().padEnd(7)} ${d.rule.padEnd(42)} ${d.file}${label} (para ${d.paragraph})`
     );
@@ -277,10 +303,28 @@ async function main() {
 
   // Output
   if (opts.json) {
-    const output = allDiags.map(({ file, rule, severity, paragraph, message, paragraphText, questionLabel, answerPreview }) => ({
-      file, rule, severity, paragraph, message, paragraphText, questionLabel, answerPreview,
-    }));
-    const outPath = "lint-results.json";
+    const output = allDiags.map(
+      ({
+        file,
+        rule,
+        severity,
+        paragraph,
+        message,
+        paragraphText,
+        questionLabel,
+        answerPreview,
+      }) => ({
+        file,
+        rule,
+        severity,
+        paragraph,
+        message,
+        paragraphText,
+        questionLabel,
+        answerPreview,
+      })
+    );
+    const outPath = 'lint-results.json';
     writeFileSync(outPath, JSON.stringify(output, null, 2));
     console.log(`\nWrote ${output.length} diagnostics to ${outPath}`);
     return;

@@ -1,5 +1,5 @@
-import { Paragraph, Packet, LintDiagnostic, Severity, Run } from "../model.js";
-import { ANSWER } from "../patterns.js";
+import { Paragraph, Packet, LintDiagnostic, Severity, Run } from '../model.js';
+import { ANSWER } from '../patterns.js';
 
 /**
  * Character formatting info extracted from runs.
@@ -15,9 +15,9 @@ export interface CharFormat {
  */
 export function stripQuotedText(text: string): string {
   return text
-    .replace(/\u201c[^\u201d]*\u201d/g, (m) => " ".repeat(m.length))
-    .replace(/"[^"]*"/g, (m) => " ".repeat(m.length))
-    .replace(/\u2018[^\u2019]*\u2019/g, (m) => " ".repeat(m.length));
+    .replace(/\u201c[^\u201d]*\u201d/g, (m) => ' '.repeat(m.length))
+    .replace(/"[^"]*"/g, (m) => ' '.repeat(m.length))
+    .replace(/\u2018[^\u2019]*\u2019/g, (m) => ' '.repeat(m.length));
 }
 
 /**
@@ -46,11 +46,11 @@ export function stripItalicOnly(para: Paragraph): string {
  * Blank out italic character ranges, replacing them with spaces.
  */
 function stripItalicText(text: string, italicMap: boolean[]): string {
-  const chars = text.split("");
+  const chars = text.split('');
   for (let i = 0; i < chars.length && i < italicMap.length; i++) {
-    if (italicMap[i]) chars[i] = " ";
+    if (italicMap[i]) chars[i] = ' ';
   }
-  return chars.join("");
+  return chars.join('');
 }
 
 /**

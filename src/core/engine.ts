@@ -1,11 +1,11 @@
-import { Packet, LintDiagnostic, LintRule, Question } from "./model.js";
-import { packetRules } from "./rules/packet.js";
-import { questionRules } from "./rules/question.js";
-import { answerlineRules } from "./rules/answerline.js";
-import { pronunciationRules } from "./rules/pronunciation.js";
-import { formattingRules } from "./rules/formatting.js";
-import { tagRules, extractTagCategory } from "./rules/tag.js";
-import { writingRules } from "./rules/writing.js";
+import { Packet, LintDiagnostic, LintRule, Question } from './model.js';
+import { packetRules } from './rules/packet.js';
+import { questionRules } from './rules/question.js';
+import { answerlineRules } from './rules/answerline.js';
+import { pronunciationRules } from './rules/pronunciation.js';
+import { formattingRules } from './rules/formatting.js';
+import { tagRules, extractTagCategory } from './rules/tag.js';
+import { writingRules } from './rules/writing.js';
 
 const allRules: LintRule[] = [
   ...packetRules,
@@ -18,15 +18,15 @@ const allRules: LintRule[] = [
 ];
 
 const PACKET_STRUCTURE_RULES = new Set([
-  "packet.section-headers",
-  "packet.section-order",
-  "packet.question-numbering",
-  "packet.numbering-sequence",
-  "packet.no-bold-numbers",
-  "packet.no-extras-label",
-  "packet.blank-paragraphs",
-  "packet.expected-count",
-  "tag.consistent-categories",
+  'packet.section-headers',
+  'packet.section-order',
+  'packet.question-numbering',
+  'packet.numbering-sequence',
+  'packet.no-bold-numbers',
+  'packet.no-extras-label',
+  'packet.blank-paragraphs',
+  'packet.expected-count',
+  'tag.consistent-categories',
 ]);
 
 export function lint(
@@ -58,9 +58,9 @@ const ANSWER_PREVIEW_MAX = 60;
 function extractAnswerText(q: Question): string[] {
   const answers: string[] = [];
 
-  if (q.type === "tossup" && q.answerLine) {
+  if (q.type === 'tossup' && q.answerLine) {
     answers.push(truncateAnswer(q.answerLine.rawText));
-  } else if (q.type === "bonus") {
+  } else if (q.type === 'bonus') {
     for (const part of q.parts) {
       if (part.answerLine) {
         answers.push(truncateAnswer(part.answerLine.rawText));
@@ -73,21 +73,27 @@ function extractAnswerText(q: Question): string[] {
 
 function truncateAnswer(raw: string): string {
   // Strip "ANSWER: " prefix
-  let text = raw.replace(/^\s*ANSWER:\s*/i, "").trim();
+  let text = raw.replace(/^\s*ANSWER:\s*/i, '').trim();
   // Remove bracketed instructions (e.g. [accept ...], [or ...], [prompt ...])
-  const bracketIdx = text.indexOf("[");
+  const bracketIdx = text.indexOf('[');
   if (bracketIdx !== -1) {
     text = text.substring(0, bracketIdx).trim();
   }
   if (text.length > ANSWER_PREVIEW_MAX) {
-    text = text.substring(0, ANSWER_PREVIEW_MAX) + "\u2026";
+    text = text.substring(0, ANSWER_PREVIEW_MAX) + '\u2026';
   }
   return text;
 }
 
-function enrichDiagnostics(diagnostics: LintDiagnostic[], packet: Packet): void {
+function enrichDiagnostics(
+  diagnostics: LintDiagnostic[],
+  packet: Packet
+): void {
   // Build a map from paragraph index → question info
-  const paraToQuestion = new Map<number, { label: string; answers: string[] }>();
+  const paraToQuestion = new Map<
+    number,
+    { label: string; answers: string[] }
+  >();
 
   for (const q of packet.tossups) {
     const label = `T${q.number}`;
@@ -109,7 +115,7 @@ function enrichDiagnostics(diagnostics: LintDiagnostic[], packet: Packet): void 
     const info = paraToQuestion.get(d.paragraph);
     if (info) {
       d.questionLabel = info.label;
-      d.answerPreview = info.answers.join(" / ");
+      d.answerPreview = info.answers.join(' / ');
     }
   }
 }
@@ -144,12 +150,12 @@ export function inferCrossPacketCategories(
 
       // Extract base category (before colon if present)
       const colonIndex = cat.indexOf(':');
-      const baseCategory = colonIndex !== -1
-        ? cat.substring(0, colonIndex).trim()
-        : cat;
+      const baseCategory =
+        colonIndex !== -1 ? cat.substring(0, colonIndex).trim() : cat;
       const key = baseCategory.toLowerCase();
 
-      if (!baseCategoryToPackets.has(key)) baseCategoryToPackets.set(key, new Set());
+      if (!baseCategoryToPackets.has(key))
+        baseCategoryToPackets.set(key, new Set());
       baseCategoryToPackets.get(key)!.add(pi);
     }
   }
@@ -165,17 +171,16 @@ export function inferCrossPacketCategories(
 
       // Extract base category for frequency check
       const colonIndex = cat.indexOf(':');
-      const baseCategory = colonIndex !== -1
-        ? cat.substring(0, colonIndex).trim()
-        : cat;
+      const baseCategory =
+        colonIndex !== -1 ? cat.substring(0, colonIndex).trim() : cat;
       const key = baseCategory.toLowerCase();
 
       const count = baseCategoryToPackets.get(key)?.size ?? 0;
       if (count < threshold) {
-        const label = `${q.type === "tossup" ? "T" : "B"}${q.number}`;
+        const label = `${q.type === 'tossup' ? 'T' : 'B'}${q.number}`;
         result[pi].push({
-          rule: "tag.valid-category",
-          severity: "warning",
+          rule: 'tag.valid-category',
+          severity: 'warning',
           paragraph: q.tag.index,
           message: `Base category "${baseCategory}" appears in only ${count} of ${packets.length} packets. It may be non-standard.`,
           questionLabel: label,

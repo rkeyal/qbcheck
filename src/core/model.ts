@@ -21,7 +21,7 @@ export interface BonusPart {
 }
 
 export interface Question {
-  type: "tossup" | "bonus";
+  type: 'tossup' | 'bonus';
   number: number;
   numberParagraph: Paragraph; // the paragraph containing "N. ..."
   paragraphs: Paragraph[]; // all paragraphs belonging to this question
@@ -40,7 +40,7 @@ export interface Packet {
   structured: boolean;
 }
 
-export type Severity = "error" | "warning" | "info";
+export type Severity = 'error' | 'warning' | 'info';
 
 export interface LintDiagnostic {
   rule: string;
@@ -48,11 +48,11 @@ export interface LintDiagnostic {
   paragraph: number;
   message: string;
   suggestion?: string;
-  questionLabel?: string;   // e.g. "T5", "B17"
-  answerPreview?: string;   // truncated answer text
-  sourceText?: string;      // paragraph rawText for snippet rendering
-  offset?: number;          // char offset of match within sourceText
-  length?: number;          // length of matched text
+  questionLabel?: string; // e.g. "T5", "B17"
+  answerPreview?: string; // truncated answer text
+  sourceText?: string; // paragraph rawText for snippet rendering
+  offset?: number; // char offset of match within sourceText
+  length?: number; // length of matched text
 }
 
 export type LintRule = (packet: Packet) => LintDiagnostic[];

@@ -1,5 +1,5 @@
-import JSZip from "jszip";
-import { Paragraph, Run } from "./model.js";
+import JSZip from 'jszip';
+import { Paragraph, Run } from './model.js';
 
 /**
  * Parse a .docx file (as ArrayBuffer) into an array of Paragraphs
@@ -7,11 +7,11 @@ import { Paragraph, Run } from "./model.js";
  */
 export async function parseDocx(buffer: ArrayBuffer): Promise<Paragraph[]> {
   const zip = await JSZip.loadAsync(buffer);
-  const docXml = zip.file("word/document.xml");
+  const docXml = zip.file('word/document.xml');
   if (!docXml) {
-    throw new Error("Invalid .docx file: missing word/document.xml");
+    throw new Error('Invalid .docx file: missing word/document.xml');
   }
-  const xml = await docXml.async("string");
+  const xml = await docXml.async('string');
   return parseParagraphs(xml);
 }
 
@@ -23,15 +23,15 @@ function parseParagraphs(xml: string): Paragraph[] {
   for (let i = 0; i < paraChunks.length; i++) {
     const chunk = paraChunks[i];
     // Only process chunks that contain an opening <w:p> tag
-    if (!chunk.includes("<w:p")) continue;
+    if (!chunk.includes('<w:p')) continue;
 
     const hasPageBreak =
       chunk.includes('w:type="page"') ||
       chunk.includes("w:type='page'") ||
-      chunk.includes("<w:lastRenderedPageBreak");
+      chunk.includes('<w:lastRenderedPageBreak');
 
     const runs = parseRuns(chunk);
-    const rawText = runs.map((r) => r.text).join("");
+    const rawText = runs.map((r) => r.text).join('');
 
     paragraphs.push({
       index: paragraphs.length,
@@ -54,16 +54,15 @@ function parseRuns(paraXml: string): Run[] {
     const textMatches = [...chunk.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)];
     if (textMatches.length === 0) continue;
 
-    const text = unescapeXml(textMatches.map((m) => m[1]).join(""));
+    const text = unescapeXml(textMatches.map((m) => m[1]).join(''));
     if (!text) continue;
 
     // Check formatting in the run properties (<w:rPr>)
-    const rPr = extractBetween(chunk, "<w:rPr>", "</w:rPr>") ?? "";
+    const rPr = extractBetween(chunk, '<w:rPr>', '</w:rPr>') ?? '';
 
-    const bold = hasProp(rPr, "w:b");
-    const italic = hasProp(rPr, "w:i");
-    const underline =
-      rPr.includes("<w:u ") && !rPr.includes('w:val="none"');
+    const bold = hasProp(rPr, 'w:b');
+    const italic = hasProp(rPr, 'w:i');
+    const underline = rPr.includes('<w:u ') && !rPr.includes('w:val="none"');
     const superscript = /w:vertAlign[^>]*w:val\s*=\s*"superscript"/.test(rPr);
     const subscript = /w:vertAlign[^>]*w:val\s*=\s*"subscript"/.test(rPr);
 
@@ -91,9 +90,9 @@ function hasProp(rPr: string, tag: string): boolean {
 
 function unescapeXml(str: string): string {
   return str
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
     .replace(/&apos;/g, "'")
     .replace(/&quot;/g, '"');
 }
@@ -104,10 +103,10 @@ function unescapeXml(str: string): string {
  */
 export function parseHtml(html: string): Paragraph[] {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  const doc = parser.parseFromString(html, 'text/html');
   const paragraphs: Paragraph[] = [];
 
-  const pElements = doc.querySelectorAll("p");
+  const pElements = doc.querySelectorAll('p');
 
   for (const p of Array.from(pElements)) {
     const runs: Run[] = [];
@@ -115,7 +114,7 @@ export function parseHtml(html: string): Paragraph[] {
     // Walk child nodes — Google Docs wraps text in <span> elements
     for (const node of Array.from(p.childNodes)) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent ?? "";
+        const text = node.textContent ?? '';
         if (text) {
           runs.push({
             text,
@@ -128,10 +127,9 @@ export function parseHtml(html: string): Paragraph[] {
         }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const el = node as HTMLElement;
-        const text = el.textContent ?? "";
+        const text = el.textContent ?? '';
         if (!text) continue;
 
-        const style = el.style || (el as HTMLElement).style;
         const computedStyle = getComputedStyleFromElement(el);
 
         runs.push({
@@ -145,7 +143,7 @@ export function parseHtml(html: string): Paragraph[] {
       }
     }
 
-    const rawText = runs.map((r) => r.text).join("");
+    const rawText = runs.map((r) => r.text).join('');
 
     // Skip completely empty paragraphs only if there are no runs
     // (keep blank paragraphs for segmenter boundaries)
@@ -169,62 +167,56 @@ interface FormattingInfo {
 }
 
 function getComputedStyleFromElement(el: HTMLElement): FormattingInfo {
-  const style = el.getAttribute("style") ?? "";
-
-  // Check the element's own style
-  let bold = false;
-  let italic = false;
-  let underline = false;
-  let superscript = false;
-  let subscript = false;
+  const style = el.getAttribute('style') ?? '';
 
   // Check inline style
-  const fontWeight = extractStyleValue(style, "font-weight");
+  const fontWeight = extractStyleValue(style, 'font-weight');
+  let bold = false;
   if (fontWeight) {
     const weight = parseInt(fontWeight, 10);
-    bold = !isNaN(weight) ? weight >= 700 : fontWeight === "bold";
+    bold = !isNaN(weight) ? weight >= 700 : fontWeight === 'bold';
   }
 
-  const fontStyle = extractStyleValue(style, "font-style");
-  italic = fontStyle === "italic";
+  const fontStyle = extractStyleValue(style, 'font-style');
+  let italic = fontStyle === 'italic';
 
-  const textDeco = extractStyleValue(style, "text-decoration");
-  underline = textDeco ? textDeco.includes("underline") : false;
+  const textDeco = extractStyleValue(style, 'text-decoration');
+  let underline = textDeco ? textDeco.includes('underline') : false;
 
-  const vertAlign = extractStyleValue(style, "vertical-align");
-  superscript = vertAlign === "super";
-  subscript = vertAlign === "sub";
+  const vertAlign = extractStyleValue(style, 'vertical-align');
+  let superscript = vertAlign === 'super';
+  let subscript = vertAlign === 'sub';
 
   // Also check HTML tags — Google Docs sometimes uses <b>, <i>, <u>
-  if (!bold && (el.tagName === "B" || el.tagName === "STRONG")) bold = true;
-  if (!italic && (el.tagName === "I" || el.tagName === "EM")) italic = true;
-  if (!underline && el.tagName === "U") underline = true;
-  if (!superscript && el.tagName === "SUP") superscript = true;
-  if (!subscript && el.tagName === "SUB") subscript = true;
+  if (!bold && (el.tagName === 'B' || el.tagName === 'STRONG')) bold = true;
+  if (!italic && (el.tagName === 'I' || el.tagName === 'EM')) italic = true;
+  if (!underline && el.tagName === 'U') underline = true;
+  if (!superscript && el.tagName === 'SUP') superscript = true;
+  if (!subscript && el.tagName === 'SUB') subscript = true;
 
   // Check child spans — Google Docs nests formatting in child spans
-  if (el.tagName === "SPAN" || el.tagName === "A") {
-    const children = el.querySelectorAll("span, b, strong, i, em, u, sup, sub");
+  if (el.tagName === 'SPAN' || el.tagName === 'A') {
+    const children = el.querySelectorAll('span, b, strong, i, em, u, sup, sub');
     for (const child of Array.from(children)) {
-      const childStyle = child.getAttribute("style") ?? "";
-      const cfw = extractStyleValue(childStyle, "font-weight");
+      const childStyle = child.getAttribute('style') ?? '';
+      const cfw = extractStyleValue(childStyle, 'font-weight');
       if (cfw) {
         const w = parseInt(cfw, 10);
-        if (!isNaN(w) ? w >= 700 : cfw === "bold") bold = true;
+        if (!isNaN(w) ? w >= 700 : cfw === 'bold') bold = true;
       }
-      const cfs = extractStyleValue(childStyle, "font-style");
-      if (cfs === "italic") italic = true;
-      const ctd = extractStyleValue(childStyle, "text-decoration");
-      if (ctd && ctd.includes("underline")) underline = true;
-      const cva = extractStyleValue(childStyle, "vertical-align");
-      if (cva === "super") superscript = true;
-      if (cva === "sub") subscript = true;
+      const cfs = extractStyleValue(childStyle, 'font-style');
+      if (cfs === 'italic') italic = true;
+      const ctd = extractStyleValue(childStyle, 'text-decoration');
+      if (ctd && ctd.includes('underline')) underline = true;
+      const cva = extractStyleValue(childStyle, 'vertical-align');
+      if (cva === 'super') superscript = true;
+      if (cva === 'sub') subscript = true;
 
-      if (child.tagName === "B" || child.tagName === "STRONG") bold = true;
-      if (child.tagName === "I" || child.tagName === "EM") italic = true;
-      if (child.tagName === "U") underline = true;
-      if (child.tagName === "SUP") superscript = true;
-      if (child.tagName === "SUB") subscript = true;
+      if (child.tagName === 'B' || child.tagName === 'STRONG') bold = true;
+      if (child.tagName === 'I' || child.tagName === 'EM') italic = true;
+      if (child.tagName === 'U') underline = true;
+      if (child.tagName === 'SUP') superscript = true;
+      if (child.tagName === 'SUB') subscript = true;
     }
   }
 
@@ -233,7 +225,7 @@ function getComputedStyleFromElement(el: HTMLElement): FormattingInfo {
 
 function extractStyleValue(style: string, property: string): string | null {
   // Match "property: value" in inline style string
-  const re = new RegExp(`${property}\\s*:\\s*([^;]+)`, "i");
+  const re = new RegExp(`${property}\\s*:\\s*([^;]+)`, 'i');
   const match = style.match(re);
   return match ? match[1].trim().toLowerCase() : null;
 }

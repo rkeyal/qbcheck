@@ -19,7 +19,7 @@ export const ANSWER = /^\s*ANSWER\s*:\s*/i;
  * Matches tag line format: <Author, Category> or <Category>
  * Includes optional editorial suffix like [Edited] or {Ed. CT}
  */
-export const TAG = /^\s*<[^>]+>\s*(?:[\[{][^\]\}]*[\]\}])?\s*$/;
+export const TAG = /^\s*<[^>]+>\s*(?:[[{][^]}]*[\]}])?\s*$/;
 
 /**
  * Matches bonus part markers: [10], [10e], [10m], [10h], [E], [M], [H]
@@ -29,7 +29,7 @@ export const BONUS_PART = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
 /**
  * Matches editorial suffixes in tag lines: [Edited], {Ed. CT], etc.
  */
-export const EDITORIAL_SUFFIX = /\s*[\[{][^\]\}]*[\]\}]\s*$/;
+export const EDITORIAL_SUFFIX = /\s*[[{][^]}]*[\]}]\s*$/;
 
 /**
  * Matches tag with author and category: <Author, Category>

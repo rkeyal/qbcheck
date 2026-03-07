@@ -1,8 +1,22 @@
-import { Paragraph, Packet, Question, BonusPart, Run, LintDiagnostic } from "../src/core/model.js";
+import {
+  Paragraph,
+  Packet,
+  Question,
+  BonusPart,
+  Run,
+  LintDiagnostic,
+} from '../src/core/model.js';
 
 /** Default plain-text run (no formatting). */
 function plainRun(text: string): Run {
-  return { text, bold: false, italic: false, underline: false, superscript: false, subscript: false };
+  return {
+    text,
+    bold: false,
+    italic: false,
+    underline: false,
+    superscript: false,
+    subscript: false,
+  };
 }
 
 /** Create a Paragraph with sensible defaults. */
@@ -22,8 +36,14 @@ export function makeParagraph(
 export function makePacket(opts?: Partial<Packet>): Packet {
   return {
     header: opts?.header ?? [],
-    tossupHeader: opts && "tossupHeader" in opts ? opts.tossupHeader! : makeParagraph("Tossups", { index: 0 }),
-    bonusHeader: opts && "bonusHeader" in opts ? opts.bonusHeader! : makeParagraph("Bonuses", { index: 100 }),
+    tossupHeader:
+      opts && 'tossupHeader' in opts
+        ? opts.tossupHeader!
+        : makeParagraph('Tossups', { index: 0 }),
+    bonusHeader:
+      opts && 'bonusHeader' in opts
+        ? opts.bonusHeader!
+        : makeParagraph('Bonuses', { index: 100 }),
     tossups: opts?.tossups ?? [],
     bonuses: opts?.bonuses ?? [],
     allParagraphs: opts?.allParagraphs ?? [],
@@ -38,7 +58,7 @@ export function makePacket(opts?: Partial<Packet>): Packet {
  * `answer` is the raw answer-line text (ANSWER: prefix is prepended automatically if missing).
  */
 export function makeQuestion(
-  type: "tossup" | "bonus",
+  type: 'tossup' | 'bonus',
   number: number,
   text: string,
   answer: string,
@@ -81,7 +101,7 @@ export function makeQuestion(
     number,
     numberParagraph: numberPara,
     paragraphs,
-    answerLine: type === "tossup" ? answerPara : null,
+    answerLine: type === 'tossup' ? answerPara : null,
     tag: tagPara,
     parts: opts?.parts ?? [],
   };
@@ -116,6 +136,9 @@ export function findDiag(
 }
 
 /** Check whether any diagnostic matches a rule ID. */
-export function hasDiag(diagnostics: LintDiagnostic[], ruleId: string): boolean {
+export function hasDiag(
+  diagnostics: LintDiagnostic[],
+  ruleId: string
+): boolean {
   return diagnostics.some((d) => d.rule === ruleId);
 }

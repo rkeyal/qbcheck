@@ -1,5 +1,5 @@
-import { Paragraph, Packet, Question, BonusPart, Run } from "./model.js";
-import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from "./patterns.js";
+import { Paragraph, Packet, Question, Run } from './model.js';
+import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from './patterns.js';
 
 /**
  * Segment a flat list of paragraphs into a structured Packet.
@@ -30,10 +30,7 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
     if (/\btossups:?\s*$/.test(text) && tossupIdx === -1) {
       tossupIdx = i;
       packet.tossupHeader = processed[i];
-    } else if (
-      /\bbonuses:?\s*$/.test(text) &&
-      bonusIdx === -1
-    ) {
+    } else if (/\bbonuses:?\s*$/.test(text) && bonusIdx === -1) {
       bonusIdx = i;
       packet.bonusHeader = processed[i];
     }
@@ -54,13 +51,13 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
   if (tossupIdx !== -1) {
     const tossupEnd = bonusIdx !== -1 ? bonusIdx : processed.length;
     const tossupParas = processed.slice(tossupIdx + 1, tossupEnd);
-    packet.tossups = parseQuestions(tossupParas, "tossup");
+    packet.tossups = parseQuestions(tossupParas, 'tossup');
   }
 
   // Parse bonuses
   if (bonusIdx !== -1) {
     const bonusParas = processed.slice(bonusIdx + 1);
-    packet.bonuses = parseQuestions(bonusParas, "bonus");
+    packet.bonuses = parseQuestions(bonusParas, 'bonus');
   }
 
   return packet;
@@ -68,7 +65,7 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
 
 function parseQuestions(
   paragraphs: Paragraph[],
-  type: "tossup" | "bonus"
+  type: 'tossup' | 'bonus'
 ): Question[] {
   const questions: Question[] = [];
   let current: Question | null = null;
@@ -114,14 +111,14 @@ function parseQuestions(
 
       if (ANSWER.test(text)) {
         // If this is a bonus and we have parts, assign to the last part
-        if (type === "bonus" && current.parts.length > 0) {
+        if (type === 'bonus' && current.parts.length > 0) {
           current.parts[current.parts.length - 1].answerLine = para;
         } else {
           current.answerLine = para;
         }
       } else if (TAG.test(text)) {
         current.tag = para;
-      } else if (type === "bonus" && BONUS_PART.test(text)) {
+      } else if (type === 'bonus' && BONUS_PART.test(text)) {
         const markerMatch = text.match(BONUS_PART)!;
         // Check if this paragraph also contains an embedded ANSWER:
         const restOfText = text.slice(markerMatch[0].length);
@@ -172,12 +169,15 @@ function segmentFlatList(processed: Paragraph[]): Packet {
   // Group answer lines into questions.
   // Walk backward from each answer line to find question start,
   // walk forward to find tag line.
-  const questions: Question[] = [];
   const assigned = new Set<number>();
 
   // First pass: group consecutive ANSWER: lines that belong to bonuses
   // A question boundary is: previous tag line, blank line, or start of doc
-  const questionGroups: { start: number; end: number; answerLines: number[] }[] = [];
+  const questionGroups: {
+    start: number;
+    end: number;
+    answerLines: number[];
+  }[] = [];
 
   let gi = 0;
   while (gi < answerIndices.length) {
@@ -205,16 +205,24 @@ function segmentFlatList(processed: Paragraph[]): Packet {
       let gapHasBlank = false;
       for (let k = lastIdx + 1; k < nextAnswer; k++) {
         const text = processed[k].rawText.trim();
-        if (!text) { gapHasBlank = true; break; }
+        if (!text) {
+          gapHasBlank = true;
+          break;
+        }
       }
       if (gapHasBlank) break;
 
       // Check if lines between are bonus parts or question text (not a new question start)
       const betweenLines = processed.slice(lastIdx + 1, nextAnswer);
-      const hasBonusPartMarker = betweenLines.some(p => BONUS_PART.test(p.rawText.trim()));
+      const hasBonusPartMarker = betweenLines.some((p) =>
+        BONUS_PART.test(p.rawText.trim())
+      );
       if (!hasBonusPartMarker && betweenLines.length > 0) {
         // Could still be bonus text without markers if the first chunk had markers
-        const firstChunkText = processed.slice(start, firstAnswer + 1).map(p => p.rawText).join(" ");
+        const firstChunkText = processed
+          .slice(start, firstAnswer + 1)
+          .map((p) => p.rawText)
+          .join(' ');
         if (!BONUS_PART.test(firstChunkText) && !FTPE_RE.test(firstChunkText)) {
           break; // Separate question
         }
@@ -245,16 +253,18 @@ function segmentFlatList(processed: Paragraph[]): Packet {
 
   for (const group of questionGroups) {
     const paras = processed.slice(group.start, group.end + 1);
-    const fullText = paras.map(p => p.rawText).join(" ");
+    const fullText = paras.map((p) => p.rawText).join(' ');
 
     // Infer type
-    const hasBonusPartMarkers = paras.some(p => BONUS_PART.test(p.rawText.trim()));
+    const hasBonusPartMarkers = paras.some((p) =>
+      BONUS_PART.test(p.rawText.trim())
+    );
     const hasFTPE = FTPE_RE.test(fullText);
     const multipleAnswers = group.answerLines.length > 1;
     const isBonus = hasBonusPartMarkers || hasFTPE || multipleAnswers;
 
-    const type = isBonus ? "bonus" : "tossup";
-    const number = type === "tossup" ? tossupNum++ : bonusNum++;
+    const type = isBonus ? 'bonus' : 'tossup';
+    const number = type === 'tossup' ? tossupNum++ : bonusNum++;
 
     const q: Question = {
       type,
@@ -272,7 +282,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
       q.tag = lastPara;
     }
 
-    if (type === "bonus") {
+    if (type === 'bonus') {
       // Parse bonus parts
       for (const para of paras) {
         const text = para.rawText.trim();
@@ -303,7 +313,7 @@ function segmentFlatList(processed: Paragraph[]): Packet {
       }
     }
 
-    if (type === "tossup") {
+    if (type === 'tossup') {
       packet.tossups.push(q);
     } else {
       packet.bonuses.push(q);
@@ -373,9 +383,7 @@ function splitConcatenatedParagraph(para: Paragraph): Paragraph[] {
   }
 
   // Trailing author tag  —  <Name, Category> optionally followed by [Edited] etc.
-  const tagMatch = text.match(
-    /<[A-Z][^>]{2,}>\s*(?:[\[{][^\]\}]*[\]\}])?\s*$/i
-  );
+  const tagMatch = text.match(/<[A-Z][^>]{2,}>\s*(?:[[{][^]}]*[\]}])?\s*$/i);
   if (
     tagMatch &&
     tagMatch.index! > 0 &&
@@ -425,11 +433,7 @@ function splitConcatenatedParagraph(para: Paragraph): Paragraph[] {
  * Extract the sub-sequence of runs that covers characters
  * `[startChar, endChar)` within the concatenated run text.
  */
-function sliceRuns(
-  runs: Run[],
-  startChar: number,
-  endChar: number
-): Run[] {
+function sliceRuns(runs: Run[], startChar: number, endChar: number): Run[] {
   const result: Run[] = [];
   let pos = 0;
 

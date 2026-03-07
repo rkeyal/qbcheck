@@ -9,15 +9,25 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint-packets": "npx tsx scripts/lint-packets.ts"
   },
   "dependencies": {
     "jszip": "^3.10.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/chrome": "^0.0.287",
+    "@types/eslint__js": "^8.42.3",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
     "jsdom": "^28.1.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.56.1",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   }

@@ -1,5 +1,5 @@
-import { Packet, LintDiagnostic, LintRule, Question } from "../model.js";
-import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from "../patterns.js";
+import { Packet, LintDiagnostic, LintRule } from '../model.js';
+import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from '../patterns.js';
 
 function checkFtpFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -11,11 +11,10 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
     const ftenMatch = text.match(/for ten points/i);
     if (ftenMatch && !/for 10 points/i.test(text)) {
       diags.push({
-        rule: "question.ftp-format",
-        severity: "error",
+        rule: 'question.ftp-format',
+        severity: 'error',
         paragraph: q.numberParagraph.index,
-        message:
-          'Use "For 10 points" with numerals, not "For ten points".',
+        message: 'Use "For 10 points" with numerals, not "For ten points".',
         sourceText: text,
         offset: ftenMatch.index!,
         length: ftenMatch[0].length,
@@ -25,24 +24,22 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
     // Check FTP exists
     if (!/for 10 points/i.test(text)) {
       diags.push({
-        rule: "question.ftp-format",
-        severity: "warning",
+        rule: 'question.ftp-format',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message:
-          'Tossup is missing "For 10 points" marker.',
+        message: 'Tossup is missing "For 10 points" marker.',
         sourceText: text,
       });
     }
 
     // Check FTP is followed by a comma
     const ftpMatch = text.match(/For 10 points([^,])/i);
-    if (ftpMatch && ftpMatch[1] !== ",") {
+    if (ftpMatch && ftpMatch[1] !== ',') {
       diags.push({
-        rule: "question.ftp-format",
-        severity: "warning",
+        rule: 'question.ftp-format',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message:
-          '"For 10 points" should be followed by a comma.',
+        message: '"For 10 points" should be followed by a comma.',
         sourceText: text,
         offset: ftpMatch.index!,
         length: ftpMatch[0].length,
@@ -62,11 +59,10 @@ function checkFtpePlacement(packet: Packet): LintDiagnostic[] {
 
     if (!/for 10 points each/i.test(text)) {
       diags.push({
-        rule: "question.ftpe-format",
-        severity: "warning",
+        rule: 'question.ftpe-format',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message:
-          'Bonus lead-in should contain "For 10 points each".',
+        message: 'Bonus lead-in should contain "For 10 points each".',
         sourceText: text,
       });
     }
@@ -81,11 +77,10 @@ function checkBonusPartMarkers(packet: Packet): LintDiagnostic[] {
   for (const q of packet.bonuses) {
     if (q.parts.length === 0) {
       diags.push({
-        rule: "question.bonus-part-marker",
-        severity: "error",
+        rule: 'question.bonus-part-marker',
+        severity: 'error',
         paragraph: q.numberParagraph.index,
-        message:
-          "Bonus has no part markers ([10], [E], [M], [H]).",
+        message: 'Bonus has no part markers ([10], [E], [M], [H]).',
       });
     }
 
@@ -94,8 +89,8 @@ function checkBonusPartMarkers(packet: Packet): LintDiagnostic[] {
       // Check marker format
       if (!/^\s*\[(10[emh]?|[EMH])\]\s/i.test(text)) {
         diags.push({
-          rule: "question.bonus-part-marker",
-          severity: "warning",
+          rule: 'question.bonus-part-marker',
+          severity: 'warning',
           paragraph: part.textParagraph.index,
           message: `Bonus part marker "${part.marker}" has unexpected format.`,
         });
@@ -110,21 +105,21 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   // Only warn about missing power marks if at least one tossup uses them
-  const packetUsesPower = packet.tossups.some(
-    (q) => q.numberParagraph.rawText.includes("(*)")
+  const packetUsesPower = packet.tossups.some((q) =>
+    q.numberParagraph.rawText.includes('(*)')
   );
 
   for (const q of packet.tossups) {
     const text = q.numberParagraph.rawText;
-    const powerIdx = text.indexOf("(*)");
+    const powerIdx = text.indexOf('(*)');
 
     if (powerIdx === -1) {
       if (packetUsesPower) {
         diags.push({
-          rule: "question.power-mark",
-          severity: "info",
+          rule: 'question.power-mark',
+          severity: 'info',
           paragraph: q.numberParagraph.index,
-          message: "Tossup has no power mark (*).",
+          message: 'Tossup has no power mark (*).',
           sourceText: text,
         });
       }
@@ -132,12 +127,12 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
     }
 
     // Check that (*) is not in the middle of a word
-    if (powerIdx > 0 && text[powerIdx - 1] !== " ") {
+    if (powerIdx > 0 && text[powerIdx - 1] !== ' ') {
       diags.push({
-        rule: "question.power-mark",
-        severity: "warning",
+        rule: 'question.power-mark',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message: "Power mark (*) should be preceded by a space.",
+        message: 'Power mark (*) should be preceded by a space.',
         sourceText: text,
         offset: powerIdx,
         length: 3,
@@ -152,21 +147,21 @@ function checkMissingAnswerLine(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const q of [...packet.tossups, ...packet.bonuses]) {
-    if (q.type === "tossup" && !q.answerLine) {
+    if (q.type === 'tossup' && !q.answerLine) {
       diags.push({
-        rule: "question.missing-answer",
-        severity: "error",
+        rule: 'question.missing-answer',
+        severity: 'error',
         paragraph: q.numberParagraph.index,
         message: `Tossup ${q.number} has no answer line.`,
       });
     }
 
-    if (q.type === "bonus") {
+    if (q.type === 'bonus') {
       for (let i = 0; i < q.parts.length; i++) {
         if (!q.parts[i].answerLine) {
           diags.push({
-            rule: "question.missing-answer",
-            severity: "error",
+            rule: 'question.missing-answer',
+            severity: 'error',
             paragraph: q.parts[i].textParagraph.index,
             message: `Bonus ${q.number}, part ${i + 1} has no answer line.`,
           });
@@ -187,9 +182,9 @@ function checkMissingAnswerLine(packet: Packet): LintDiagnostic[] {
  */
 function isGeneralInstruction(text: string): boolean {
   // Strip the leading question number  e.g. "1. "
-  const body = text.replace(/^\s*\d+\.\s*/, "").trim();
+  const body = text.replace(/^\s*\d+\.\s*/, '').trim();
   // Also strip leading moderator notes  e.g. "Note to moderator: ... "
-  const stripped = body.replace(/^note to \w+:\s*[^.]*\.\s*/i, "").trim();
+  const stripped = body.replace(/^note to \w+:\s*[^.]*\.\s*/i, '').trim();
 
   // Imperative verb openings typical of general instructions
   // e.g. "Name these composers...", "Answer the following about...",
@@ -225,27 +220,27 @@ function checkBonusLeadinPunctuation(packet: Packet): LintDiagnostic[] {
     const endChar = ftpeMatch[1];
     const general = isGeneralInstruction(text);
 
-    if (endChar !== "." && endChar !== ":") {
+    if (endChar !== '.' && endChar !== ':') {
       // Neither valid ending
-      const expected = general ? "period" : "colon";
+      const expected = general ? 'period' : 'colon';
       diags.push({
-        rule: "question.bonus-leadin-punctuation",
-        severity: "warning",
+        rule: 'question.bonus-leadin-punctuation',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
         message: `Bonus lead-in should end with a ${expected} after "for 10 points each."`,
       });
-    } else if (general && endChar === ":") {
+    } else if (general && endChar === ':') {
       diags.push({
-        rule: "question.bonus-leadin-punctuation",
-        severity: "warning",
+        rule: 'question.bonus-leadin-punctuation',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
         message:
           'General-instruction lead-ins (e.g. "Name these…") should end with a period, not a colon.',
       });
-    } else if (!general && endChar === ".") {
+    } else if (!general && endChar === '.') {
       diags.push({
-        rule: "question.bonus-leadin-punctuation",
-        severity: "warning",
+        rule: 'question.bonus-leadin-punctuation',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
         message:
           'Specific-clue lead-ins should end with a colon, not a period, after "for 10 points each."',
@@ -263,21 +258,21 @@ function checkBonusDifficultySpread(packet: Packet): LintDiagnostic[] {
     if (q.parts.length === 0) continue;
 
     const markers = q.parts.map((p) => p.marker.toLowerCase());
-    const hasEasy = markers.some((m) => m.includes("e"));
-    const hasMedium = markers.some((m) => m.includes("m"));
-    const hasHard = markers.some((m) => m.includes("h"));
+    const hasEasy = markers.some((m) => m.includes('e'));
+    const hasMedium = markers.some((m) => m.includes('m'));
+    const hasHard = markers.some((m) => m.includes('h'));
 
     const missing: string[] = [];
-    if (!hasEasy) missing.push("easy");
-    if (!hasMedium) missing.push("medium");
-    if (!hasHard) missing.push("hard");
+    if (!hasEasy) missing.push('easy');
+    if (!hasMedium) missing.push('medium');
+    if (!hasHard) missing.push('hard');
 
     if (missing.length > 0) {
       diags.push({
-        rule: "question.bonus-difficulty-spread",
-        severity: "warning",
+        rule: 'question.bonus-difficulty-spread',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message: `Bonus is missing ${missing.join(" and ")} difficulty marker${missing.length > 1 ? "s" : ""}. Each bonus should have [10e], [10m], and [10h] parts.`,
+        message: `Bonus is missing ${missing.join(' and ')} difficulty marker${missing.length > 1 ? 's' : ''}. Each bonus should have [10e], [10m], and [10h] parts.`,
       });
     }
   }
@@ -305,10 +300,10 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
     // Find the last sentence-ending punctuation before FTP
     // (look for ". " or "? " or "! " patterns, skipping abbreviations)
     const sentenceEndRe = /[.!?]\s+(?=[A-Z])/g;
-    let lastSentenceEnd = -1;
+    let _lastSentenceEnd = -1;
     let m: RegExpExecArray | null;
     while ((m = sentenceEndRe.exec(beforeFtp)) !== null) {
-      lastSentenceEnd = m.index;
+      _lastSentenceEnd = m.index;
     }
 
     // Check if there's a sentence-ending punctuation AFTER the FTP
@@ -320,8 +315,8 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
     // (i.e., there are full sentences after it)
     if (hasSentenceAfter) {
       diags.push({
-        rule: "question.no-ftp-midsentence",
-        severity: "warning",
+        rule: 'question.no-ftp-midsentence',
+        severity: 'warning',
         paragraph: q.numberParagraph.index,
         message:
           'Do not interject "for 10 points" in the middle of the tossup. It should appear in the final sentence.',
@@ -363,8 +358,8 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
     const answerText = paras[i].rawText;
     let depth = 0;
     for (const ch of answerText) {
-      if (ch === "[") depth++;
-      if (ch === "]") depth--;
+      if (ch === '[') depth++;
+      if (ch === ']') depth--;
     }
     const unbalanced = depth !== 0;
 
@@ -378,10 +373,11 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
 
     if (looksLikeContinuation) {
       diags.push({
-        rule: "question.multiline-answer",
-        severity: "error",
+        rule: 'question.multiline-answer',
+        severity: 'error',
         paragraph: next.index,
-        message: "This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.",
+        message:
+          'This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.',
         sourceText: next.rawText,
       });
     }
@@ -405,7 +401,7 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
     const text = q.numberParagraph.rawText;
 
     // Strip the question number prefix to check the actual question text
-    const body = text.replace(/^\s*\d+\.\s*/, "");
+    const body = text.replace(/^\s*\d+\.\s*/, '');
 
     for (const pattern of notePatterns) {
       const match = body.match(pattern);
@@ -430,8 +426,8 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
 
       if (!isItalic) {
         diags.push({
-          rule: "question.pre-question-note-italics",
-          severity: "info",
+          rule: 'question.pre-question-note-italics',
+          severity: 'info',
           paragraph: q.numberParagraph.index,
           message: `Pre-question notes like "${noteText}" should be italicized.`,
           sourceText: text,
@@ -454,7 +450,7 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
 
     // Walk the paragraphs in order and verify: part → answer → part → answer ...
     let expectingAnswer = false;
-    let lastPartPara: import("../model.js").Paragraph | null = null;
+    let _lastPartPara: import('../model.js').Paragraph | null = null;
 
     for (const para of q.paragraphs) {
       const text = para.rawText.trim();
@@ -466,21 +462,21 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
       if (isPart && expectingAnswer) {
         // Found a new part before the previous part's answer
         diags.push({
-          rule: "question.bonus-part-order",
-          severity: "error",
+          rule: 'question.bonus-part-order',
+          severity: 'error',
           paragraph: para.index,
           message: `Bonus part appears before previous part\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
           sourceText: para.rawText,
         });
         // Reset — treat this as the new pending part
-        lastPartPara = para;
+        _lastPartPara = para;
         expectingAnswer = true;
       } else if (isPart) {
-        lastPartPara = para;
+        _lastPartPara = para;
         expectingAnswer = true;
       } else if (isAnswer && expectingAnswer) {
         expectingAnswer = false;
-        lastPartPara = null;
+        _lastPartPara = null;
       }
     }
   }

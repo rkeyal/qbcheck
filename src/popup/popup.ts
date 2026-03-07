@@ -1,43 +1,45 @@
-import { parseDocx, parseHtml } from "../core/parser.js";
-import { segmentPacket } from "../core/segmenter.js";
-import { lint, inferCrossPacketCategories } from "../core/engine.js";
-import { LintDiagnostic, Severity, Packet } from "../core/model.js";
-import { RULE_REGISTRY } from "../core/rule-registry.js";
+import { parseDocx, parseHtml } from '../core/parser.js';
+import { segmentPacket } from '../core/segmenter.js';
+import { lint, inferCrossPacketCategories } from '../core/engine.js';
+import { LintDiagnostic, Severity, Packet } from '../core/model.js';
+import { RULE_REGISTRY } from '../core/rule-registry.js';
 
-const uploadArea = document.getElementById("upload-area")!;
-const resultsArea = document.getElementById("results-area")!;
-const fileInput = document.getElementById("file-input") as HTMLInputElement;
-const folderInput = document.getElementById("folder-input") as HTMLInputElement;
-const dropZone = document.getElementById("drop-zone")!;
-const fileNameEl = document.getElementById("file-name")!;
-const clearBtn = document.getElementById("clear-btn")!;
-const countError = document.getElementById("count-error")!;
-const countWarning = document.getElementById("count-warning")!;
-const countInfo = document.getElementById("count-info")!;
-const countIgnored = document.getElementById("count-ignored")!;
-const statsBar = document.getElementById("stats-bar")!;
+const uploadArea = document.getElementById('upload-area')!;
+const resultsArea = document.getElementById('results-area')!;
+const fileInput = document.getElementById('file-input') as HTMLInputElement;
+const folderInput = document.getElementById('folder-input') as HTMLInputElement;
+const dropZone = document.getElementById('drop-zone')!;
+const fileNameEl = document.getElementById('file-name')!;
+const clearBtn = document.getElementById('clear-btn')!;
+const countError = document.getElementById('count-error')!;
+const countWarning = document.getElementById('count-warning')!;
+const countInfo = document.getElementById('count-info')!;
+const countIgnored = document.getElementById('count-ignored')!;
+const statsBar = document.getElementById('stats-bar')!;
 const filterCategory = document.getElementById(
-  "filter-category"
+  'filter-category'
 ) as HTMLSelectElement;
 
-const activeSeverities = new Set<string>(["error", "warning", "info"]);
-const diagnosticsList = document.getElementById("diagnostics-list")!;
-const noIssues = document.getElementById("no-issues")!;
-const packetNav = document.getElementById("packet-nav")!;
-const prevBtn = document.getElementById("prev-btn") as HTMLButtonElement;
-const nextBtn = document.getElementById("next-btn") as HTMLButtonElement;
+const activeSeverities = new Set<string>(['error', 'warning', 'info']);
+const diagnosticsList = document.getElementById('diagnostics-list')!;
+const noIssues = document.getElementById('no-issues')!;
+const packetNav = document.getElementById('packet-nav')!;
+const prevBtn = document.getElementById('prev-btn') as HTMLButtonElement;
+const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
 const packetSelect = document.getElementById(
-  "packet-select"
+  'packet-select'
 ) as HTMLSelectElement;
-const packetCounter = document.getElementById("packet-counter")!;
-const settingsBtn = document.getElementById("settings-btn")!;
-const settingsView = document.getElementById("settings-view")!;
-const settingsRules = document.getElementById("settings-rules")!;
-const settingsBackBtn = document.getElementById("settings-back-btn")!;
-const resetDefaultsBtn = document.getElementById("reset-defaults-btn")!;
-const ignoredChip = document.querySelector('.stat-ignored') as HTMLButtonElement;
-const pasteTarget = document.getElementById("paste-target")!;
-const unstructuredBanner = document.getElementById("unstructured-banner")!;
+const packetCounter = document.getElementById('packet-counter')!;
+const settingsBtn = document.getElementById('settings-btn')!;
+const settingsView = document.getElementById('settings-view')!;
+const settingsRules = document.getElementById('settings-rules')!;
+const settingsBackBtn = document.getElementById('settings-back-btn')!;
+const resetDefaultsBtn = document.getElementById('reset-defaults-btn')!;
+const ignoredChip = document.querySelector(
+  '.stat-ignored'
+) as HTMLButtonElement;
+const pasteTarget = document.getElementById('paste-target')!;
+const unstructuredBanner = document.getElementById('unstructured-banner')!;
 
 interface PacketResult {
   filename: string;
@@ -60,7 +62,7 @@ let settings: QBLintSettings = { ...DEFAULT_SETTINGS };
 let showIgnored = false;
 // Track raw parsed data for re-linting after rule changes
 let lastParsedPackets: (Packet | null)[] = [];
-let lastSortedFiles: File[] = [];
+let _lastSortedFiles: File[] = [];
 
 function getCurrentDiagnostics(): LintDiagnostic[] {
   return packetResults[currentIndex]?.diagnostics ?? [];
@@ -70,7 +72,7 @@ function getCurrentDiagnostics(): LintDiagnostic[] {
 
 async function loadSettings(): Promise<QBLintSettings> {
   try {
-    const result = await chrome.storage.local.get("qblintSettings");
+    const result = await chrome.storage.local.get('qblintSettings');
     return result.qblintSettings ?? { ...DEFAULT_SETTINGS };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -103,30 +105,30 @@ loadSettings().then((s) => {
 });
 
 // File input handler
-fileInput.addEventListener("change", () => {
+fileInput.addEventListener('change', () => {
   const files = collectDocxFiles(fileInput.files);
   if (files.length > 0) processFiles(files);
 });
 
 // Folder input handler
-folderInput.addEventListener("change", () => {
+folderInput.addEventListener('change', () => {
   const files = collectDocxFiles(folderInput.files);
   if (files.length > 0) processFiles(files);
 });
 
 // Drag and drop
-dropZone.addEventListener("dragover", (e) => {
+dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
-  dropZone.classList.add("drag-over");
+  dropZone.classList.add('drag-over');
 });
 
-dropZone.addEventListener("dragleave", () => {
-  dropZone.classList.remove("drag-over");
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
 });
 
-dropZone.addEventListener("drop", async (e) => {
+dropZone.addEventListener('drop', async (e) => {
   e.preventDefault();
-  dropZone.classList.remove("drag-over");
+  dropZone.classList.remove('drag-over');
 
   // Try to read directory entries first (handles dropped folders)
   const items = e.dataTransfer?.items;
@@ -140,7 +142,7 @@ dropZone.addEventListener("drop", async (e) => {
     const hasDirectory = entries.some((e) => e.isDirectory);
     if (hasDirectory) {
       const files = await readEntriesRecursive(entries);
-      const docx = files.filter((f) => f.name.endsWith(".docx"));
+      const docx = files.filter((f) => f.name.endsWith('.docx'));
       if (docx.length > 0) processFiles(docx);
       return;
     }
@@ -151,34 +153,34 @@ dropZone.addEventListener("drop", async (e) => {
 });
 
 // Paste from clipboard — click focuses the target, then user pastes with Ctrl+V/Cmd+V
-pasteTarget.addEventListener("click", () => {
+pasteTarget.addEventListener('click', () => {
   pasteTarget.focus();
-  pasteTarget.classList.add("paste-active");
+  pasteTarget.classList.add('paste-active');
 });
 
-pasteTarget.addEventListener("blur", () => {
-  pasteTarget.classList.remove("paste-active");
+pasteTarget.addEventListener('blur', () => {
+  pasteTarget.classList.remove('paste-active');
 });
 
-pasteTarget.addEventListener("paste", (e) => {
+pasteTarget.addEventListener('paste', (e) => {
   e.preventDefault();
   const clipboardData = (e as ClipboardEvent).clipboardData;
   if (!clipboardData) return;
 
-  const html = clipboardData.getData("text/html");
-  const plainText = clipboardData.getData("text/plain");
+  const html = clipboardData.getData('text/html');
+  const plainText = clipboardData.getData('text/plain');
 
   if (!html && !plainText) {
-    alert("No text found in clipboard. Copy some questions first.");
+    alert('No text found in clipboard. Copy some questions first.');
     return;
   }
 
   const paragraphs = html
     ? parseHtml(html)
-    : parseHtml(`<p>${escapeHtml(plainText).split("\n").join("</p><p>")}</p>`);
+    : parseHtml(`<p>${escapeHtml(plainText).split('\n').join('</p><p>')}</p>`);
 
   if (paragraphs.length === 0) {
-    alert("No content found in clipboard.");
+    alert('No content found in clipboard.');
     return;
   }
 
@@ -187,8 +189,8 @@ pasteTarget.addEventListener("paste", (e) => {
   const diagnostics = lint(packet, disabledSet);
 
   lastParsedPackets = [packet];
-  lastSortedFiles = [];
-  packetResults = [{ filename: "Pasted text", diagnostics }];
+  _lastSortedFiles = [];
+  packetResults = [{ filename: 'Pasted text', diagnostics }];
   currentIndex = 0;
 
   settingsView.hidden = true;
@@ -199,27 +201,29 @@ pasteTarget.addEventListener("paste", (e) => {
 });
 
 // Clear button
-clearBtn.addEventListener("click", () => {
+clearBtn.addEventListener('click', () => {
   packetResults = [];
   currentIndex = 0;
   lastParsedPackets = [];
-  lastSortedFiles = [];
+  _lastSortedFiles = [];
   uploadArea.hidden = false;
   resultsArea.hidden = true;
   settingsView.hidden = true;
-  fileInput.value = "";
-  folderInput.value = "";
+  fileInput.value = '';
+  folderInput.value = '';
 });
 
 // Filters
-statsBar.addEventListener("click", (e) => {
-  const btn = (e.target as HTMLElement).closest("[data-severity]") as HTMLElement | null;
+statsBar.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest(
+    '[data-severity]'
+  ) as HTMLElement | null;
   if (!btn) return;
   const sev = btn.dataset.severity!;
 
-  if (sev === "ignored") {
+  if (sev === 'ignored') {
     showIgnored = !showIgnored;
-    btn.classList.toggle("active", showIgnored);
+    btn.classList.toggle('active', showIgnored);
     renderDiagnostics();
     return;
   }
@@ -227,33 +231,33 @@ statsBar.addEventListener("click", (e) => {
   if (activeSeverities.has(sev)) {
     if (activeSeverities.size === 1) return;
     activeSeverities.delete(sev);
-    btn.classList.remove("active");
+    btn.classList.remove('active');
   } else {
     activeSeverities.add(sev);
-    btn.classList.add("active");
+    btn.classList.add('active');
   }
   renderDiagnostics();
 });
-filterCategory.addEventListener("change", renderDiagnostics);
+filterCategory.addEventListener('change', renderDiagnostics);
 
 // Navigation
-prevBtn.addEventListener("click", () => {
+prevBtn.addEventListener('click', () => {
   currentIndex = Math.max(0, currentIndex - 1);
   showCurrentPacket();
 });
 
-nextBtn.addEventListener("click", () => {
+nextBtn.addEventListener('click', () => {
   currentIndex = Math.min(packetResults.length - 1, currentIndex + 1);
   showCurrentPacket();
 });
 
-packetSelect.addEventListener("change", () => {
+packetSelect.addEventListener('change', () => {
   currentIndex = parseInt(packetSelect.value, 10);
   showCurrentPacket();
 });
 
 // Settings view
-settingsBtn.addEventListener("click", () => {
+settingsBtn.addEventListener('click', () => {
   if (!settingsView.hidden) {
     closeSettings();
     return;
@@ -261,9 +265,9 @@ settingsBtn.addEventListener("click", () => {
   openSettings();
 });
 
-settingsBackBtn.addEventListener("click", closeSettings);
+settingsBackBtn.addEventListener('click', closeSettings);
 
-resetDefaultsBtn.addEventListener("click", async () => {
+resetDefaultsBtn.addEventListener('click', async () => {
   settings = { ...DEFAULT_SETTINGS, disabledRules: [], ignoredDiagnostics: [] };
   await saveSettings(settings);
   renderSettingsRules();
@@ -301,42 +305,50 @@ function renderSettingsRules() {
   }
 
   const CATEGORY_LABELS: Record<string, string> = {
-    packet: "Packet Structure",
-    question: "Question Text",
-    answerline: "Answer Lines",
-    pronunciation: "Pronunciation",
-    formatting: "Formatting",
-    tag: "Tags",
-    writing: "Writing Style",
+    packet: 'Packet Structure',
+    question: 'Question Text',
+    answerline: 'Answer Lines',
+    pronunciation: 'Pronunciation',
+    formatting: 'Formatting',
+    tag: 'Tags',
+    writing: 'Writing Style',
   };
 
   settingsRules.innerHTML = Array.from(groups.entries())
-    .map(([cat, rules]) => `
+    .map(
+      ([cat, rules]) => `
       <div class="rule-group">
         <div class="rule-group-header">${CATEGORY_LABELS[cat] || cat}</div>
-        ${rules.map((r) => {
-          const checked = !settings.disabledRules.includes(r.id);
-          const shortId = r.id.split(".")[1];
-          return `
+        ${rules
+          .map((r) => {
+            const checked = !settings.disabledRules.includes(r.id);
+            const shortId = r.id.split('.')[1];
+            return `
             <label class="rule-item">
-              <input type="checkbox" data-rule-id="${r.id}" ${checked ? "checked" : ""}>
+              <input type="checkbox" data-rule-id="${r.id}" ${checked ? 'checked' : ''}>
               <div class="rule-item-text">
                 <div class="rule-item-id">${shortId}</div>
                 <div class="rule-item-desc">${escapeHtml(r.description)}</div>
               </div>
             </label>`;
-        }).join("")}
+          })
+          .join('')}
       </div>
-    `)
-    .join("");
+    `
+    )
+    .join('');
 
   // Bind change handlers
-  for (const cb of Array.from(settingsRules.querySelectorAll("input[type=checkbox]"))) {
-    cb.addEventListener("change", async (e) => {
+  for (const cb of Array.from(
+    settingsRules.querySelectorAll('input[type=checkbox]')
+  )) {
+    cb.addEventListener('change', async (e) => {
       const input = e.target as HTMLInputElement;
       const ruleId = input.dataset.ruleId!;
       if (input.checked) {
-        settings.disabledRules = settings.disabledRules.filter((r) => r !== ruleId);
+        settings.disabledRules = settings.disabledRules.filter(
+          (r) => r !== ruleId
+        );
       } else {
         if (!settings.disabledRules.includes(ruleId)) {
           settings.disabledRules.push(ruleId);
@@ -354,12 +366,15 @@ function relintAll() {
 
   const useInference = lastParsedPackets.length > 3;
   const disabledSet = new Set(settings.disabledRules);
-  if (useInference) disabledSet.add("tag.valid-category");
+  if (useInference) disabledSet.add('tag.valid-category');
 
   for (let i = 0; i < lastParsedPackets.length; i++) {
     const packet = lastParsedPackets[i];
     if (!packet) {
-      packetResults[i] = { filename: packetResults[i].filename, diagnostics: [] };
+      packetResults[i] = {
+        filename: packetResults[i].filename,
+        diagnostics: [],
+      };
       continue;
     }
     packetResults[i] = {
@@ -370,7 +385,9 @@ function relintAll() {
 
   // Cross-packet inference
   if (useInference) {
-    const validPackets = lastParsedPackets.filter((p): p is Packet => p !== null);
+    const validPackets = lastParsedPackets.filter(
+      (p): p is Packet => p !== null
+    );
     if (validPackets.length > 3) {
       const crossDiags = inferCrossPacketCategories(validPackets);
       let validIdx = 0;
@@ -379,7 +396,9 @@ function relintAll() {
         const diags = crossDiags[validIdx++];
         if (diags.length > 0) {
           packetResults[i].diagnostics.push(...diags);
-          packetResults[i].diagnostics.sort((a, b) => a.paragraph - b.paragraph);
+          packetResults[i].diagnostics.sort(
+            (a, b) => a.paragraph - b.paragraph
+          );
         }
       }
     }
@@ -392,21 +411,30 @@ function readEntriesRecursive(entries: FileSystemEntry[]): Promise<File[]> {
   function readEntry(entry: FileSystemEntry): Promise<void> {
     if (entry.isFile) {
       return new Promise((resolve) => {
-        (entry as FileSystemFileEntry).file((f) => {
-          files.push(f);
-          resolve();
-        }, () => resolve());
+        (entry as FileSystemFileEntry).file(
+          (f) => {
+            files.push(f);
+            resolve();
+          },
+          () => resolve()
+        );
       });
     }
     if (entry.isDirectory) {
       return new Promise((resolve) => {
         const reader = (entry as FileSystemDirectoryEntry).createReader();
         const readBatch = () => {
-          reader.readEntries(async (batch) => {
-            if (batch.length === 0) { resolve(); return; }
-            await Promise.all(batch.map(readEntry));
-            readBatch(); // readEntries may return partial results
-          }, () => resolve());
+          reader.readEntries(
+            async (batch) => {
+              if (batch.length === 0) {
+                resolve();
+                return;
+              }
+              await Promise.all(batch.map(readEntry));
+              readBatch(); // readEntries may return partial results
+            },
+            () => resolve()
+          );
         };
         readBatch();
       });
@@ -421,7 +449,7 @@ function collectDocxFiles(fileList: FileList | null): File[] {
   if (!fileList) return [];
   const files: File[] = [];
   for (let i = 0; i < fileList.length; i++) {
-    if (fileList[i].name.endsWith(".docx")) {
+    if (fileList[i].name.endsWith('.docx')) {
       files.push(fileList[i]);
     }
   }
@@ -430,7 +458,7 @@ function collectDocxFiles(fileList: FileList | null): File[] {
 
 async function processFiles(files: File[]) {
   const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
-  lastSortedFiles = sorted;
+  _lastSortedFiles = sorted;
 
   // Close settings if open
   settingsView.hidden = true;
@@ -441,7 +469,7 @@ async function processFiles(files: File[]) {
 
   const useInference = sorted.length > 3;
   const disabledSet = new Set(settings.disabledRules);
-  if (useInference) disabledSet.add("tag.valid-category");
+  if (useInference) disabledSet.add('tag.valid-category');
 
   packetResults = [];
   const packets: (Packet | null)[] = [];
@@ -457,7 +485,7 @@ async function processFiles(files: File[]) {
       const diagnostics = lint(packet, disabledSet);
       packets.push(packet);
       packetResults.push({ filename: file.name, diagnostics });
-    } catch (err) {
+    } catch {
       packets.push(null);
       packetResults.push({
         filename: sorted[i].name,
@@ -496,7 +524,7 @@ async function processFiles(files: File[]) {
 function populatePacketSelect() {
   packetSelect.innerHTML = packetResults
     .map((r, i) => `<option value="${i}">${escapeHtml(r.filename)}</option>`)
-    .join("");
+    .join('');
 }
 
 function showCurrentPacket() {
@@ -516,7 +544,8 @@ function showCurrentPacket() {
 
   // Show/hide unstructured banner
   const currentPacket = lastParsedPackets[currentIndex];
-  unstructuredBanner.hidden = !currentPacket || currentPacket.structured !== false;
+  unstructuredBanner.hidden =
+    !currentPacket || currentPacket.structured !== false;
 
   updateCounts();
   renderDiagnostics();
@@ -526,13 +555,16 @@ function updateCounts() {
   const diags = getCurrentDiagnostics();
   const ignoredFps = new Set(settings.ignoredDiagnostics);
 
-  let errors = 0, warnings = 0, infos = 0, ignoredCount = 0;
+  let errors = 0,
+    warnings = 0,
+    infos = 0,
+    ignoredCount = 0;
   for (const d of diags) {
     if (ignoredFps.has(diagnosticFingerprint(d))) {
       ignoredCount++;
     } else {
-      if (d.severity === "error") errors++;
-      else if (d.severity === "warning") warnings++;
+      if (d.severity === 'error') errors++;
+      else if (d.severity === 'warning') warnings++;
       else infos++;
     }
   }
@@ -557,7 +589,7 @@ function renderDiagnostics() {
 
   for (const d of allDiags) {
     if (!activeSeverities.has(d.severity)) continue;
-    if (catFilter !== "all" && !d.rule.startsWith(catFilter + ".")) continue;
+    if (catFilter !== 'all' && !d.rule.startsWith(catFilter + '.')) continue;
 
     if (settings.ignoredDiagnostics.includes(diagnosticFingerprint(d))) {
       ignored.push(d);
@@ -567,7 +599,7 @@ function renderDiagnostics() {
   }
 
   if (visible.length === 0 && (!showIgnored || ignored.length === 0)) {
-    diagnosticsList.innerHTML = "";
+    diagnosticsList.innerHTML = '';
     noIssues.hidden = false;
     return;
   }
@@ -575,28 +607,28 @@ function renderDiagnostics() {
   noIssues.hidden = true;
 
   const severityIcon: Record<Severity, string> = {
-    error: "!",
-    warning: "!",
-    info: "i",
+    error: '!',
+    warning: '!',
+    info: 'i',
   };
 
   let html = visible
     .map(
       (d, idx) => `
-    <div class="diagnostic severity-${d.severity}${d.sourceText ? " has-snippet" : ""}" data-diag-index="${idx}">
+    <div class="diagnostic severity-${d.severity}${d.sourceText ? ' has-snippet' : ''}" data-diag-index="${idx}">
       <div class="diag-icon">${severityIcon[d.severity]}</div>
       <div class="diag-body">
         <div class="diag-rule">${d.rule}</div>
         <div class="diag-message">${escapeHtml(d.message)}</div>
-        <div class="diag-location">${d.questionLabel || "Paragraph " + (d.paragraph + 1)}${d.answerPreview ? " \u2014 " + escapeHtml(d.answerPreview) : ""}</div>
-        ${d.suggestion ? `<div class="diag-suggestion">${escapeHtml(d.suggestion)}</div>` : ""}
-        ${d.sourceText ? `<div class="diag-snippet" hidden>${buildSnippet(d.sourceText, d.offset, d.length)}</div>` : ""}
+        <div class="diag-location">${d.questionLabel || 'Paragraph ' + (d.paragraph + 1)}${d.answerPreview ? ' \u2014 ' + escapeHtml(d.answerPreview) : ''}</div>
+        ${d.suggestion ? `<div class="diag-suggestion">${escapeHtml(d.suggestion)}</div>` : ''}
+        ${d.sourceText ? `<div class="diag-snippet" hidden>${buildSnippet(d.sourceText, d.offset, d.length)}</div>` : ''}
       </div>
       <button class="diag-action" data-fp="${escapeHtml(diagnosticFingerprint(d))}" data-rule="${escapeHtml(d.rule)}" title="Actions">\u2026</button>
     </div>
   `
     )
-    .join("");
+    .join('');
 
   // Render ignored diagnostics if toggled on
   if (showIgnored && ignored.length > 0) {
@@ -609,33 +641,37 @@ function renderDiagnostics() {
         <div class="diag-body">
           <div class="diag-rule">${d.rule}</div>
           <div class="diag-message">${escapeHtml(d.message)}</div>
-          <div class="diag-location">${d.questionLabel || "Paragraph " + (d.paragraph + 1)}${d.answerPreview ? " \u2014 " + escapeHtml(d.answerPreview) : ""}</div>
+          <div class="diag-location">${d.questionLabel || 'Paragraph ' + (d.paragraph + 1)}${d.answerPreview ? ' \u2014 ' + escapeHtml(d.answerPreview) : ''}</div>
         </div>
         <button class="diag-unignore" data-fp="${escapeHtml(diagnosticFingerprint(d))}" title="Un-ignore">&#x2715;</button>
       </div>
     `
       )
-      .join("");
+      .join('');
   }
 
   diagnosticsList.innerHTML = html;
 
   // Add click handlers for expandable snippets
-  for (const el of Array.from(diagnosticsList.querySelectorAll(".has-snippet"))) {
-    el.addEventListener("click", (e) => {
+  for (const el of Array.from(
+    diagnosticsList.querySelectorAll('.has-snippet')
+  )) {
+    el.addEventListener('click', (e) => {
       // Don't toggle snippet when clicking action button
-      if ((e.target as HTMLElement).closest(".diag-action, .diag-menu")) return;
-      const snippet = el.querySelector(".diag-snippet") as HTMLElement;
+      if ((e.target as HTMLElement).closest('.diag-action, .diag-menu')) return;
+      const snippet = el.querySelector('.diag-snippet') as HTMLElement;
       if (snippet) {
         snippet.hidden = !snippet.hidden;
-        el.classList.toggle("expanded");
+        el.classList.toggle('expanded');
       }
     });
   }
 
   // Add action button handlers
-  for (const btn of Array.from(diagnosticsList.querySelectorAll(".diag-action"))) {
-    btn.addEventListener("click", (e) => {
+  for (const btn of Array.from(
+    diagnosticsList.querySelectorAll('.diag-action')
+  )) {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const actionBtn = btn as HTMLElement;
       toggleActionMenu(actionBtn);
@@ -643,11 +679,15 @@ function renderDiagnostics() {
   }
 
   // Add un-ignore button handlers
-  for (const btn of Array.from(diagnosticsList.querySelectorAll(".diag-unignore"))) {
-    btn.addEventListener("click", async (e) => {
+  for (const btn of Array.from(
+    diagnosticsList.querySelectorAll('.diag-unignore')
+  )) {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const fp = (btn as HTMLElement).dataset.fp!;
-      settings.ignoredDiagnostics = settings.ignoredDiagnostics.filter((f) => f !== fp);
+      settings.ignoredDiagnostics = settings.ignoredDiagnostics.filter(
+        (f) => f !== fp
+      );
       await saveSettings(settings);
       updateCounts();
       renderDiagnostics();
@@ -658,59 +698,67 @@ function renderDiagnostics() {
 // --- Action menu ---
 
 function closeAllMenus() {
-  for (const menu of Array.from(document.querySelectorAll(".diag-menu"))) {
+  for (const menu of Array.from(document.querySelectorAll('.diag-menu'))) {
     menu.remove();
   }
 }
 
 function toggleActionMenu(actionBtn: HTMLElement) {
-  const existing = actionBtn.parentElement?.querySelector(".diag-menu");
+  const existing = actionBtn.parentElement?.querySelector('.diag-menu');
   closeAllMenus();
   if (existing) return; // Was open, now closed
 
   const fp = actionBtn.dataset.fp!;
   const ruleId = actionBtn.dataset.rule!;
 
-  const shortName = ruleId.split(".")[1];
+  const shortName = ruleId.split('.')[1];
 
-  const menu = document.createElement("div");
-  menu.className = "diag-menu";
+  const menu = document.createElement('div');
+  menu.className = 'diag-menu';
   menu.innerHTML = `
     <button data-action="ignore">Ignore this instance</button>
     <button data-action="disable">Disable &ldquo;${escapeHtml(shortName)}&rdquo; rule</button>
   `;
 
-  menu.querySelector('[data-action="ignore"]')!.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    if (!settings.ignoredDiagnostics.includes(fp)) {
-      settings.ignoredDiagnostics.push(fp);
-    }
-    await saveSettings(settings);
-    closeAllMenus();
-    updateCounts();
-    renderDiagnostics();
-  });
+  menu
+    .querySelector('[data-action="ignore"]')!
+    .addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!settings.ignoredDiagnostics.includes(fp)) {
+        settings.ignoredDiagnostics.push(fp);
+      }
+      await saveSettings(settings);
+      closeAllMenus();
+      updateCounts();
+      renderDiagnostics();
+    });
 
-  menu.querySelector('[data-action="disable"]')!.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    if (!settings.disabledRules.includes(ruleId)) {
-      settings.disabledRules.push(ruleId);
-    }
-    await saveSettings(settings);
-    closeAllMenus();
-    relintAll();
-    showCurrentPacket();
-  });
+  menu
+    .querySelector('[data-action="disable"]')!
+    .addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!settings.disabledRules.includes(ruleId)) {
+        settings.disabledRules.push(ruleId);
+      }
+      await saveSettings(settings);
+      closeAllMenus();
+      relintAll();
+      showCurrentPacket();
+    });
 
   actionBtn.parentElement!.appendChild(menu);
 }
 
 // Close menus on click outside
-document.addEventListener("click", () => {
+document.addEventListener('click', () => {
   closeAllMenus();
 });
 
-function buildSnippet(sourceText: string, offset?: number, length?: number): string {
+function buildSnippet(
+  sourceText: string,
+  offset?: number,
+  length?: number
+): string {
   const CONTEXT = 50;
 
   if (offset != null && length != null) {
@@ -721,22 +769,24 @@ function buildSnippet(sourceText: string, offset?: number, length?: number): str
     const match = sourceText.substring(offset, offset + length);
     const after = sourceText.substring(offset + length, end);
 
-    return (start > 0 ? "\u2026" : "") +
+    return (
+      (start > 0 ? '\u2026' : '') +
       escapeHtml(before) +
       `<mark>${escapeHtml(match)}</mark>` +
       escapeHtml(after) +
-      (end < sourceText.length ? "\u2026" : "");
+      (end < sourceText.length ? '\u2026' : '')
+    );
   }
 
   // No offset — show first ~100 chars as preview
   const preview = sourceText.substring(0, 100);
-  return escapeHtml(preview) + (sourceText.length > 100 ? "\u2026" : "");
+  return escapeHtml(preview) + (sourceText.length > 100 ? '\u2026' : '');
 }
 
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

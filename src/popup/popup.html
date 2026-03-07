@@ -1,102 +1,120 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>qbcheck</title>
-  <link rel="stylesheet" href="./popup.css">
-</head>
-<body>
-  <div id="app">
-    <header>
-      <div class="header-row">
-        <h1>qbcheck</h1>
-        <button id="settings-btn" title="Rule settings">&#x2699;</button>
-      </div>
-      <p class="subtitle">Quizbowl Packet Style Checker</p>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>qbcheck</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="header-row">
+          <h1>qbcheck</h1>
+          <button id="settings-btn" title="Rule settings">&#x2699;</button>
+        </div>
+        <p class="subtitle">Quizbowl Packet Style Checker</p>
+      </header>
 
-    <div id="upload-area">
-      <div id="drop-zone">
-        <p>Drop .docx files or a folder here</p>
-        <p class="or">or</p>
-        <div class="upload-buttons">
-          <label class="file-btn">
-            Choose Files
-            <input type="file" id="file-input" accept=".docx" multiple hidden>
-          </label>
-          <label class="file-btn file-btn-secondary">
-            Choose Folder
-            <input type="file" id="folder-input" webkitdirectory hidden>
-          </label>
+      <div id="upload-area">
+        <div id="drop-zone">
+          <p>Drop .docx files or a folder here</p>
+          <p class="or">or</p>
+          <div class="upload-buttons">
+            <label class="file-btn">
+              Choose Files
+              <input
+                type="file"
+                id="file-input"
+                accept=".docx"
+                multiple
+                hidden
+              />
+            </label>
+            <label class="file-btn file-btn-secondary">
+              Choose Folder
+              <input type="file" id="folder-input" webkitdirectory hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="paste-divider"><span>or</span></div>
+
+        <div id="paste-target" class="paste-target" tabindex="0">
+          <span class="paste-target-label"
+            >&#x1F4CB; Paste here (Ctrl+V / &#x2318;V)</span
+          >
+          <span class="paste-target-hint"
+            >Copy questions in Google Docs, then paste here to lint</span
+          >
         </div>
       </div>
 
-      <div class="paste-divider"><span>or</span></div>
+      <div id="results-area" hidden>
+        <div id="file-info">
+          <span id="file-name"></span>
+          <button id="clear-btn" title="Clear">&#x2715;</button>
+        </div>
 
-      <div id="paste-target" class="paste-target" tabindex="0">
-        <span class="paste-target-label">&#x1F4CB; Paste here (Ctrl+V / &#x2318;V)</span>
-        <span class="paste-target-hint">Copy questions in Google Docs, then paste here to lint</span>
+        <div id="unstructured-banner" class="info-banner" hidden>
+          <span class="info-banner-icon">&#x2139;</span>
+          <span>No packet structure found. Packet-level rules disabled.</span>
+        </div>
+
+        <div id="packet-nav" hidden>
+          <button id="prev-btn" title="Previous packet">&lsaquo;</button>
+          <select id="packet-select"></select>
+          <button id="next-btn" title="Next packet">&rsaquo;</button>
+          <span id="packet-counter"></span>
+        </div>
+
+        <div id="stats-bar">
+          <button class="stat stat-error active" data-severity="error">
+            <span id="count-error">0</span> errors
+          </button>
+          <button class="stat stat-warning active" data-severity="warning">
+            <span id="count-warning">0</span> warnings
+          </button>
+          <button class="stat stat-info active" data-severity="info">
+            <span id="count-info">0</span> info
+          </button>
+          <button class="stat stat-ignored" data-severity="ignored" hidden>
+            <span id="count-ignored">0</span> ignored
+          </button>
+        </div>
+
+        <div id="filters">
+          <select id="filter-category">
+            <option value="all">All categories</option>
+            <option value="packet">Packet structure</option>
+            <option value="question">Question text</option>
+            <option value="answerline">Answer lines</option>
+            <option value="pronunciation">Pronunciation</option>
+            <option value="formatting">Formatting</option>
+            <option value="tag">Tags</option>
+            <option value="writing">Writing style</option>
+          </select>
+        </div>
+
+        <div id="diagnostics-list"></div>
+
+        <div id="no-issues" hidden>
+          <p>No issues found.</p>
+        </div>
+      </div>
+
+      <div id="settings-view" hidden>
+        <div class="settings-header">
+          <button id="settings-back-btn">&lsaquo; Back</button>
+          <span class="settings-title">Rule Settings</span>
+        </div>
+        <div id="settings-rules"></div>
+        <div class="settings-footer">
+          <button id="reset-defaults-btn">Reset to Defaults</button>
+        </div>
       </div>
     </div>
 
-    <div id="results-area" hidden>
-      <div id="file-info">
-        <span id="file-name"></span>
-        <button id="clear-btn" title="Clear">&#x2715;</button>
-      </div>
-
-      <div id="unstructured-banner" class="info-banner" hidden>
-        <span class="info-banner-icon">&#x2139;</span>
-        <span>No packet structure found. Packet-level rules disabled.</span>
-      </div>
-
-      <div id="packet-nav" hidden>
-        <button id="prev-btn" title="Previous packet">&lsaquo;</button>
-        <select id="packet-select"></select>
-        <button id="next-btn" title="Next packet">&rsaquo;</button>
-        <span id="packet-counter"></span>
-      </div>
-
-      <div id="stats-bar">
-        <button class="stat stat-error active" data-severity="error"><span id="count-error">0</span> errors</button>
-        <button class="stat stat-warning active" data-severity="warning"><span id="count-warning">0</span> warnings</button>
-        <button class="stat stat-info active" data-severity="info"><span id="count-info">0</span> info</button>
-        <button class="stat stat-ignored" data-severity="ignored" hidden><span id="count-ignored">0</span> ignored</button>
-      </div>
-
-      <div id="filters">
-        <select id="filter-category">
-          <option value="all">All categories</option>
-          <option value="packet">Packet structure</option>
-          <option value="question">Question text</option>
-          <option value="answerline">Answer lines</option>
-          <option value="pronunciation">Pronunciation</option>
-          <option value="formatting">Formatting</option>
-          <option value="tag">Tags</option>
-          <option value="writing">Writing style</option>
-        </select>
-      </div>
-
-      <div id="diagnostics-list"></div>
-
-      <div id="no-issues" hidden>
-        <p>No issues found.</p>
-      </div>
-    </div>
-
-    <div id="settings-view" hidden>
-      <div class="settings-header">
-        <button id="settings-back-btn">&lsaquo; Back</button>
-        <span class="settings-title">Rule Settings</span>
-      </div>
-      <div id="settings-rules"></div>
-      <div class="settings-footer">
-        <button id="reset-defaults-btn">Reset to Defaults</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="./popup.ts"></script>
-</body>
+    <script type="module" src="./popup.ts"></script>
+  </body>
 </html>
