@@ -50,6 +50,31 @@ describe("writing.no-weasel-words", () => {
   });
 });
 
+describe("writing.word-replacements", () => {
+  it("flags lowercase replaceable word", () => {
+    const t = tossupWith("This nation is in Europe. For 10 points, name it.");
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, "writing.word-replacements")).toBe(true);
+    expect(findDiag(diags, "writing.word-replacements")!.message).toContain("nation");
+  });
+
+  it("skips capitalized word mid-sentence (likely proper noun)", () => {
+    const t = tossupWith("D.W. Griffith directed Birth of a Nation in 1915. For 10 points, name this director.");
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const nationDiag = diags.find((d) => d.rule === "writing.word-replacements" && d.message.includes("nation"));
+    expect(nationDiag).toBeUndefined();
+  });
+
+  it("flags capitalized word at sentence start", () => {
+    const t = tossupWith("Name a composer. Nation refers to a country. For 10 points, name it.");
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, "writing.word-replacements")).toBe(true);
+  });
+});
+
 describe("writing.absolute-time", () => {
   it('flags "currently"', () => {
     const t = tossupWith("This museum is currently located in Paris. For 10 points, name it.");

@@ -1,4 +1,5 @@
 import { Packet, LintDiagnostic, LintRule, Paragraph } from "../model.js";
+import { stripTitleText, stripItalicOnly } from "./utils.js";
 
 function getQuestionParagraphs(packet: Packet): Paragraph[] {
   const paras: Paragraph[] = [];
@@ -19,17 +20,6 @@ function getNonAnswerLineParagraphs(packet: Packet): Paragraph[] {
     }
   }
   return paras;
-}
-
-/**
- * Remove all quoted regions from text so rules
- * don't flag content that appears inside quotations.
- */
-function stripQuotedText(text: string): string {
-  return text
-    .replace(/\u201c[^\u201d]*\u201d/g, "")
-    .replace(/"[^"]*"/g, "")
-    .replace(/\u2018[^\u2019]*\u2019/g, "");
 }
 
 function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
@@ -84,8 +74,9 @@ function checkEmDash(packet: Packet): LintDiagnostic[] {
 
   for (const para of getQuestionParagraphs(packet)) {
     const text = para.rawText;
+    const stripped = stripTitleText(para);
     const idx = text.indexOf("\u2014");
-    if (idx !== -1 && stripQuotedText(text).includes("\u2014")) {
+    if (idx !== -1 && stripped.includes("\u2014")) {
       diags.push({
         rule: "formatting.no-em-dash",
         severity: "warning",
@@ -138,8 +129,9 @@ function checkSpellOutNumbers(packet: Packet): LintDiagnostic[] {
     const text = para.rawText;
     if (skip.test(text)) continue;
 
+    const stripped = stripTitleText(para);
     // Find standalone numbers 1-10 (but not part of dates, lists, etc.)
-    const matches = [...text.matchAll(/(?<!\d)(?<!\w)([2-9]|10)(?!\d)(?=\s|[,.])/g)];
+    const matches = [...stripped.matchAll(/(?<!\d)(?<!\w)([2-9]|10)(?!\d)(?=\s|[,.])/g)];
     for (const match of matches) {
       // Skip if preceded by "No." or "#" or part of a date/year
       const before = text.substring(Math.max(0, match.index! - 5), match.index!);
@@ -175,8 +167,9 @@ function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
     const text = para.rawText;
     // Skip tag lines (e.g. <Painting & Sculpture>)
     if (/^\s*<[^>]+>\s*$/.test(text)) continue;
-    if (text.includes("&") && !text.includes("&amp;")) {
-      const idx = text.indexOf("&");
+    const stripped = stripTitleText(para);
+    if (stripped.includes("&") && !stripped.includes("&amp;")) {
+      const idx = stripped.indexOf("&");
       diags.push({
         rule: "formatting.no-ampersand",
         severity: "info",
@@ -197,15 +190,18 @@ function checkPoetrySlash(packet: Packet): LintDiagnostic[] {
 
   for (const para of getNonAnswerLineParagraphs(packet)) {
     const text = para.rawText;
+    // Only strip italic text (titles), not quoted text — poetry slashes
+    // appear inside quoted passages
+    const stripped = stripItalicOnly(para);
 
     // Look for slashes between text that look like poetry line breaks
     // but aren't spaced properly (e.g., "foo/bar" instead of "foo / bar")
     // This is too noisy for general text — only flag if the question is about poetry
     // or contains multiple slashes suggesting poetry quotation
-    const slashCount = (text.match(/\//g) || []).length;
+    const slashCount = (stripped.match(/\//g) || []).length;
     if (slashCount >= 2) {
       // Skip slashes that are fractions/ratios (digit/digit) or single-char/single-char
-      const unspaced = [...text.matchAll(/(\S)\/(\S)/g)].filter(
+      const unspaced = [...stripped.matchAll(/(\S)\/(\S)/g)].filter(
         (m) => !/^\d\/\d/.test(m[0])
       );
       for (const match of unspaced) {
@@ -253,9 +249,9 @@ function checkAbbreviationPeriods(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionParagraphs(packet)) {
-    const text = stripQuotedText(para.rawText);
+    const stripped = stripTitleText(para);
     // Check for U.S., U.N., U.K., E.U. with periods
-    const matches = [...text.matchAll(/\b(U\.S\.A?\.|U\.K\.|U\.N\.|E\.U\.)/g)];
+    const matches = [...stripped.matchAll(/\b(U\.S\.A?\.|U\.K\.|U\.N\.|E\.U\.)/g)];
     for (const match of matches) {
       const without = match[1].replace(/\./g, "");
       diags.push({
@@ -278,9 +274,10 @@ function checkBceCeSystem(packet: Packet): LintDiagnostic[] {
 
   for (const para of getQuestionParagraphs(packet)) {
     const text = para.rawText;
+    const stripped = stripTitleText(para);
     // Check for BC/AD usage (but not BCE/CE which is correct)
     // Match "123 BC" or "AD 123" but not "BCE"
-    const bceMatch = text.match(/\b\d+\s+BC\b(?!E)/) || text.match(/\bAD\s+\d+\b/) || text.match(/\b\d+\s+AD\b/);
+    const bceMatch = stripped.match(/\b\d+\s+BC\b(?!E)/) || stripped.match(/\bAD\s+\d+\b/) || stripped.match(/\b\d+\s+AD\b/);
     if (bceMatch) {
       diags.push({
         rule: "formatting.bce-ce-system",
@@ -301,7 +298,7 @@ function checkLatinAbbreviations(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionParagraphs(packet)) {
-    const text = stripQuotedText(para.rawText);
+    const text = stripTitleText(para);
 
     const latinAbbrevs: [RegExp, string][] = [
       [/\be\.g\./gi, 'Use "for example" or "such as" instead of "e.g."'],

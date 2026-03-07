@@ -4,6 +4,7 @@ import {
   WORD_REPLACEMENTS,
   CONTRACTION_RE,
 } from "../../shared/constants.js";
+import { stripTitleText } from "./utils.js";
 
 function getQuestionTextParagraphs(packet: Packet): Paragraph[] {
   const paras: Paragraph[] = [];
@@ -19,23 +20,11 @@ function getQuestionTextParagraphs(packet: Packet): Paragraph[] {
   return paras;
 }
 
-/**
- * Remove all quoted regions from text so phrasing rules
- * don't flag language that appears inside quotations.
- * Handles curly quotes (\u201c\u201d), straight quotes, and single curly quotes (\u2018\u2019).
- */
-function stripQuotedText(text: string): string {
-  return text
-    .replace(/\u201c[^\u201d]*\u201d/g, "")
-    .replace(/"[^"]*"/g, "")
-    .replace(/\u2018[^\u2019]*\u2019/g, "");
-}
-
 function checkContractions(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const text = stripQuotedText(para.rawText);
+    const text = stripTitleText(para);
     const matches = [...text.matchAll(CONTRACTION_RE)];
     for (const match of matches) {
       const rawOffset = para.rawText.indexOf(match[1], match.index! > 10 ? match.index! - 10 : 0);
@@ -58,7 +47,7 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const stripped = stripQuotedText(para.rawText);
+    const stripped = stripTitleText(para);
 
     for (const word of WEASEL_WORDS) {
       const re = new RegExp(`\\b${word.replace(/-/g, "[-\\s]?")}\\b`, "gi");
@@ -90,7 +79,7 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const text = stripQuotedText(para.rawText);
+    const text = stripTitleText(para);
 
     for (const [bad, good] of Object.entries(WORD_REPLACEMENTS)) {
       // Skip "following" when preceded by "the" (adjective/noun sense)
@@ -105,26 +94,20 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
         if (/\bupon\s+[a-z]+ing\b/i.test(text)) continue;
       }
 
-      // Skip "nation" when part of a proper name or title
-      if (bad === "nation") {
-        // Remove the word in isolation and check — skip if all occurrences
-        // are inside capitalized multi-word sequences (titles)
-        const matches = [...text.matchAll(/\bnation\b/gi)];
-        const allInTitle = matches.every((m) => {
-          const before = text.substring(Math.max(0, m.index! - 30), m.index!);
-          const after = text.substring(m.index!, m.index! + 30);
-          // Preceded by a capitalized word or part of a known title
-          return /[A-Z][a-z]+\s+$/.test(before) || /^nation\s+of\s+[A-Z]/i.test(after) ||
-            /\bBirth of a\s*$/i.test(before) || /\bof a Nation/i.test(after);
-        });
-        if (allInTitle) continue;
-      }
-
       const re = new RegExp(`\\b${bad}\\b`, "gi");
-      const m = text.match(re);
-      if (m) {
-        // Find offset in original text for correct highlighting
-        const rawIdx = para.rawText.search(re);
+      const matches = [...text.matchAll(re)];
+      // Filter out capitalized matches that aren't at the start of a
+      // sentence — a capitalized word mid-sentence is likely a proper noun.
+      const flaggable = matches.filter((m) => {
+        const matched = m[0];
+        if (matched[0] === matched[0].toLowerCase()) return true; // lowercase → always flag
+        // Capitalized: only flag if it looks like sentence start
+        const before = text.substring(0, m.index!);
+        return /(?:^|[.!?]\s*)$/.test(before.trimEnd());
+      });
+      if (flaggable.length > 0) {
+        const first = flaggable[0];
+        const rawIdx = para.rawText.indexOf(first[0], first.index! > 10 ? first.index! - 10 : 0);
         diags.push({
           rule: "writing.word-replacements",
           severity: "info",
@@ -132,7 +115,7 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
           message: `Consider replacing "${bad}" with "${good}".`,
           sourceText: para.rawText,
           offset: rawIdx !== -1 ? rawIdx : undefined,
-          length: m[0].length,
+          length: first[0].length,
         });
       }
     }
@@ -147,7 +130,7 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
     /\b(recently|last year|this year|last month|currently|presently|nowadays|at present|to date)\b/gi;
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const stripped = stripQuotedText(para.rawText);
+    const stripped = stripTitleText(para);
     const matches = [...stripped.matchAll(relativeTime)];
     for (const match of matches) {
       // Skip "this year" when used as a factual clue (e.g. "in this year", "during this year")
@@ -201,7 +184,7 @@ function checkWouldGoOnTo(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
   for (const para of getQuestionTextParagraphs(packet)) {
-    const text = stripQuotedText(para.rawText);
+    const text = stripTitleText(para);
 
     const wgotMatch = text.match(/\bwould\s+go\s+on\s+to\b/i);
     if (wgotMatch) {
