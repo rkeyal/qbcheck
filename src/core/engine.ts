@@ -119,6 +119,10 @@ function enrichDiagnostics(diagnostics: LintDiagnostic[], packet: Packet): void 
  * available, categories are validated by their frequency across packets
  * rather than against the static VALID_CATEGORIES list.
  *
+ * For subcategories (e.g., "Social Science: Psychology"), validates based
+ * on the base category frequency (pre-colon part). This prevents flagging
+ * tournaments that use consistent subcategory taxonomies.
+ *
  * Categories appearing in fewer than half the packets are flagged as
  * potentially non-standard.  Categories appearing in at least half the
  * packets are considered standard for this tournament.
@@ -129,17 +133,24 @@ function enrichDiagnostics(diagnostics: LintDiagnostic[], packet: Packet): void 
 export function inferCrossPacketCategories(
   packets: Packet[]
 ): LintDiagnostic[][] {
-  // category (lower-cased) → set of packet indices that use it
-  const categoryToPackets = new Map<string, Set<number>>();
+  // Base category (lower-cased, pre-colon) → set of packet indices that use it
+  const baseCategoryToPackets = new Map<string, Set<number>>();
 
   for (let pi = 0; pi < packets.length; pi++) {
     for (const q of [...packets[pi].tossups, ...packets[pi].bonuses]) {
       if (!q.tag) continue;
       const cat = extractTagCategory(q.tag.rawText);
       if (!cat) continue;
-      const key = cat.toLowerCase();
-      if (!categoryToPackets.has(key)) categoryToPackets.set(key, new Set());
-      categoryToPackets.get(key)!.add(pi);
+
+      // Extract base category (before colon if present)
+      const colonIndex = cat.indexOf(':');
+      const baseCategory = colonIndex !== -1
+        ? cat.substring(0, colonIndex).trim()
+        : cat;
+      const key = baseCategory.toLowerCase();
+
+      if (!baseCategoryToPackets.has(key)) baseCategoryToPackets.set(key, new Set());
+      baseCategoryToPackets.get(key)!.add(pi);
     }
   }
 
@@ -151,15 +162,22 @@ export function inferCrossPacketCategories(
       if (!q.tag) continue;
       const cat = extractTagCategory(q.tag.rawText);
       if (!cat) continue;
-      const key = cat.toLowerCase();
-      const count = categoryToPackets.get(key)?.size ?? 0;
+
+      // Extract base category for frequency check
+      const colonIndex = cat.indexOf(':');
+      const baseCategory = colonIndex !== -1
+        ? cat.substring(0, colonIndex).trim()
+        : cat;
+      const key = baseCategory.toLowerCase();
+
+      const count = baseCategoryToPackets.get(key)?.size ?? 0;
       if (count < threshold) {
         const label = `${q.type === "tossup" ? "T" : "B"}${q.number}`;
         result[pi].push({
           rule: "tag.valid-category",
           severity: "warning",
           paragraph: q.tag.index,
-          message: `Category "${cat}" appears in only ${count} of ${packets.length} packets. It may be non-standard.`,
+          message: `Base category "${baseCategory}" appears in only ${count} of ${packets.length} packets. It may be non-standard.`,
           questionLabel: label,
         });
       }
