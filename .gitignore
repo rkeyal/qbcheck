@@ -1,3 +1,5 @@
 node_modules/
 dist/
 *.mjs
+
+.DS_STORE
