@@ -181,7 +181,10 @@ function getComputedStyleFromElement(el: HTMLElement): FormattingInfo {
   let italic = fontStyle === 'italic';
 
   const textDeco = extractStyleValue(style, 'text-decoration');
-  let underline = textDeco ? textDeco.includes('underline') : false;
+  const textDecoLine = extractStyleValue(style, 'text-decoration-line');
+  let underline =
+    (textDeco ? textDeco.includes('underline') : false) ||
+    (textDecoLine ? textDecoLine.includes('underline') : false);
 
   const vertAlign = extractStyleValue(style, 'vertical-align');
   let superscript = vertAlign === 'super';
@@ -207,7 +210,12 @@ function getComputedStyleFromElement(el: HTMLElement): FormattingInfo {
       const cfs = extractStyleValue(childStyle, 'font-style');
       if (cfs === 'italic') italic = true;
       const ctd = extractStyleValue(childStyle, 'text-decoration');
-      if (ctd && ctd.includes('underline')) underline = true;
+      const ctdl = extractStyleValue(childStyle, 'text-decoration-line');
+      if (
+        (ctd && ctd.includes('underline')) ||
+        (ctdl && ctdl.includes('underline'))
+      )
+        underline = true;
       const cva = extractStyleValue(childStyle, 'vertical-align');
       if (cva === 'super') superscript = true;
       if (cva === 'sub') subscript = true;

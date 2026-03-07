@@ -92,4 +92,55 @@ describe('parseHtml()', () => {
     expect(result[0].runs[0].bold).toBe(true);
     expect(result[0].runs[0].italic).toBe(true);
   });
+
+  it('handles Microsoft Word HTML with MsoNormal class', () => {
+    const html = `<p class="MsoNormal"><span style="font-weight:700">This is bold</span></p>`;
+    const result = parseHtml(html);
+    expect(result[0].runs[0].bold).toBe(true);
+    expect(result[0].rawText).toBe('This is bold');
+  });
+
+  it('handles Word-style bold with font-weight:bold', () => {
+    const html = `<p><span style="font-weight:bold">bold text</span></p>`;
+    const result = parseHtml(html);
+    expect(result[0].runs[0].bold).toBe(true);
+  });
+
+  it('handles Word-style underline with text-decoration-line', () => {
+    const html = `<p><span style="text-decoration-line:underline">underlined</span></p>`;
+    const result = parseHtml(html);
+    expect(result[0].runs[0].underline).toBe(true);
+  });
+
+  it('handles Word HTML with multiple formatting in nested spans', () => {
+    const html = `<p class="MsoNormal"><span style="font-weight:700"><span style="font-style:italic">bold and italic</span></span></p>`;
+    const result = parseHtml(html);
+    expect(result[0].runs[0].bold).toBe(true);
+    expect(result[0].runs[0].italic).toBe(true);
+  });
+
+  it('handles Word-style mixed formatting on same text', () => {
+    const html = `<p><span style="font-weight:700;font-style:italic;text-decoration:underline">all three</span></p>`;
+    const result = parseHtml(html);
+    expect(result[0].runs[0].bold).toBe(true);
+    expect(result[0].runs[0].italic).toBe(true);
+    expect(result[0].runs[0].underline).toBe(true);
+  });
+
+  it('handles Word HTML with superscript', () => {
+    const html = `<p>E=mc<span style="vertical-align:super">2</span></p>`;
+    const result = parseHtml(html);
+    const supRun = result[0].runs.find((r) => r.text === '2');
+    expect(supRun?.superscript).toBe(true);
+  });
+
+  it('handles Word paragraphs with plain and formatted text', () => {
+    const html = `<p class="MsoNormal">This is <span style="font-weight:700">bold</span> and <span style="font-style:italic">italic</span> text.</p>`;
+    const result = parseHtml(html);
+    expect(result[0].rawText).toBe('This is bold and italic text.');
+    const boldRun = result[0].runs.find((r) => r.bold);
+    const italicRun = result[0].runs.find((r) => r.italic);
+    expect(boldRun?.text).toBe('bold');
+    expect(italicRun?.text).toBe('italic');
+  });
 });
