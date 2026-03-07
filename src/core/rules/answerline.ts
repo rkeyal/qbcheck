@@ -1,4 +1,5 @@
 import { Packet, LintDiagnostic, LintRule, Paragraph, Run } from "../model.js";
+import { buildFormattingMap, hasBoldUnderline, hasUnderline } from "./utils.js";
 
 function getAnswerLines(packet: Packet): Paragraph[] {
   const lines: Paragraph[] = [];
@@ -15,27 +16,6 @@ function getAnswerLines(packet: Packet): Paragraph[] {
   }
 
   return lines;
-}
-
-// ---------- shared utility ----------
-
-interface CharFormat {
-  bold: boolean;
-  underline: boolean;
-}
-
-/**
- * Build a per-character formatting map from runs so we can look up
- * bold/underline at any character position in rawText.
- */
-function buildFormattingMap(runs: Run[]): CharFormat[] {
-  const map: CharFormat[] = [];
-  for (const run of runs) {
-    for (let i = 0; i < run.text.length; i++) {
-      map.push({ bold: run.bold, underline: run.underline });
-    }
-  }
-  return map;
 }
 
 // ---------- directive parsing ----------
@@ -203,18 +183,7 @@ function checkRequiredAnswerFormatting(packet: Packet): LintDiagnostic[] {
     const answerEnd = firstBracket === -1 ? para.rawText.length : firstBracket;
 
     // Check that there is some bold+underlined non-whitespace text in that range
-    let foundBoldUnderline = false;
-    for (let i = answerStart; i < answerEnd; i++) {
-      if (
-        i < fmtMap.length &&
-        fmtMap[i].bold &&
-        fmtMap[i].underline &&
-        para.rawText[i].trim()
-      ) {
-        foundBoldUnderline = true;
-        break;
-      }
-    }
+    const foundBoldUnderline = hasBoldUnderline(fmtMap, answerStart, answerEnd, para.rawText);
 
     if (!foundBoldUnderline) {
       // Determine what's missing for a helpful message
@@ -357,18 +326,7 @@ function checkAcceptFormatting(packet: Packet): LintDiagnostic[] {
         if (isMetaInstruction(sub.contentText)) continue;
 
         // Check that the content has some bold+underlined text
-        let foundBoldUnderline = false;
-        for (let i = sub.contentStart; i < sub.contentEnd; i++) {
-          if (
-            i < fmtMap.length &&
-            fmtMap[i].bold &&
-            fmtMap[i].underline &&
-            para.rawText[i].trim()
-          ) {
-            foundBoldUnderline = true;
-            break;
-          }
-        }
+        const foundBoldUnderline = hasBoldUnderline(fmtMap, sub.contentStart, sub.contentEnd, para.rawText);
 
         if (!foundBoldUnderline) {
           const directive = sub.type === "or" ? "or" : "accept";
@@ -406,17 +364,7 @@ function checkPromptFormatting(packet: Packet): LintDiagnostic[] {
           : sub.contentEnd;
 
         // Check that the content has some underlined text
-        let foundUnderline = false;
-        for (let i = sub.contentStart; i < checkEnd; i++) {
-          if (
-            i < fmtMap.length &&
-            fmtMap[i].underline &&
-            para.rawText[i].trim()
-          ) {
-            foundUnderline = true;
-            break;
-          }
-        }
+        const foundUnderline = hasUnderline(fmtMap, sub.contentStart, checkEnd, para.rawText);
 
         if (!foundUnderline) {
           const directive =

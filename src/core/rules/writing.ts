@@ -4,7 +4,7 @@ import {
   WORD_REPLACEMENTS,
   CONTRACTION_RE,
 } from "../../shared/constants.js";
-import { stripTitleText, getQuestionParagraphs, findOffsetInRawText } from "./utils.js";
+import { stripTitleText, getQuestionParagraphs, findOffsetInRawText, createDiagnostic } from "./utils.js";
 
 function checkContractions(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -14,15 +14,15 @@ function checkContractions(packet: Packet): LintDiagnostic[] {
     const matches = [...text.matchAll(CONTRACTION_RE)];
     for (const match of matches) {
       const offset = findOffsetInRawText(para.rawText, match[1], match.index);
-      diags.push({
-        rule: "writing.no-contractions",
-        severity: "warning",
-        paragraph: para.index,
-        message: `Avoid contraction "${match[1]}". Spell it out.`,
-        sourceText: para.rawText,
-        offset: offset !== -1 ? offset : match.index!,
-        length: match[1].length,
-      });
+      diags.push(createDiagnostic(
+        "writing.no-contractions",
+        para,
+        `Avoid contraction "${match[1]}". Spell it out.`,
+        {
+          offset: offset !== -1 ? offset : match.index!,
+          length: match[1].length,
+        }
+      ));
     }
   }
 
@@ -41,15 +41,16 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
       if (m) {
         // Find offset in original text for correct highlighting
         const offset = findOffsetInRawText(para.rawText, m[0]);
-        diags.push({
-          rule: "writing.no-weasel-words",
-          severity: "info",
-          paragraph: para.index,
-          message: `Avoid "${word}" — if it appears in quizbowl, it's already notable.`,
-          sourceText: para.rawText,
-          offset: offset !== -1 ? offset : undefined,
-          length: m[0].length,
-        });
+        diags.push(createDiagnostic(
+          "writing.no-weasel-words",
+          para,
+          `Avoid "${word}" — if it appears in quizbowl, it's already notable.`,
+          {
+            severity: 'info',
+            offset: offset !== -1 ? offset : undefined,
+            length: m[0].length,
+          }
+        ));
         break; // One per paragraph to avoid noise
       }
     }
@@ -99,15 +100,16 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
       if (flaggable.length > 0) {
         const first = flaggable[0];
         const offset = findOffsetInRawText(para.rawText, first[0], first.index);
-        diags.push({
-          rule: "writing.word-replacements",
-          severity: "info",
-          paragraph: para.index,
-          message: `Consider replacing "${bad}" with "${good}".`,
-          sourceText: para.rawText,
-          offset: offset !== -1 ? offset : undefined,
-          length: first[0].length,
-        });
+        diags.push(createDiagnostic(
+          "writing.word-replacements",
+          para,
+          `Consider replacing "${bad}" with "${good}".`,
+          {
+            severity: 'info',
+            offset: offset !== -1 ? offset : undefined,
+            length: first[0].length,
+          }
+        ));
       }
     }
   }

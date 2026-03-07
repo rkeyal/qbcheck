@@ -1,5 +1,13 @@
-import { Paragraph, Packet } from "../model.js";
+import { Paragraph, Packet, LintDiagnostic, Severity, Run } from "../model.js";
 import { ANSWER } from "../patterns.js";
+
+/**
+ * Character formatting info extracted from runs.
+ */
+export interface CharFormat {
+  bold: boolean;
+  underline: boolean;
+}
 
 /**
  * Replace all quoted regions with spaces (preserving string length).
@@ -118,4 +126,103 @@ export function findOffsetInRawText(
 
   // Fall back to searching from the beginning
   return rawText.indexOf(searchText);
+}
+
+/**
+ * Create a lint diagnostic with standard fields, reducing boilerplate.
+ *
+ * @param rule - The rule ID (e.g., "writing.no-contractions")
+ * @param para - The paragraph being checked
+ * @param message - The diagnostic message
+ * @param opts - Optional fields (severity defaults to 'warning')
+ * @returns A complete LintDiagnostic object
+ */
+export function createDiagnostic(
+  rule: string,
+  para: Paragraph,
+  message: string,
+  opts?: {
+    severity?: Severity;
+    offset?: number;
+    length?: number;
+    suggestion?: string;
+  }
+): LintDiagnostic {
+  return {
+    rule,
+    severity: opts?.severity ?? 'warning',
+    paragraph: para.index,
+    message,
+    sourceText: para.rawText,
+    offset: opts?.offset,
+    length: opts?.length,
+    suggestion: opts?.suggestion,
+  };
+}
+
+/**
+ * Build a per-character formatting map from runs.
+ *
+ * @param runs - The text runs from a paragraph
+ * @returns An array mapping each character position to its formatting
+ */
+export function buildFormattingMap(runs: Run[]): CharFormat[] {
+  const map: CharFormat[] = [];
+  for (const run of runs) {
+    for (let i = 0; i < run.text.length; i++) {
+      map.push({ bold: run.bold, underline: run.underline });
+    }
+  }
+  return map;
+}
+
+/**
+ * Check if a range of text has bold AND underlined formatting.
+ *
+ * @param fmtMap - The formatting map from buildFormattingMap()
+ * @param startIdx - Start character index
+ * @param endIdx - End character index (exclusive)
+ * @param rawText - The raw text to check for non-whitespace
+ * @returns True if any non-whitespace character in the range is both bold and underlined
+ */
+export function hasBoldUnderline(
+  fmtMap: CharFormat[],
+  startIdx: number,
+  endIdx: number,
+  rawText: string
+): boolean {
+  for (let i = startIdx; i < endIdx; i++) {
+    if (
+      i < fmtMap.length &&
+      fmtMap[i].bold &&
+      fmtMap[i].underline &&
+      rawText[i].trim()
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if a range of text has underlined formatting.
+ *
+ * @param fmtMap - The formatting map from buildFormattingMap()
+ * @param startIdx - Start character index
+ * @param endIdx - End character index (exclusive)
+ * @param rawText - The raw text to check for non-whitespace
+ * @returns True if any non-whitespace character in the range is underlined
+ */
+export function hasUnderline(
+  fmtMap: CharFormat[],
+  startIdx: number,
+  endIdx: number,
+  rawText: string
+): boolean {
+  for (let i = startIdx; i < endIdx; i++) {
+    if (i < fmtMap.length && fmtMap[i].underline && rawText[i].trim()) {
+      return true;
+    }
+  }
+  return false;
 }

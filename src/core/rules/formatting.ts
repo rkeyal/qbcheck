@@ -1,5 +1,5 @@
 import { Packet, LintDiagnostic, LintRule, Paragraph } from "../model.js";
-import { stripTitleText, stripItalicOnly, getQuestionParagraphs } from "./utils.js";
+import { stripTitleText, stripItalicOnly, getQuestionParagraphs, createDiagnostic } from "./utils.js";
 
 function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -12,17 +12,16 @@ function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
     const withoutPron = text.replace(/\("[^"]*"\)/g, "");
     if (withoutPron.includes('"')) {
       const idx = text.indexOf('"');
-      diags.push({
-        rule: "formatting.smart-quotes",
-        severity: "warning",
-        paragraph: para.index,
-        message:
-          "Use typographic (smart/curly) quotes instead of straight quotes.",
-        suggestion: 'Replace " with \u201c or \u201d',
-        sourceText: text,
-        offset: idx !== -1 ? idx : undefined,
-        length: idx !== -1 ? 1 : undefined,
-      });
+      diags.push(createDiagnostic(
+        "formatting.smart-quotes",
+        para,
+        "Use typographic (smart/curly) quotes instead of straight quotes.",
+        {
+          suggestion: 'Replace " with \u201c or \u201d',
+          offset: idx !== -1 ? idx : undefined,
+          length: idx !== -1 ? 1 : undefined,
+        }
+      ));
     }
 
     // Check for straight single quotes / apostrophes
