@@ -85,21 +85,50 @@ function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
 function checkValidCategory(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
+  // First pass: count occurrences of each full category (including subcategories)
+  const categoryCount = new Map<string, number>();
+
   for (const q of [...packet.tossups, ...packet.bonuses]) {
     if (!q.tag) continue;
 
-    const text = stripEditorialSuffix(q.tag.rawText.trim());
-    const match = text.match(TAG_WITH_AUTHOR);
-    const catOnlyMatch = !match ? text.match(TAG_CATEGORY_ONLY) : null;
-    if (!match && !catOnlyMatch) continue;
+    const category = extractTagCategory(q.tag.rawText);
+    if (!category) continue;
 
-    const category = match ? match[2].trim() : catOnlyMatch![1].trim();
-    if (!VALID_CATEGORIES.has(category)) {
+    categoryCount.set(category, (categoryCount.get(category) || 0) + 1);
+  }
+
+  // Second pass: validate categories
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    if (!q.tag) continue;
+
+    const category = extractTagCategory(q.tag.rawText);
+    if (!category) continue;
+
+    // Check if category has a colon (subcategory like "Social Science: Anthropology")
+    const colonIndex = category.indexOf(':');
+    const baseCategory = colonIndex !== -1
+      ? category.substring(0, colonIndex).trim()
+      : category;
+    const isSubcategory = colonIndex !== -1;
+
+    // Validate the base category (pre-colon part)
+    if (!VALID_CATEGORIES.has(baseCategory)) {
       diags.push({
         rule: "tag.valid-category",
         severity: "warning",
         paragraph: q.tag.index,
-        message: `Category "${category}" is not a standard QMOS category.`,
+        message: `Base category "${baseCategory}" is not a standard QMOS category.`,
+      });
+      continue; // Don't check consistency if base is invalid
+    }
+
+    // If it's a subcategory and appears only once, flag as inconsistent usage
+    if (isSubcategory && categoryCount.get(category) === 1) {
+      diags.push({
+        rule: "tag.valid-category",
+        severity: "info",
+        paragraph: q.tag.index,
+        message: `Subcategory "${category}" appears only once. Subcategories should be used consistently throughout the packet.`,
       });
     }
   }
