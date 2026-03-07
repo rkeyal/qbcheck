@@ -334,13 +334,118 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+  const ANS_RE = /^\s*ANSWER\s*:\s*/i;
+  const NUM_RE = /^\s*\d+\.\s/;
+  const TAG_RE_LOCAL = /^\s*<[^>]+>\s*(?:[\[{][^\]\}]*[\]\}])?\s*$/;
+  const PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
+
+  // Build a map of answer line paragraph indices → the question they belong to
+  const answerParaIndices = new Set<number>();
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    if (q.answerLine) answerParaIndices.add(q.answerLine.index);
+    for (const part of q.parts) {
+      if (part.answerLine) answerParaIndices.add(part.answerLine.index);
+    }
+  }
+
+  const paras = packet.allParagraphs;
+  for (let i = 0; i < paras.length - 1; i++) {
+    if (!answerParaIndices.has(paras[i].index)) continue;
+
+    const next = paras[i + 1];
+    const nextText = next.rawText.trim();
+    if (!nextText) continue; // blank line — fine
+    if (ANS_RE.test(nextText)) continue; // next answer line
+    if (NUM_RE.test(nextText)) continue; // next question number
+    if (TAG_RE_LOCAL.test(nextText)) continue; // tag line
+    if (PART_RE.test(nextText)) continue; // bonus part marker
+
+    // Check if the answer line has unbalanced brackets (suggesting continuation)
+    const answerText = paras[i].rawText;
+    let depth = 0;
+    for (const ch of answerText) {
+      if (ch === "[") depth++;
+      if (ch === "]") depth--;
+    }
+    const unbalanced = depth !== 0;
+
+    // Also flag if the next line looks like answer content
+    // (starts with lowercase, contains answer directives, etc.)
+    const looksLikeContinuation =
+      unbalanced ||
+      /^[a-z]/.test(nextText) ||
+      /^\[/.test(nextText) ||
+      /^(accept|or|prompt|reject)\b/i.test(nextText);
+
+    if (looksLikeContinuation) {
+      diags.push({
+        rule: "question.multiline-answer",
+        severity: "error",
+        paragraph: next.index,
+        message: "This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.",
+        sourceText: next.rawText,
+      });
+    }
+  }
+
+  return diags;
+}
+
+function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+  const PART_RE = /^\s*\[(10[emh]?|[EMH])\]\s*/i;
+  const ANS_RE = /^\s*ANSWER\s*:\s*/i;
+
+  for (const q of packet.bonuses) {
+    if (q.parts.length === 0) continue;
+
+    // Walk the paragraphs in order and verify: part → answer → part → answer ...
+    let expectingAnswer = false;
+    let lastPartPara: import("../model.js").Paragraph | null = null;
+
+    for (const para of q.paragraphs) {
+      const text = para.rawText.trim();
+      if (!text) continue;
+
+      const isPart = PART_RE.test(text);
+      const isAnswer = ANS_RE.test(text);
+
+      if (isPart && expectingAnswer) {
+        // Found a new part before the previous part's answer
+        diags.push({
+          rule: "question.bonus-part-order",
+          severity: "error",
+          paragraph: para.index,
+          message: `Bonus part appears before previous part\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
+          sourceText: para.rawText,
+        });
+        // Reset — treat this as the new pending part
+        lastPartPara = para;
+        expectingAnswer = true;
+      } else if (isPart) {
+        lastPartPara = para;
+        expectingAnswer = true;
+      } else if (isAnswer && expectingAnswer) {
+        expectingAnswer = false;
+        lastPartPara = null;
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const questionRules: LintRule[] = [
   checkFtpFormat,
   checkFtpePlacement,
   checkBonusPartMarkers,
   checkPowerMark,
   checkMissingAnswerLine,
+  checkMultilineAnswer,
   checkBonusLeadinPunctuation,
   checkBonusDifficultySpread,
   checkFtpMidSentence,
+  checkBonusPartOrder,
 ];

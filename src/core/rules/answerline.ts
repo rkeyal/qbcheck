@@ -717,7 +717,43 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkNonstandardPrefix(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  // Build set of known answer line paragraph indices
+  const knownAnswerIndices = new Set<number>();
+  for (const para of getAnswerLines(packet)) {
+    knownAnswerIndices.add(para.index);
+  }
+
+  // Scan all paragraphs for answer-like prefixes that weren't recognized
+  // YAPP accepts: ANS(WER)?(:|.) — we only recognize ANSWER:
+  const NONSTANDARD_RE = /^\s*(ans\s*[:.]\s*|answer\s*\.\s*)/i;
+
+  for (const para of packet.allParagraphs) {
+    if (knownAnswerIndices.has(para.index)) continue;
+    const text = para.rawText;
+    const match = text.match(NONSTANDARD_RE);
+    if (!match) continue;
+
+    const prefix = match[1].trim();
+    diags.push({
+      rule: "answerline.nonstandard-prefix",
+      severity: "error",
+      paragraph: para.index,
+      message: `"${prefix}" is not recognized as an answer line. Use "ANSWER: " (all caps, colon, space).`,
+      suggestion: "ANSWER: ",
+      sourceText: text,
+      offset: match.index!,
+      length: match[1].length,
+    });
+  }
+
+  return diags;
+}
+
 export const answerlineRules: LintRule[] = [
+  checkNonstandardPrefix,
   checkAnswerPrefix,
   checkRequiredAnswerFormatting,
   checkBracketBalance,

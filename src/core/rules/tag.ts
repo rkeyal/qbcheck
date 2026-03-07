@@ -62,6 +62,32 @@ function checkTagFormat(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    if (!q.tag) continue;
+
+    const rawText = q.tag.rawText.trim();
+    // Strip outer < and > then check for nested ones
+    const inner = rawText.replace(EDITORIAL_SUFFIX_RE, "");
+    const openBracket = inner.indexOf("<");
+    if (openBracket === -1) continue;
+    const afterFirst = inner.substring(openBracket + 1);
+    if (afterFirst.includes("<") || (afterFirst.indexOf(">") < afterFirst.lastIndexOf(">"))) {
+      diags.push({
+        rule: "tag.nested-brackets",
+        severity: "error",
+        paragraph: q.tag.index,
+        message: `Tag contains nested angle brackets, which will break downstream parsers: "${rawText}".`,
+        sourceText: rawText,
+      });
+    }
+  }
+
+  return diags;
+}
+
 function checkValidCategory(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -128,6 +154,7 @@ function checkConsistentCategories(packet: Packet): LintDiagnostic[] {
 export const tagRules: LintRule[] = [
   checkTagExists,
   checkTagFormat,
+  checkNestedAngleBrackets,
   checkValidCategory,
   checkConsistentCategories,
 ];

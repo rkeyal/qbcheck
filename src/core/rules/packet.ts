@@ -213,10 +213,34 @@ function checkExpectedCount(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkNumberingSequence(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const [label, questions] of [
+    ["Tossup", packet.tossups],
+    ["Bonus", packet.bonuses],
+  ] as const) {
+    for (let i = 1; i < questions.length; i++) {
+      if (questions[i].number <= questions[i - 1].number) {
+        diags.push({
+          rule: "packet.numbering-sequence",
+          severity: "error",
+          paragraph: questions[i].numberParagraph.index,
+          message: `${label} ${questions[i].number} does not increase from previous ${label.toLowerCase()} ${questions[i - 1].number}. Downstream parsers use number resets to detect the tossup/bonus boundary.`,
+          sourceText: questions[i].numberParagraph.rawText,
+        });
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const packetRules: LintRule[] = [
   checkSectionHeaders,
   checkSectionOrder,
   checkQuestionNumbering,
+  checkNumberingSequence,
   checkBoldNumbers,
   checkExtrasLabel,
   checkBlankParagraphs,

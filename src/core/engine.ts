@@ -21,6 +21,7 @@ const PACKET_STRUCTURE_RULES = new Set([
   "packet.section-headers",
   "packet.section-order",
   "packet.question-numbering",
+  "packet.numbering-sequence",
   "packet.no-bold-numbers",
   "packet.no-extras-label",
   "packet.blank-paragraphs",

@@ -16,6 +16,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "packet.no-extras-label",     category: "packet",        description: "No 'Extra' or 'TB' labels",              defaultSeverity: "info" },
   { id: "packet.blank-paragraphs",    category: "packet",        description: "No consecutive blank paragraphs",         defaultSeverity: "info" },
   { id: "packet.expected-count",      category: "packet",        description: "Expected number of tossups and bonuses",  defaultSeverity: "warning" },
+  { id: "packet.numbering-sequence", category: "packet",        description: "Question numbers strictly increase",      defaultSeverity: "error" },
   // question (8 rules)
   { id: "question.ftp-format",             category: "question",      description: "FTP clue formatting",                    defaultSeverity: "warning" },
   { id: "question.ftpe-format",            category: "question",      description: "FTPE bonus formatting",                  defaultSeverity: "warning" },
@@ -25,6 +26,8 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "question.bonus-leadin-punctuation", category: "question",    description: "Bonus lead-in punctuation",              defaultSeverity: "warning" },
   { id: "question.bonus-difficulty-spread", category: "question",     description: "Bonus difficulty value spread",          defaultSeverity: "warning" },
   { id: "question.no-ftp-midsentence",     category: "question",      description: "FTP not mid-sentence",                  defaultSeverity: "warning" },
+  { id: "question.multiline-answer",      category: "question",      description: "Answer lines must be single paragraph",  defaultSeverity: "error" },
+  { id: "question.bonus-part-order",      category: "question",      description: "Bonus parts interleaved with answers",   defaultSeverity: "error" },
   // answerline (12 rules)
   { id: "answerline.prefix",                    category: "answerline",    description: "ANSWER: prefix format",                 defaultSeverity: "warning" },
   { id: "answerline.required-formatting",        category: "answerline",    description: "Answer has required bold/underline",    defaultSeverity: "warning" },
@@ -38,6 +41,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "answerline.deprecated-directive",       category: "answerline",    description: "No deprecated directives",              defaultSeverity: "warning" },
   { id: "answerline.post-note-no-quote-start",   category: "answerline",    description: "Post-note quote formatting",            defaultSeverity: "warning" },
   { id: "answerline.no-parenthetical-optional",  category: "answerline",    description: "No parenthetical optional text",        defaultSeverity: "info" },
+  { id: "answerline.nonstandard-prefix",         category: "answerline",    description: "No nonstandard answer prefixes (Ans:, Answer.)", defaultSeverity: "error" },
   // pronunciation (2 rules)
   { id: "pronunciation.delimiter",     category: "pronunciation", description: "Pronunciation guide delimiters",           defaultSeverity: "warning" },
   { id: "pronunciation.trailing-punct", category: "pronunciation", description: "No trailing punctuation in guides",       defaultSeverity: "warning" },
@@ -57,6 +61,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
   { id: "tag.exists",                category: "tag",           description: "Author tag present on each question",     defaultSeverity: "warning" },
   { id: "tag.format",                category: "tag",           description: "Tag format: <Author, Category>",          defaultSeverity: "warning" },
   { id: "tag.valid-category",        category: "tag",           description: "Category is recognized",                  defaultSeverity: "warning" },
+  { id: "tag.nested-brackets",       category: "tag",           description: "No nested angle brackets in tags",        defaultSeverity: "error" },
   { id: "tag.consistent-categories", category: "tag",           description: "Consistent tossup/bonus category pairing", defaultSeverity: "warning" },
   // writing (6 rules)
   { id: "writing.no-contractions",     category: "writing",       description: "No contractions in question text",        defaultSeverity: "warning" },

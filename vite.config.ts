@@ -19,11 +19,15 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "copy-manifest",
+      name: "copy-static",
       closeBundle() {
         copyFileSync(
           resolve(__dirname, "manifest.json"),
           resolve(__dirname, "dist/manifest.json")
+        );
+        copyFileSync(
+          resolve(__dirname, "THIRD_PARTY_NOTICES"),
+          resolve(__dirname, "dist/THIRD_PARTY_NOTICES")
         );
       },
     },
