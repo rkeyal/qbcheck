@@ -19,11 +19,17 @@ function checkPronunciationDelimiters(packet: Packet): LintDiagnostic[] {
       // Only flag if it looks like a pronunciation guide (contains hyphens or phonetic content)
       const content = match[1];
       if (content.includes('-') || /^[a-zA-Z\s-]+$/.test(content)) {
+        const oldText = match[0]; // e.g. ["foo-BAR"]
+        const newText = `("${content}")`; // e.g. ("foo-BAR")
         diags.push({
           rule: 'pronunciation.paren-delimiter',
           severity: 'warning',
           paragraph: para.index,
           message: `Pronunciation guide should use parentheses with double quotes: ("${content}"), not ["${content}"].`,
+          sourceText: text,
+          offset: match.index!,
+          length: oldText.length,
+          fix: { oldText, newText, offset: match.index! },
         });
       }
     }
@@ -84,6 +90,8 @@ function checkPronunciationQuotes(packet: Packet): LintDiagnostic[] {
       // Only flag if it contains hyphens or is all caps (typical PG patterns)
       // and isn't just a short abbreviation
       if (content.includes('-') || /^[A-Z]+$/.test(content)) {
+        const oldText = match[0]; // e.g. (foo-BAR)
+        const newText = `("${content}")`; // e.g. ("foo-BAR")
         diags.push({
           rule: 'pronunciation.quotes-required',
           severity: 'warning',
@@ -92,6 +100,7 @@ function checkPronunciationQuotes(packet: Packet): LintDiagnostic[] {
           sourceText: text,
           offset: match.index!,
           length: match[0].length,
+          fix: { oldText, newText, offset: match.index! },
         });
       }
     }

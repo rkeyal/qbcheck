@@ -62,6 +62,23 @@ function checkEmDash(packet: Packet): LintDiagnostic[] {
     const stripped = stripTitleText(para);
     const idx = text.indexOf('\u2014');
     if (idx !== -1 && stripped.includes('\u2014')) {
+      // Build context-aware replacement: add spaces around en dash
+      // only where the em dash doesn't already have them
+      const hasPrecedingSpace = idx > 0 && text[idx - 1] === ' ';
+      const hasFollowingSpace =
+        idx < text.length - 1 && text[idx + 1] === ' ';
+      const oldText = text.substring(
+        hasPrecedingSpace ? idx - 1 : idx,
+        hasFollowingSpace ? idx + 2 : idx + 1
+      );
+      const newText = (hasPrecedingSpace ? ' ' : '') +
+        ' \u2013 ' +
+        (hasFollowingSpace ? ' ' : '');
+      // Normalize to avoid double spaces
+      const fixOld = oldText;
+      const fixNew = newText.replace(/ {2,}/g, ' ');
+      const fixOffset = hasPrecedingSpace ? idx - 1 : idx;
+
       diags.push({
         rule: 'formatting.no-em-dash',
         severity: 'warning',
@@ -72,6 +89,7 @@ function checkEmDash(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: idx,
         length: 1,
+        fix: { oldText: fixOld, newText: fixNew, offset: fixOffset },
       });
     }
   }
@@ -237,6 +255,7 @@ function checkDoubleSpaces(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: idx,
         length: 2,
+        fix: { oldText: '  ', newText: ' ', offset: idx },
       });
     }
   }
@@ -263,6 +282,7 @@ function checkAbbreviationPeriods(packet: Packet): LintDiagnostic[] {
         sourceText: para.rawText,
         offset: match.index!,
         length: match[1].length,
+        fix: { oldText: match[1], newText: without, offset: match.index! },
       });
     }
   }
@@ -279,10 +299,20 @@ function checkBceCeSystem(packet: Packet): LintDiagnostic[] {
     // Check for BC/AD usage (but not BCE/CE which is correct)
     // Match "123 BC" or "AD 123" but not "BCE"
     const bceMatch =
-      stripped.match(/\b\d+\s+BC\b(?!E)/) ||
-      stripped.match(/\bAD\s+\d+\b/) ||
-      stripped.match(/\b\d+\s+AD\b/);
+      stripped.match(/\b(\d+)\s+BC\b(?!E)/) ||
+      stripped.match(/\bAD\s+(\d+)\b/) ||
+      stripped.match(/\b(\d+)\s+AD\b/);
     if (bceMatch) {
+      // Build the replacement: "123 BC" → "123 BCE", "AD 123" → "123 CE", "123 AD" → "123 CE"
+      const matchText = bceMatch[0];
+      const year = bceMatch[1];
+      let fixNew: string;
+      if (/BC$/i.test(matchText)) {
+        fixNew = `${year} BCE`;
+      } else {
+        fixNew = `${year} CE`;
+      }
+
       diags.push({
         rule: 'formatting.bce-ce-system',
         severity: 'warning',
@@ -291,6 +321,11 @@ function checkBceCeSystem(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: bceMatch.index!,
         length: bceMatch[0].length,
+        fix: {
+          oldText: matchText,
+          newText: fixNew,
+          offset: bceMatch.index!,
+        },
       });
     }
   }

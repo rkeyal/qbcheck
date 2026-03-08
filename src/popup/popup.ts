@@ -1,8 +1,13 @@
 import { parseDocx, parseHtml } from '../core/parser.js';
 import { segmentPacket } from '../core/segmenter.js';
 import { lint, inferCrossPacketCategories } from '../core/engine.js';
-import { LintDiagnostic, Severity, Packet } from '../core/model.js';
+import { LintDiagnostic, Severity, Packet, Paragraph } from '../core/model.js';
 import { RULE_REGISTRY } from '../core/rule-registry.js';
+import {
+  applyFixes,
+  paragraphsToHtml,
+  paragraphsToPlainText,
+} from '../core/fixer.js';
 
 const uploadArea = document.getElementById('upload-area')!;
 const resultsArea = document.getElementById('results-area')!;
@@ -40,6 +45,15 @@ const ignoredChip = document.querySelector(
 ) as HTMLButtonElement;
 const pasteTarget = document.getElementById('paste-target')!;
 const unstructuredBanner = document.getElementById('unstructured-banner')!;
+const autofixBanner = document.getElementById('autofix-banner')!;
+const autofixCount = document.getElementById('autofix-count')!;
+const autofixToggle = document.getElementById(
+  'autofix-toggle'
+) as HTMLButtonElement;
+const autofixCopy = document.getElementById(
+  'autofix-copy'
+) as HTMLButtonElement;
+const autofixDetails = document.getElementById('autofix-details')!;;
 
 interface PacketResult {
   filename: string;
@@ -49,11 +63,13 @@ interface PacketResult {
 interface QBLintSettings {
   disabledRules: string[];
   ignoredDiagnostics: string[];
+  autoFixDisabled: string[];
 }
 
 const DEFAULT_SETTINGS: QBLintSettings = {
   disabledRules: [],
   ignoredDiagnostics: [],
+  autoFixDisabled: [],
 };
 
 let packetResults: PacketResult[] = [];
@@ -63,6 +79,10 @@ let showIgnored = false;
 // Track raw parsed data for re-linting after rule changes
 let lastParsedPackets: (Packet | null)[] = [];
 let _lastSortedFiles: File[] = [];
+// Auto-fix state
+let lastFixedParagraphs: Paragraph[] | null = null;
+let lastAppliedFixes: LintDiagnostic[] = [];
+let isPasteMode = false;
 
 function getCurrentDiagnostics(): LintDiagnostic[] {
   return packetResults[currentIndex]?.diagnostics ?? [];
@@ -73,7 +93,13 @@ function getCurrentDiagnostics(): LintDiagnostic[] {
 async function loadSettings(): Promise<QBLintSettings> {
   try {
     const result = await chrome.storage.local.get('qblintSettings');
-    return result.qblintSettings ?? { ...DEFAULT_SETTINGS };
+    const stored = result.qblintSettings;
+    if (!stored) return { ...DEFAULT_SETTINGS };
+    return {
+      disabledRules: stored.disabledRules ?? [],
+      ignoredDiagnostics: stored.ignoredDiagnostics ?? [],
+      autoFixDisabled: stored.autoFixDisabled ?? [],
+    };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -175,9 +201,17 @@ pasteTarget.addEventListener('paste', (e) => {
     return;
   }
 
-  const paragraphs = html
+  let paragraphs = html
     ? parseHtml(html)
     : parseHtml(`<p>${escapeHtml(plainText).split('\n').join('</p><p>')}</p>`);
+
+  // Google Docs clipboard HTML may drop blank lines between paragraphs.
+  // Restore them from the plain text, which always preserves \n\n gaps.
+  // This must happen BEFORE segmentation because the segmenter uses
+  // blank paragraphs as question boundaries in unstructured mode.
+  if (html && plainText) {
+    paragraphs = restoreBlankLines(paragraphs, plainText);
+  }
 
   if (paragraphs.length === 0) {
     alert('No content found in clipboard.');
@@ -188,9 +222,21 @@ pasteTarget.addEventListener('paste', (e) => {
   const disabledSet = new Set(settings.disabledRules);
   const diagnostics = lint(packet, disabledSet);
 
+  // Apply auto-fixes
+  const fixResult = applyFixes(
+    paragraphs,
+    diagnostics,
+    settings.autoFixDisabled
+  );
+  lastFixedParagraphs = fixResult.fixCount > 0 ? fixResult.fixedParagraphs : null;
+  lastAppliedFixes = fixResult.appliedFixes;
+  isPasteMode = true;
+
   lastParsedPackets = [packet];
   _lastSortedFiles = [];
-  packetResults = [{ filename: 'Pasted text', diagnostics }];
+  packetResults = [
+    { filename: 'Pasted text', diagnostics: fixResult.remainingDiagnostics },
+  ];
   currentIndex = 0;
 
   settingsView.hidden = true;
@@ -206,6 +252,9 @@ clearBtn.addEventListener('click', () => {
   currentIndex = 0;
   lastParsedPackets = [];
   _lastSortedFiles = [];
+  lastFixedParagraphs = null;
+  lastAppliedFixes = [];
+  isPasteMode = false;
   uploadArea.hidden = false;
   resultsArea.hidden = true;
   settingsView.hidden = true;
@@ -268,7 +317,7 @@ settingsBtn.addEventListener('click', () => {
 settingsBackBtn.addEventListener('click', closeSettings);
 
 resetDefaultsBtn.addEventListener('click', async () => {
-  settings = { ...DEFAULT_SETTINGS, disabledRules: [], ignoredDiagnostics: [] };
+  settings = { ...DEFAULT_SETTINGS };
   await saveSettings(settings);
   renderSettingsRules();
   // Re-lint if we have packets loaded
@@ -323,14 +372,23 @@ function renderSettingsRules() {
           .map((r) => {
             const checked = !settings.disabledRules.includes(r.id);
             const shortId = r.id.split('.')[1];
+            const autoFixChecked =
+              r.autoFixable && !settings.autoFixDisabled.includes(r.id);
+            const autoFixHtml = r.autoFixable
+              ? `<label class="rule-autofix${!checked ? ' disabled' : ''}" title="Auto-fix this rule when pasting">
+                   <input type="checkbox" data-autofix-id="${r.id}" ${autoFixChecked ? 'checked' : ''} ${!checked ? 'disabled' : ''}>
+                   Auto
+                 </label>`
+              : '';
             return `
-            <label class="rule-item">
+            <div class="rule-item">
               <input type="checkbox" data-rule-id="${r.id}" ${checked ? 'checked' : ''}>
               <div class="rule-item-text">
                 <div class="rule-item-id">${shortId}</div>
                 <div class="rule-item-desc">${escapeHtml(r.description)}</div>
               </div>
-            </label>`;
+              ${autoFixHtml}
+            </div>`;
           })
           .join('')}
       </div>
@@ -338,9 +396,9 @@ function renderSettingsRules() {
     )
     .join('');
 
-  // Bind change handlers
+  // Bind rule enable/disable handlers
   for (const cb of Array.from(
-    settingsRules.querySelectorAll('input[type=checkbox]')
+    settingsRules.querySelectorAll('input[data-rule-id]')
   )) {
     cb.addEventListener('change', async (e) => {
       const input = e.target as HTMLInputElement;
@@ -352,6 +410,37 @@ function renderSettingsRules() {
       } else {
         if (!settings.disabledRules.includes(ruleId)) {
           settings.disabledRules.push(ruleId);
+        }
+      }
+      await saveSettings(settings);
+
+      // Update auto-fix checkbox state
+      const ruleItem = input.closest('.rule-item');
+      const autoFixLabel = ruleItem?.querySelector('.rule-autofix');
+      if (autoFixLabel) {
+        const autoFixInput = autoFixLabel.querySelector(
+          'input'
+        ) as HTMLInputElement;
+        autoFixLabel.classList.toggle('disabled', !input.checked);
+        autoFixInput.disabled = !input.checked;
+      }
+    });
+  }
+
+  // Bind auto-fix toggle handlers
+  for (const cb of Array.from(
+    settingsRules.querySelectorAll('input[data-autofix-id]')
+  )) {
+    cb.addEventListener('change', async (e) => {
+      const input = e.target as HTMLInputElement;
+      const ruleId = input.dataset.autofixId!;
+      if (input.checked) {
+        settings.autoFixDisabled = settings.autoFixDisabled.filter(
+          (r) => r !== ruleId
+        );
+      } else {
+        if (!settings.autoFixDisabled.includes(ruleId)) {
+          settings.autoFixDisabled.push(ruleId);
         }
       }
       await saveSettings(settings);
@@ -460,6 +549,11 @@ async function processFiles(files: File[]) {
   const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
   _lastSortedFiles = sorted;
 
+  // Reset auto-fix state (not available in packet mode)
+  lastFixedParagraphs = null;
+  lastAppliedFixes = [];
+  isPasteMode = false;
+
   // Close settings if open
   settingsView.hidden = true;
   uploadArea.hidden = true;
@@ -547,6 +641,9 @@ function showCurrentPacket() {
   unstructuredBanner.hidden =
     !currentPacket || currentPacket.structured !== false;
 
+  // Show/hide auto-fix banner
+  renderAutofixBanner();
+
   updateCounts();
   renderDiagnostics();
 }
@@ -575,6 +672,88 @@ function updateCounts() {
   countIgnored.textContent = String(ignoredCount);
   ignoredChip.hidden = ignoredCount === 0;
 }
+
+// --- Auto-fix banner ---
+
+function renderAutofixBanner() {
+  if (!isPasteMode || lastAppliedFixes.length === 0) {
+    autofixBanner.hidden = true;
+    return;
+  }
+
+  autofixBanner.hidden = false;
+  autofixCount.textContent = String(lastAppliedFixes.length);
+
+  // Render fix details
+  const CONTEXT = 30;
+  autofixDetails.innerHTML = lastAppliedFixes
+    .map((d) => {
+      let diffHtml = '';
+      if (d.fix && d.sourceText != null && d.offset != null) {
+        const start = Math.max(0, d.offset - CONTEXT);
+        const end = Math.min(
+          d.sourceText.length,
+          d.offset + d.fix.oldText.length + CONTEXT
+        );
+        const before = d.sourceText.substring(start, d.offset);
+        const after = d.sourceText.substring(
+          d.offset + d.fix.oldText.length,
+          end
+        );
+        const prefix = start > 0 ? '\u2026' : '';
+        const suffix = end < d.sourceText.length ? '\u2026' : '';
+
+        diffHtml = `
+          <div class="autofix-item-diff">
+            <div class="diff-old">${prefix}${escapeHtml(before)}<strong>${escapeHtml(d.fix.oldText)}</strong>${escapeHtml(after)}${suffix}</div>
+            <div class="diff-new">${prefix}${escapeHtml(before)}<strong>${escapeHtml(d.fix.newText)}</strong>${escapeHtml(after)}${suffix}</div>
+          </div>`;
+      }
+
+      return `
+        <div class="autofix-item">
+          <div class="autofix-item-rule">${d.rule}</div>
+          <div class="autofix-item-message">${escapeHtml(d.message)}</div>
+          <div class="autofix-item-location">${d.questionLabel || 'Paragraph ' + (d.paragraph + 1)}${d.answerPreview ? ' \u2014 ' + escapeHtml(d.answerPreview) : ''}</div>
+          ${diffHtml}
+        </div>`;
+    })
+    .join('');
+}
+
+autofixToggle.addEventListener('click', () => {
+  const willExpand = autofixDetails.hidden;
+  autofixDetails.hidden = !willExpand;
+  autofixToggle.classList.toggle('expanded', willExpand);
+});
+
+autofixCopy.addEventListener('click', async () => {
+  if (!lastFixedParagraphs) return;
+
+  const html = paragraphsToHtml(lastFixedParagraphs);
+  const plainText = paragraphsToPlainText(lastFixedParagraphs);
+
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+      }),
+    ]);
+  } catch {
+    // Fallback: write plain text only
+    await navigator.clipboard.writeText(plainText);
+  }
+
+  // Show "Copied!" feedback
+  const original = autofixCopy.innerHTML;
+  autofixCopy.textContent = 'Copied! \u2713';
+  autofixCopy.classList.add('copied');
+  setTimeout(() => {
+    autofixCopy.innerHTML = original;
+    autofixCopy.classList.remove('copied');
+  }, 1500);
+});
 
 function renderDiagnostics() {
   const catFilter = filterCategory.value;
@@ -789,4 +968,64 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Google Docs clipboard HTML often omits empty paragraphs that represent
+ * blank lines between questions. The plain text clipboard always preserves
+ * them as consecutive newlines. This function walks both representations
+ * in parallel and splices empty paragraphs back in where the plain text
+ * has blank lines but the HTML paragraphs don't.
+ *
+ * When the HTML *does* already include the blank paragraph, we consume it
+ * instead of inserting a duplicate — this prevents alignment drift that
+ * would misassign subsequent paragraphs and break segmentation.
+ */
+function restoreBlankLines(
+  htmlParas: Paragraph[],
+  plainText: string
+): Paragraph[] {
+  const textLines = plainText.split('\n');
+  const result: Paragraph[] = [];
+  let htmlIdx = 0;
+
+  for (const line of textLines) {
+    if (line.trim() === '') {
+      // Blank line — check if the HTML already has a matching blank paragraph
+      if (
+        htmlIdx < htmlParas.length &&
+        htmlParas[htmlIdx].rawText.trim() === ''
+      ) {
+        // HTML already has this blank paragraph; consume it to stay aligned
+        const para = htmlParas[htmlIdx];
+        para.index = result.length;
+        result.push(para);
+        htmlIdx++;
+      } else {
+        // HTML dropped this blank paragraph; insert a synthetic one
+        result.push({
+          index: result.length,
+          runs: [],
+          rawText: '',
+          hasPageBreak: false,
+        });
+      }
+    } else if (htmlIdx < htmlParas.length) {
+      // Content line — use the HTML-parsed paragraph (preserves formatting)
+      const para = htmlParas[htmlIdx];
+      para.index = result.length;
+      result.push(para);
+      htmlIdx++;
+    }
+  }
+
+  // Append any remaining HTML paragraphs not matched to plain text lines
+  while (htmlIdx < htmlParas.length) {
+    const para = htmlParas[htmlIdx];
+    para.index = result.length;
+    result.push(para);
+    htmlIdx++;
+  }
+
+  return result;
 }

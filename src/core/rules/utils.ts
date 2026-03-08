@@ -1,4 +1,11 @@
-import { Paragraph, Packet, LintDiagnostic, Severity, Run } from '../model.js';
+import {
+  Paragraph,
+  Packet,
+  LintDiagnostic,
+  Severity,
+  Run,
+  AutoFix,
+} from '../model.js';
 import { ANSWER } from '../patterns.js';
 
 /**
@@ -146,6 +153,7 @@ export function createDiagnostic(
     offset?: number;
     length?: number;
     suggestion?: string;
+    fix?: AutoFix;
   }
 ): LintDiagnostic {
   return {
@@ -157,6 +165,7 @@ export function createDiagnostic(
     offset: opts?.offset,
     length: opts?.length,
     suggestion: opts?.suggestion,
+    fix: opts?.fix,
   };
 }
 

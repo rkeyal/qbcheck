@@ -135,31 +135,68 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
     if (!/^\s*ANSWER:\s/.test(text)) {
       // Check common variants
       if (/^\s*ANSWER\s*:/i.test(text)) {
+        let hadCaseFix = false;
         if (!/^\s*ANSWER:/.test(text)) {
+          // Case issue: "answer:" or "Answer:" → "ANSWER:"
+          const prefixMatch = text.match(/^\s*(ANSWER\s*:)/i)!;
+          hadCaseFix = true;
           diags.push({
             rule: 'answerline.answer-prefix',
             severity: 'error',
             paragraph: para.index,
             message: '"ANSWER" must be in all caps.',
             suggestion: 'ANSWER:',
+            sourceText: text,
+            offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            length: prefixMatch[1].length,
+            fix: {
+              oldText: prefixMatch[1],
+              newText: 'ANSWER:',
+              offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            },
           });
         }
-        if (!/ANSWER:\s/.test(text)) {
+        if (!hadCaseFix && !/ANSWER:\s/.test(text)) {
+          // Missing space: "ANSWER:X" → "ANSWER: X"
+          // Skip when a case fix was emitted — the case-sensitive regex
+          // wouldn't match the original text and would cause a false positive.
+          const colonMatch = text.match(/ANSWER:/i)!;
+          const colonEnd = colonMatch.index! + colonMatch[0].length;
           diags.push({
             rule: 'answerline.answer-prefix',
             severity: 'warning',
             paragraph: para.index,
             message: 'Missing space after "ANSWER:".',
+            sourceText: text,
+            offset: colonMatch.index!,
+            length: colonMatch[0].length,
+            fix: {
+              oldText: colonMatch[0],
+              newText: 'ANSWER: ',
+              offset: colonMatch.index!,
+            },
           });
         }
       } else if (/^\s*answer/i.test(text)) {
-        diags.push({
-          rule: 'answerline.answer-prefix',
-          severity: 'error',
-          paragraph: para.index,
-          message: 'Answer line must start with "ANSWER: ".',
-          suggestion: 'ANSWER: ',
-        });
+        // Completely wrong prefix: "answer", "ans", etc.
+        const prefixMatch = text.match(/^\s*(answer\s*:\s*|answer\s+)/i)!;
+        if (prefixMatch) {
+          diags.push({
+            rule: 'answerline.answer-prefix',
+            severity: 'error',
+            paragraph: para.index,
+            message: 'Answer line must start with "ANSWER: ".',
+            suggestion: 'ANSWER: ',
+            sourceText: text,
+            offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            length: prefixMatch[1].length,
+            fix: {
+              oldText: prefixMatch[1],
+              newText: 'ANSWER: ',
+              offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            },
+          });
+        }
       }
     }
   }
@@ -815,6 +852,11 @@ function checkNonstandardPrefix(packet: Packet): LintDiagnostic[] {
       sourceText: text,
       offset: match.index!,
       length: match[1].length,
+      fix: {
+        oldText: match[1],
+        newText: 'ANSWER: ',
+        offset: match.index!,
+      },
     });
   }
 
