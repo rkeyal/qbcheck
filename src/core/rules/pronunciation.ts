@@ -60,7 +60,81 @@ function checkTrailingPunctuation(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkPronunciationQuotes(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAllTextParagraphs(packet)) {
+    const text = para.rawText;
+
+    // Find pronunciation guides without quotes: (foo-BAR) instead of ("foo-BAR")
+    // Match parens with content that looks like a pronunciation guide but lacks quotes
+    const unquotedMatches = [...text.matchAll(/\(([A-Z-]+|[a-z]+-[A-Z]+)\)/g)];
+
+    for (const match of unquotedMatches) {
+      const content = match[1];
+
+      // Skip chemical/mathematical notation:
+      // - Single letters: (R), (S), (Z), etc.
+      // - Roman numerals: (I), (II), (III), (IV), etc.
+      // - Single digits: (1), (2), etc.
+      if (/^[A-Z]$/.test(content)) continue; // Single letter
+      if (/^[IVX]+$/.test(content)) continue; // Roman numerals
+      if (/^\d+$/.test(content)) continue; // Single/multiple digits
+
+      // Only flag if it contains hyphens or is all caps (typical PG patterns)
+      // and isn't just a short abbreviation
+      if (content.includes('-') || /^[A-Z]+$/.test(content)) {
+        diags.push({
+          rule: 'pronunciation.quotes-required',
+          severity: 'warning',
+          paragraph: para.index,
+          message: `Pronunciation guide should have quotes around it: ("${content}"), not (${content}).`,
+          sourceText: text,
+          offset: match.index!,
+          length: match[0].length,
+        });
+      }
+    }
+  }
+
+  return diags;
+}
+
+function checkPossessivePronunciation(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAllTextParagraphs(packet)) {
+    const text = para.rawText;
+
+    // Find pronunciation guides preceded by possessives (ending in 's)
+    // e.g., Toibin's ("TOY-bin") should be ("TOY-binz") or ("TOY-bin's")
+    const possessiveMatches = [
+      ...text.matchAll(/'s\s*\(["']([^"']+)["']\)/g),
+    ];
+
+    for (const match of possessiveMatches) {
+      const pgContent = match[1];
+      // Check if the PG ends with 's, s, or z
+      if (!/['']s$|[sz]$/i.test(pgContent)) {
+        diags.push({
+          rule: 'pronunciation.possessive-ending',
+          severity: 'warning',
+          paragraph: para.index,
+          message: `Pronunciation guide following a possessive ('s) should end with 's, s, or z: "${pgContent}".`,
+          sourceText: text,
+          offset: match.index!,
+          length: match[0].length,
+        });
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const pronunciationRules: LintRule[] = [
   checkPronunciationDelimiters,
   checkTrailingPunctuation,
+  checkPronunciationQuotes,
+  checkPossessivePronunciation,
 ];

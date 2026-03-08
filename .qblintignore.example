@@ -1,0 +1,26 @@
+# .qblintignore
+#
+# Suppress specific lint rules for specific files or directories.
+#
+# Format:
+#   <file-pattern> <rule-id>
+#
+# Patterns support glob syntax:
+#   *     matches any characters within a path segment (not /)
+#   **    matches any number of path segments
+#   ?     matches a single character
+#
+# Examples:
+
+# Disable tag requirement for IQBT packets (they don't use author tags)
+2023_IQBT_UG/*.docx tag.tag-present
+
+# Disable expected count warnings for tiebreaker/extra packets
+**/Tiebreaker*.docx packet.expected-count
+**/Extra*.docx packet.expected-count
+
+# Disable smart quotes check for all packets in a specific tournament
+WinterClosed/*.docx formatting.smart-quotes
+
+# Disable a rule for all .docx files
+# **/*.docx formatting.no-double-spaces

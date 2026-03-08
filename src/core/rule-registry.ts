@@ -215,7 +215,19 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'No nonstandard answer prefixes (Ans:, Answer.)',
     defaultSeverity: 'error',
   },
-  // pronunciation (2 rules)
+  {
+    id: 'answerline.directive-separator',
+    category: 'answerline',
+    description: 'Directives after first separated by semicolon',
+    defaultSeverity: 'warning',
+  },
+  {
+    id: 'answerline.reject-no-alone',
+    category: 'answerline',
+    description: 'No "alone" after quoted reject directive',
+    defaultSeverity: 'warning',
+  },
+  // pronunciation (4 rules)
   {
     id: 'pronunciation.paren-delimiter',
     category: 'pronunciation',
@@ -228,7 +240,19 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'No trailing punctuation in guides',
     defaultSeverity: 'warning',
   },
-  // formatting (11 rules)
+  {
+    id: 'pronunciation.quotes-required',
+    category: 'pronunciation',
+    description: 'Pronunciation guides must have quotes',
+    defaultSeverity: 'warning',
+  },
+  {
+    id: 'pronunciation.possessive-ending',
+    category: 'pronunciation',
+    description: "PG after possessive ends with 's, s, or z",
+    defaultSeverity: 'warning',
+  },
+  // formatting (12 rules)
   {
     id: 'formatting.smart-quotes',
     category: 'formatting',
@@ -294,6 +318,12 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'formatting',
     description: 'Punctuation inside quotation marks',
     defaultSeverity: 'warning',
+  },
+  {
+    id: 'formatting.no-format-bleeding',
+    category: 'formatting',
+    description: 'No formatting on leading/trailing spaces',
+    defaultSeverity: 'info',
   },
   // tag (5 rules)
   {

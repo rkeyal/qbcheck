@@ -821,6 +821,97 @@ function checkNonstandardPrefix(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAnswerLines(packet)) {
+    const brackets = findBracketSpans(para.rawText);
+
+    for (const bracket of brackets) {
+      const content = bracket.content;
+
+      // Find all directive keywords in the bracket content (excluding "or")
+      // "or" is special - it can be used within a directive to list alternatives
+      // Match word boundaries, handling multi-word directives
+      const directivePattern = /\b(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|prompt|reject)\s+/gi;
+      const matches = [...content.matchAll(directivePattern)];
+
+      // Skip if only one or no directives found
+      if (matches.length <= 1) continue;
+
+      // Check each directive after the first
+      for (let i = 1; i < matches.length; i++) {
+        const match = matches[i];
+        const matchPos = match.index!;
+
+        // Look for the character before this directive (skip whitespace)
+        let charBefore = '';
+        for (let j = matchPos - 1; j >= 0; j--) {
+          if (content[j].trim()) {
+            charBefore = content[j];
+            break;
+          }
+        }
+
+        // If not preceded by semicolon, flag it
+        if (charBefore && charBefore !== ';') {
+          const absPos = bracket.start + 1 + matchPos; // +1 for opening '['
+          const directiveName = match[1].toLowerCase().trim();
+          diags.push({
+            rule: 'answerline.directive-separator',
+            severity: 'warning',
+            paragraph: para.index,
+            message: `Secondary directive "${directiveName}" should be preceded by a semicolon, not "${charBefore}".`,
+            sourceText: para.rawText,
+            offset: absPos,
+            length: match[0].length,
+          });
+        }
+      }
+    }
+  }
+
+  return diags;
+}
+
+function checkRejectAlone(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAnswerLines(packet)) {
+    const brackets = findBracketSpans(para.rawText);
+
+    for (const bracket of brackets) {
+      const subs = parseSubDirectives(bracket, para.rawText);
+      for (const sub of subs) {
+        if (sub.type !== 'reject' && sub.type !== 'do not accept') continue;
+
+        const content = sub.contentText.trim();
+        if (!content) continue;
+
+        // Check if content has quotes followed by " alone"
+        const aloneMatch = content.match(
+          /^[\u201c\u201d"']([^"'\u201c\u201d]+)[\u201c\u201d"']\s+alone$/i
+        );
+        if (aloneMatch) {
+          const directive =
+            sub.type === 'do not accept' ? 'do not accept' : 'reject';
+          diags.push({
+            rule: 'answerline.reject-no-alone',
+            severity: 'warning',
+            paragraph: para.index,
+            message: `The word "alone" should not appear after a quoted phrase in [${directive}] directive. Remove "alone".`,
+            sourceText: para.rawText,
+            offset: sub.contentStart,
+            length: content.length,
+          });
+        }
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const answerlineRules: LintRule[] = [
   checkNonstandardPrefix,
   checkAnswerPrefix,
@@ -837,4 +928,6 @@ export const answerlineRules: LintRule[] = [
   checkDeprecatedDirectives,
   checkPostNoteQuotationMark,
   checkParentheticalOptional,
+  checkDirectiveSeparator,
+  checkRejectAlone,
 ];

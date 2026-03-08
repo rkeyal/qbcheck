@@ -25,6 +25,32 @@ npm run format:check     # verify formatting
 npm run lint-packets     # run linter against ExamplePackets/ (outputs to lint-results.json)
 ```
 
+## .qblintignore File
+
+The `.qblintignore` file allows suppressing specific rules for specific files or directories. This is useful for tournament-specific style differences (e.g., IQBT doesn't use author tags).
+
+**Format**:
+```
+# Comment lines start with #
+<file-pattern> <rule-id>
+```
+
+**Glob patterns supported**:
+- `*` matches any characters within a path segment (not `/`)
+- `**` matches any number of path segments
+- `?` matches a single character
+
+**Example**:
+```
+# Disable tag requirement for IQBT packets
+2023_IQBT_UG/*.docx tag.tag-present
+
+# Disable expected count for tiebreakers
+**/Tiebreaker*.docx packet.expected-count
+```
+
+The CLI script `scripts/lint-packets.ts` automatically loads `.qblintignore` from the current directory if present. See `.qblintignore.example` for more examples.
+
 **Loading the extension**: After `npm run build`, go to `chrome://extensions`, enable Developer mode, and load the `dist/` folder as an unpacked extension.
 
 **Running a single test file**: `npm test -- test/rules/answerline.test.ts`

@@ -16,12 +16,23 @@
  *   --json              Output raw JSON for further processing
  */
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import {
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+  existsSync,
+} from 'fs';
 import { join, relative } from 'path';
 import { parseDocx } from '../src/core/parser.js';
 import { segmentPacket } from '../src/core/segmenter.js';
 import { lint } from '../src/core/engine.js';
 import { LintDiagnostic, Packet } from '../src/core/model.js';
+import {
+  parseIgnoreFile,
+  shouldIgnore,
+  IgnoreRule,
+} from '../src/core/ignore.js';
 
 // ── CLI argument parsing ────────────────────────────────────────────
 
@@ -275,6 +286,19 @@ async function main() {
     process.exit(1);
   }
 
+  // Load .qblintignore if it exists
+  let ignoreRules: IgnoreRule[] = [];
+  const ignorePath = '.qblintignore';
+  if (existsSync(ignorePath)) {
+    const ignoreContent = readFileSync(ignorePath, 'utf-8');
+    ignoreRules = parseIgnoreFile(ignoreContent);
+    if (ignoreRules.length > 0) {
+      console.log(
+        `Loaded ${ignoreRules.length} ignore rule(s) from ${ignorePath}`
+      );
+    }
+  }
+
   console.log(`Linting ${files.length} packets from ${opts.dir}…\n`);
 
   let allDiags: FileDiagnostic[] = [];
@@ -293,7 +317,19 @@ async function main() {
     }
   }
 
-  // Apply filters
+  // Apply ignore rules
+  if (ignoreRules.length > 0) {
+    const beforeCount = allDiags.length;
+    allDiags = allDiags.filter(
+      (d) => !shouldIgnore(d.file, d.rule, ignoreRules)
+    );
+    const ignoredCount = beforeCount - allDiags.length;
+    if (ignoredCount > 0) {
+      console.log(`\nIgnored ${ignoredCount} diagnostic(s) via .qblintignore`);
+    }
+  }
+
+  // Apply CLI filters
   if (opts.rule) {
     allDiags = allDiags.filter((d) => d.rule === opts.rule);
   }

@@ -151,3 +151,87 @@ describe('answerline.deprecated-directive', () => {
     ).toBe(true);
   });
 });
+
+describe('answerline.directive-separator', () => {
+  it('flags directive separated by comma instead of semicolon', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept stuff, accept other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('stuff'),
+      plain(', accept '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(true);
+  });
+
+  it('passes directive separated by semicolon', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept stuff; accept other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('stuff'),
+      plain('; accept '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it('passes "or" within a directive', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept stuff or other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('stuff'),
+      plain(' or '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it('does not flag first directive', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept stuff]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('stuff'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+});
+
+describe('answerline.reject-no-alone', () => {
+  it('flags "alone" after reject directive', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "Persians" alone]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "Persians" alone]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-no-alone')).toBe(true);
+  });
+
+  it('passes reject without "alone"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "Persians"]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "Persians"]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-no-alone')).toBe(false);
+  });
+});

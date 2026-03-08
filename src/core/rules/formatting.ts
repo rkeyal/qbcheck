@@ -368,6 +368,88 @@ function checkPunctuationInsideQuotes(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getQuestionParagraphs(packet)) {
+    let charPos = 0;
+
+    for (let i = 0; i < para.runs.length; i++) {
+      const run = para.runs[i];
+
+      // Check if run has any formatting
+      const hasFormatting = run.bold || run.underline || run.italic;
+      if (!hasFormatting) {
+        charPos += run.text.length;
+        continue;
+      }
+
+      // Check for leading space
+      const hasLeadingSpace = run.text.length > 0 && run.text[0] === ' ';
+      // Check for trailing space
+      const hasTrailingSpace =
+        run.text.length > 0 && run.text[run.text.length - 1] === ' ';
+
+      // Get adjacent runs for context
+      const prevRun = i > 0 ? para.runs[i - 1] : null;
+      const nextRun = i < para.runs.length - 1 ? para.runs[i + 1] : null;
+
+      // Helper to check if a space would remain formatted if moved to adjacent run
+      const wouldRemainFormatted = (
+        adjacentRun: typeof run | null,
+        checkType: 'leading' | 'trailing'
+      ): boolean => {
+        if (!adjacentRun) return false;
+
+        // Check if adjacent run shares ALL the formatting of current run
+        if (run.bold && !adjacentRun.bold) return false;
+        if (run.underline && !adjacentRun.underline) return false;
+        if (run.italic && !adjacentRun.italic) return false;
+
+        return true;
+      };
+
+      // Only flag if the space would become unformatted when moved
+      const shouldFlagLeading =
+        hasLeadingSpace && !wouldRemainFormatted(prevRun, 'leading');
+      const shouldFlagTrailing =
+        hasTrailingSpace && !wouldRemainFormatted(nextRun, 'trailing');
+
+      if (shouldFlagLeading || shouldFlagTrailing) {
+        // Determine severity: underline is more visible, so higher severity
+        const severity = run.underline ? 'warning' : 'info';
+        const formatTypes: string[] = [];
+        if (run.bold) formatTypes.push('bold');
+        if (run.underline) formatTypes.push('underline');
+        if (run.italic) formatTypes.push('italic');
+        const formatDesc = formatTypes.join('/');
+
+        const spaceType = shouldFlagLeading
+          ? shouldFlagTrailing
+            ? 'leading and trailing'
+            : 'leading'
+          : 'trailing';
+
+        diags.push({
+          rule: 'formatting.no-format-bleeding',
+          severity,
+          paragraph: para.index,
+          message: `Formatting (${formatDesc}) should not include ${spaceType} spaces.`,
+          sourceText: para.rawText,
+          offset: charPos,
+          length: run.text.length,
+        });
+        // Only report once per paragraph
+        break;
+      }
+
+      charPos += run.text.length;
+    }
+  }
+
+  return diags;
+}
+
 export const formattingRules: LintRule[] = [
   checkSmartQuotes,
   checkEmDash,
@@ -380,4 +462,5 @@ export const formattingRules: LintRule[] = [
   checkAbbreviationPeriods,
   checkBceCeSystem,
   checkPunctuationInsideQuotes,
+  checkFormattingBleeding,
 ];

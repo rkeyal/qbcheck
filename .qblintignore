@@ -1,0 +1,5 @@
+# .qblintignore
+# Suppress specific lint rules for specific files or directories
+
+# IQBT tournament doesn't use author tags
+2023_IQBT_UG/*.docx tag.tag-present
