@@ -371,6 +371,35 @@ function checkPunctuationInsideQuotes(packet: Packet): LintDiagnostic[] {
 function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
+  // Helper to check if text looks like a pronunciation guide opening or closing
+  const isPronunciationGuideOpening = (text: string): boolean => {
+    // Matches start of pronunciation guide: (" or (\u201c
+    return /^\([""\u201c]/.test(text);
+  };
+
+  const isPronunciationGuideClosing = (text: string): boolean => {
+    // Matches end of pronunciation guide: ") or \u201d)
+    return /[""\u201d]\)$/.test(text);
+  };
+
+  // Helper to check if text looks like a specific instruction directive
+  // (not answer directives like [accept] or [reject])
+  const isInstructionDirectiveOpening = (text: string): boolean => {
+    // Matches instruction directives that are commonly unbolded:
+    // [emphasize, [prompt on, [or equivalent, [do not accept, [do not prompt
+    return /^\[(emphasize|prompt on|or equivalent|do not (accept|prompt))/i.test(
+      text
+    );
+  };
+
+  const isInstructionDirectiveClosing = (text: string): boolean => {
+    // Matches end of instruction directive
+    // Check if it contains the directive keywords and ends with ]
+    return /(emphasize|prompt on|or equivalent|do not (accept|prompt))[^\]]*\]$/i.test(
+      text
+    );
+  };
+
   for (const para of getQuestionParagraphs(packet)) {
     let charPos = 0;
 
@@ -409,11 +438,42 @@ function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
         return true;
       };
 
+      // Check if this run is purely whitespace (common when editing around directives)
+      const isPureWhitespace = /^\s+$/.test(run.text);
+
+      // Check if spaces are adjacent to pronunciation guides (always allow)
+      // or instruction directives (only for pure whitespace runs)
+      const isNextToPronunciationGuideOpening =
+        hasTrailingSpace && nextRun && isPronunciationGuideOpening(nextRun.text);
+
+      const isNextToPronunciationGuideClosing =
+        hasLeadingSpace && prevRun && isPronunciationGuideClosing(prevRun.text);
+
+      const isNextToInstructionDirectiveOpening =
+        hasTrailingSpace &&
+        isPureWhitespace &&
+        nextRun &&
+        isInstructionDirectiveOpening(nextRun.text);
+
+      const isNextToInstructionDirectiveClosing =
+        hasLeadingSpace &&
+        isPureWhitespace &&
+        prevRun &&
+        isInstructionDirectiveClosing(prevRun.text);
+
       // Only flag if the space would become unformatted when moved
+      // AND it's not adjacent to a pronunciation guide or instruction directive
       const shouldFlagLeading =
-        hasLeadingSpace && !wouldRemainFormatted(prevRun, 'leading');
+        hasLeadingSpace &&
+        !wouldRemainFormatted(prevRun, 'leading') &&
+        !isNextToPronunciationGuideClosing &&
+        !isNextToInstructionDirectiveClosing;
+
       const shouldFlagTrailing =
-        hasTrailingSpace && !wouldRemainFormatted(nextRun, 'trailing');
+        hasTrailingSpace &&
+        !wouldRemainFormatted(nextRun, 'trailing') &&
+        !isNextToPronunciationGuideOpening &&
+        !isNextToInstructionDirectiveOpening;
 
       if (shouldFlagLeading || shouldFlagTrailing) {
         // Determine severity: underline is more visible, so higher severity
