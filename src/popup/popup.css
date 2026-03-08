@@ -675,6 +675,30 @@ h1 {
 
 .rule-item-text {
   min-width: 0;
+  flex: 1;
+}
+
+.rule-autofix {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #2e7d32;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #e8f5e9;
+}
+
+.rule-autofix.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.rule-autofix input[type='checkbox'] {
+  margin: 0;
 }
 
 .rule-item-id {
@@ -707,4 +731,134 @@ h1 {
   background: #fee;
   color: #c00;
   border-color: #fcc;
+}
+
+/* Auto-fix banner */
+.autofix-banner {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.autofix-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.autofix-icon {
+  color: #2e7d32;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.autofix-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.autofix-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #2e7d32;
+  padding: 2px 4px;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+
+.autofix-toggle.expanded {
+  transform: rotate(90deg);
+}
+
+.autofix-copy {
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.autofix-copy:hover {
+  background: #1b5e20;
+}
+
+.autofix-copy.copied {
+  background: #4caf50;
+}
+
+/* Fix detail list — use :not([hidden]) so display:flex doesn't
+   override the hidden attribute's display:none. */
+.autofix-details:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.autofix-details {
+  border-top: 1px solid #a5d6a7;
+  padding: 4px 10px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.autofix-item {
+  padding: 4px 6px;
+  background: #f1f8e9;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.autofix-item-rule {
+  font-family: monospace;
+  font-size: 10px;
+  color: #558b2f;
+}
+
+.autofix-item-message {
+  color: #33691e;
+  margin-top: 1px;
+}
+
+.autofix-item-location {
+  font-size: 10px;
+  color: #689f38;
+  margin-top: 1px;
+}
+
+.autofix-item-diff {
+  margin-top: 3px;
+  font-family: monospace;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.diff-old {
+  background: #ffebee;
+  color: #c62828;
+  padding: 2px 4px;
+  border-radius: 2px;
+  text-decoration: line-through;
+}
+
+.diff-new {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.diff-old strong,
+.diff-new strong {
+  font-weight: 700;
 }

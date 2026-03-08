@@ -42,6 +42,12 @@ export interface Packet {
 
 export type Severity = 'error' | 'warning' | 'info';
 
+export interface AutoFix {
+  oldText: string;
+  newText: string;
+  offset: number;
+}
+
 export interface LintDiagnostic {
   rule: string;
   severity: Severity;
@@ -53,6 +59,7 @@ export interface LintDiagnostic {
   sourceText?: string; // paragraph rawText for snippet rendering
   offset?: number; // char offset of match within sourceText
   length?: number; // length of matched text
+  fix?: AutoFix;
 }
 
 export type LintRule = (packet: Packet) => LintDiagnostic[];

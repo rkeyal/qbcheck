@@ -10,6 +10,12 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
     // Check for "For ten points" (words instead of numerals)
     const ftenMatch = text.match(/for ten points/i);
     if (ftenMatch && !/for 10 points/i.test(text)) {
+      // Build fix: preserve original casing of "For" and "points"
+      const orig = ftenMatch[0];
+      const fixNew =
+        orig[0] === orig[0].toUpperCase()
+          ? 'For 10 points'
+          : 'for 10 points';
       diags.push({
         rule: 'question.ftp-format',
         severity: 'error',
@@ -18,11 +24,10 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: ftenMatch.index!,
         length: ftenMatch[0].length,
+        fix: { oldText: orig, newText: fixNew, offset: ftenMatch.index! },
       });
-    }
-
-    // Check FTP exists
-    if (!/for 10 points/i.test(text)) {
+    } else if (!/for 10 points/i.test(text)) {
+      // Check FTP exists (only when "ten" variant wasn't already flagged with a fix)
       diags.push({
         rule: 'question.ftp-format',
         severity: 'warning',
@@ -136,6 +141,7 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: powerIdx,
         length: 3,
+        fix: { oldText: '(*)', newText: ' (*)', offset: powerIdx },
       });
     }
   }

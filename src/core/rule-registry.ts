@@ -5,6 +5,7 @@ export interface RuleMeta {
   category: string;
   description: string;
   defaultSeverity: Severity;
+  autoFixable?: boolean;
 }
 
 export const RULE_REGISTRY: RuleMeta[] = [
@@ -63,6 +64,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'question',
     description: 'FTP clue formatting',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'question.ftpe-format',
@@ -81,6 +83,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'question',
     description: 'Power mark formatting',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'question.missing-answer',
@@ -136,6 +139,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'answerline',
     description: 'ANSWER: prefix format',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'answerline.answer-formatting',
@@ -220,6 +224,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'answerline',
     description: 'No nonstandard answer prefixes (Ans:, Answer.)',
     defaultSeverity: 'error',
+    autoFixable: true,
   },
   {
     id: 'answerline.directive-separator',
@@ -239,6 +244,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'pronunciation',
     description: 'Pronunciation guide delimiters',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'pronunciation.trailing-punct',
@@ -251,6 +257,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'pronunciation',
     description: 'Pronunciation guides must have quotes',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'pronunciation.possessive-ending',
@@ -268,8 +275,9 @@ export const RULE_REGISTRY: RuleMeta[] = [
   {
     id: 'formatting.no-em-dash',
     category: 'formatting',
-    description: 'Use em dashes, not hyphens',
+    description: 'Use en dashes, not em dashes',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'formatting.no-sub-superscript',
@@ -300,18 +308,21 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'formatting',
     description: 'No double spaces',
     defaultSeverity: 'info',
+    autoFixable: true,
   },
   {
     id: 'formatting.no-abbreviation-periods',
     category: 'formatting',
     description: 'No periods in abbreviations',
     defaultSeverity: 'info',
+    autoFixable: true,
   },
   {
     id: 'formatting.bce-ce-system',
     category: 'formatting',
     description: 'Use BCE/CE date system',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'formatting.no-latin-abbrev',

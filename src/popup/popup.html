@@ -61,6 +61,30 @@
           <span>No packet structure found. Packet-level rules disabled.</span>
         </div>
 
+        <div id="autofix-banner" class="autofix-banner" hidden>
+          <div class="autofix-header">
+            <span class="autofix-icon">&#x2713;</span>
+            <span class="autofix-label">
+              <span id="autofix-count">0</span> issues auto-fixed
+            </span>
+            <button
+              id="autofix-toggle"
+              class="autofix-toggle"
+              title="Show/hide details"
+            >
+              &#x25B8;
+            </button>
+            <button
+              id="autofix-copy"
+              class="autofix-copy"
+              title="Copy corrected text"
+            >
+              Copy &#x29C9;
+            </button>
+          </div>
+          <div id="autofix-details" class="autofix-details" hidden></div>
+        </div>
+
         <div id="packet-nav" hidden>
           <button id="prev-btn" title="Previous packet">&lsaquo;</button>
           <select id="packet-select"></select>
