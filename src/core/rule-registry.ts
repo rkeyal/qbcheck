@@ -57,7 +57,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'Question numbers strictly increase',
     defaultSeverity: 'error',
   },
-  // question (11 rules)
+  // question (12 rules)
   {
     id: 'question.ftp-format',
     category: 'question',
@@ -123,6 +123,12 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'question',
     description: 'Bonus parts interleaved with answers',
     defaultSeverity: 'error',
+  },
+  {
+    id: 'question.post-question-note',
+    category: 'question',
+    description: 'Post-question notes styled as sentences',
+    defaultSeverity: 'warning',
   },
   // answerline (15 rules)
   {

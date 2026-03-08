@@ -156,3 +156,123 @@ describe('question.bonus-difficulty-spread', () => {
     expect(hasDiag(diags, 'question.bonus-difficulty-spread')).toBe(false);
   });
 });
+
+describe('question.post-question-note', () => {
+  it('flags lowercase post-question note', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (the composer is Ludwig Beethoven)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+    const d = findDiag(diags, 'question.post-question-note');
+    expect(d?.message).toContain('capitalize');
+  });
+
+  it('flags post-question note without period', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (The composer is Ludwig Beethoven)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+    const d = findDiag(diags, 'question.post-question-note');
+    expect(d?.message).toContain('period');
+  });
+
+  it('flags both lowercase and missing period', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (the composer is Ludwig Beethoven)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+  });
+
+  it('passes properly formatted post-question note', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (The composer is Ludwig Beethoven.)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+  });
+
+  it('passes author attribution without capitalization requirement', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (by Ludwig Beethoven)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+  });
+
+  it('passes author attribution with comma', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer. (by Ludwig Beethoven, 1827)',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+  });
+
+  it('ignores pronunciation guides', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this composer ("BAY-toe-ven").',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+  });
+
+  it('checks bonus parts', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart(
+            '[10e]',
+            'Name this composer. (the composer is Ludwig Beethoven)',
+            'Ludwig van Beethoven',
+            110
+          ),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+  });
+});

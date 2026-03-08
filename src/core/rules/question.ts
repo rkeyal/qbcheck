@@ -484,6 +484,89 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    // For tossups, check the main question paragraph
+    // For bonuses, check each part's text paragraph
+    const parasToCheck: Array<{ para: import('../model.js').Paragraph }> = [];
+
+    if (q.type === 'tossup') {
+      parasToCheck.push({ para: q.numberParagraph });
+    } else {
+      // For bonuses, check each part
+      for (const part of q.parts) {
+        parasToCheck.push({ para: part.textParagraph });
+      }
+    }
+
+    for (const { para } of parasToCheck) {
+      const text = para.rawText;
+
+      // Look for parenthetical notes near the end of the paragraph
+      // Match pattern: (content) at the end or near end (before period/punctuation)
+      // We want to capture post-question notes, not mid-sentence parentheticals
+      const noteMatches = [...text.matchAll(/\(([^)]+)\)(?:\s*[.?!]?\s*)?$/g)];
+
+      for (const match of noteMatches) {
+        const fullMatch = match[0];
+        const content = match[1].trim();
+
+        // Skip if this looks like a pronunciation guide
+        // PGs typically have quotes inside: ("BAY-toe-ven") or contain phonetic patterns
+        if (/"[^"]*"/.test(content) || /\u201c[^\u201d]*\u201d/.test(content)) {
+          continue;
+        }
+        if (/^[A-Z-]+$/.test(content) || /[a-z]+-[A-Z]+/.test(content)) {
+          // All caps or phonetic pattern like "foo-BAR"
+          continue;
+        }
+
+        // Skip author attribution (starts with "by ")
+        if (/^by\s+/i.test(content)) {
+          continue;
+        }
+
+        // Now check if it's styled as a sentence
+        const issues: string[] = [];
+
+        // Find the first alphabetical character
+        const firstAlphaMatch = content.match(/[a-zA-Z]/);
+        if (firstAlphaMatch) {
+          const firstAlpha = firstAlphaMatch[0];
+          const firstAlphaIndex = firstAlphaMatch.index!;
+
+          // Check if it's capitalized
+          if (firstAlpha === firstAlpha.toLowerCase()) {
+            issues.push('capitalize the first letter');
+          }
+        }
+
+        // Check if it ends with a period
+        if (!content.endsWith('.')) {
+          issues.push('end with a period');
+        }
+
+        if (issues.length > 0) {
+          const message = `Post-question note should be styled as a sentence: ${issues.join(' and ')}.`;
+          diags.push({
+            rule: 'question.post-question-note',
+            severity: 'warning',
+            paragraph: para.index,
+            message,
+            sourceText: text,
+            offset: match.index!,
+            length: fullMatch.length,
+          });
+        }
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const questionRules: LintRule[] = [
   checkFtpFormat,
   checkFtpePlacement,
@@ -496,4 +579,5 @@ export const questionRules: LintRule[] = [
   checkFtpMidSentence,
   checkPreQuestionNoteItalics,
   checkBonusPartOrder,
+  checkPostQuestionNote,
 ];
