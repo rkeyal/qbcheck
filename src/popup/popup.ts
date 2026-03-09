@@ -124,8 +124,8 @@ function getCurrentDiagnostics(): LintDiagnostic[] {
 
 async function loadSettings(): Promise<QBLintSettings> {
   try {
-    const result = await chrome.storage.local.get('qblintSettings');
-    const stored = result.qblintSettings;
+    const result = await chrome.storage.local.get(['qbcheckSettings', 'qblintSettings']);
+    const stored = result.qbcheckSettings ?? result.qblintSettings;
     if (!stored) return { ...DEFAULT_SETTINGS };
     return {
       disabledRules: stored.disabledRules ?? [],
@@ -140,7 +140,7 @@ async function loadSettings(): Promise<QBLintSettings> {
 
 async function saveSettings(s: QBLintSettings): Promise<void> {
   try {
-    await chrome.storage.local.set({ qblintSettings: s });
+    await chrome.storage.local.set({ qbcheckSettings: s });
   } catch {
     // Storage unavailable (e.g., dev mode without extension context)
   }

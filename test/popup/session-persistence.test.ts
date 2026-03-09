@@ -295,13 +295,13 @@ describe('Session Persistence', () => {
         autoFixDisabled: [],
       };
 
-      await chrome.storage.local.set({ qblintSettings: settings });
+      await chrome.storage.local.set({ qbcheckSettings: settings });
 
-      const localStored = await chrome.storage.local.get('qblintSettings');
-      const sessionStored = await chrome.storage.session.get('qblintSettings');
+      const localStored = await chrome.storage.local.get('qbcheckSettings');
+      const sessionStored = await chrome.storage.session.get('qbcheckSettings');
 
-      expect(localStored.qblintSettings).toEqual(settings);
-      expect(sessionStored.qblintSettings).toBeUndefined();
+      expect(localStored.qbcheckSettings).toEqual(settings);
+      expect(sessionStored.qbcheckSettings).toBeUndefined();
     });
 
     it('should store session state in session storage, not local', async () => {
