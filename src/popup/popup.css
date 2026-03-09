@@ -476,6 +476,7 @@ h1 {
   border-radius: 2px;
 }
 
+
 #no-issues p {
   text-align: center;
   color: #4caf50;
@@ -1219,6 +1220,7 @@ body.dark .diag-snippet mark {
   background: #665500;
   color: #ffe066;
 }
+
 
 body.dark .diag-action {
   color: #888;

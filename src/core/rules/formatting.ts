@@ -527,14 +527,19 @@ function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
             : 'leading'
           : 'trailing';
 
+        // Highlight just the offending space(s), not the entire run
+        const spaceOffset = shouldFlagLeading
+          ? charPos
+          : charPos + run.text.length - 1;
+
         diags.push({
           rule: 'formatting.no-format-bleeding',
           severity,
           paragraph: para.index,
           message: `Formatting (${formatDesc}) should not include ${spaceType} spaces.`,
           sourceText: para.rawText,
-          offset: charPos,
-          length: run.text.length,
+          offset: spaceOffset,
+          length: 1,
         });
         // Only report once per paragraph
         break;
