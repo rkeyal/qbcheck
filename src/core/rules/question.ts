@@ -570,6 +570,49 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkSeparateNoteParagraph(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  const notePatterns = [
+    /^Note to (players?|moderators?|readers?):\s*.+/i,
+    /^Description acceptable\.?$/i,
+    /^Two answers? required\.?$/i,
+    /^Names? acceptable\.?$/i,
+  ];
+
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    const text = q.numberParagraph.rawText;
+    const body = text.replace(/^\s*\d+\.\s*/, '').trim();
+
+    const isNote = notePatterns.some((p) => p.test(body));
+    if (!isNote) continue;
+
+    // Check that there's at least one body paragraph beyond numberParagraph, answerLine, and tag
+    const specialParas = new Set<number>();
+    specialParas.add(q.numberParagraph.index);
+    if (q.answerLine) specialParas.add(q.answerLine.index);
+    if (q.tag) specialParas.add(q.tag.index);
+    for (const part of q.parts) {
+      specialParas.add(part.textParagraph.index);
+      if (part.answerLine) specialParas.add(part.answerLine.index);
+    }
+
+    const hasExtraBody = q.paragraphs.some((p) => !specialParas.has(p.index));
+    if (hasExtraBody) {
+      diags.push({
+        rule: 'question.separate-note-paragraph',
+        severity: 'warning',
+        paragraph: q.numberParagraph.index,
+        message:
+          'Pre-question note should be on the same line as the question text, not a separate paragraph.',
+        sourceText: text,
+      });
+    }
+  }
+
+  return diags;
+}
+
 export const questionRules: LintRule[] = [
   checkFtpFormat,
   checkFtpePlacement,
@@ -583,4 +626,5 @@ export const questionRules: LintRule[] = [
   checkPreQuestionNoteItalics,
   checkBonusPartOrder,
   checkPostQuestionNote,
+  checkSeparateNoteParagraph,
 ];

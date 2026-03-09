@@ -4,6 +4,7 @@ import {
   makePacket,
   makeQuestion,
   makeBonusPart,
+  makeParagraph,
   hasDiag,
   findDiag,
 } from '../helpers.js';
@@ -274,5 +275,81 @@ describe('question.post-question-note-sentence', () => {
     const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
     const diags = lint(packet);
     expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(true);
+  });
+});
+
+describe('question.separate-note-paragraph', () => {
+  it('flags separate note paragraph', () => {
+    const t = makeQuestion(
+      'tossup',
+      16,
+      'Note to players: specific word required.',
+      'ANSWER: anger',
+      { numberParagraphIndex: 50 }
+    );
+    // Add an extra body paragraph with the actual question text
+    const bodyPara = makeParagraph(
+      'A theater press officer prophesied that this emotion would grip audiences.',
+      { index: 52 }
+    );
+    t.paragraphs.push(bodyPara);
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.separate-note-paragraph')).toBe(true);
+  });
+
+  it('flags "Description acceptable" variant', () => {
+    const t = makeQuestion(
+      'tossup',
+      20,
+      'Description Acceptable.',
+      'ANSWER: something',
+      { numberParagraphIndex: 60 }
+    );
+    const bodyPara = makeParagraph('This painting depicts a woman holding a fan.', {
+      index: 62,
+    });
+    t.paragraphs.push(bodyPara);
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.separate-note-paragraph')).toBe(true);
+  });
+
+  it('does not flag when note is inline with question text', () => {
+    const t = makeQuestion(
+      'tossup',
+      15,
+      'Note to players: specific word required. A theater press officer prophesied that this emotion would grip audiences. For 10 points, name this emotion.',
+      'ANSWER: anger',
+      { numberParagraphIndex: 50 }
+    );
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.separate-note-paragraph')).toBe(false);
+  });
+
+  it('does not flag normal questions without notes', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.separate-note-paragraph')).toBe(false);
   });
 });
