@@ -43,6 +43,14 @@ qbcheck reads the formatted HTML from your clipboard, preserving bold, italic, a
 
 When pasting unstructured text, packet-level rules (section headers, numbering, expected counts) are automatically skipped, and an info banner explains this.
 
+### Auto-fix (paste mode)
+
+When pasting text, qbcheck automatically fixes certain issues and shows a banner with the count of applied fixes. Click the toggle to expand and see what was changed. Use the **Copy** button to copy the corrected text (with formatting preserved) back to your clipboard for pasting into Docs/Word.
+
+16 rules support auto-fix, covering common issues like wrong dash types, double spaces, non-standard answer prefixes, deprecated directives, and formatting bleeding onto spaces. Auto-fixable rules are marked with a wrench icon in the settings panel.
+
+Auto-fix can be toggled globally or per-rule in the settings panel. Auto-fix is only available in paste mode, not for uploaded .docx files.
+
 ### Results
 
 Each diagnostic shows:
@@ -56,9 +64,29 @@ Click a diagnostic with a source snippet indicator to expand it and see the exac
 
 Filter results by severity (click the error/warning/info chips) or by category (use the dropdown). Individual diagnostics can be ignored, and entire rules can be disabled via the settings gear icon.
 
+### Dark mode
+
+Toggle dark mode with the button in the top-right corner of the header. The preference persists across sessions.
+
+### Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `E` | Toggle error severity filter |
+| `W` | Toggle warning severity filter |
+| `I` | Toggle info severity filter |
+| `<` / `>` | Previous / next packet |
+| `1`-`9` | Jump to packet number |
+| `?` | Show keyboard shortcut help |
+| `Esc` | Close settings or help |
+
+### Session persistence
+
+Results, scroll position, and current packet index persist across popup open/close cycles within a browser session, so you don't lose your place when switching tabs.
+
 ## What it checks
 
-qbcheck runs 58 rules across 7 categories.
+qbcheck runs 66 rules across 7 categories.
 
 ### Packet structure
 Validates that the packet is organized correctly for downstream parsing.
@@ -89,6 +117,8 @@ Checks the structure and markers within question text.
 | `multiline-answer` | Answer lines are a single paragraph (multi-line answers break YAPP) |
 | `no-ftp-midsentence` | "For 10 points" appears in the final sentence, not mid-paragraph |
 | `pre-question-note-italics` | Pre-question notes like "Description acceptable." should be italicized |
+| `post-question-note-sentence` | Post-question notes should be capitalized and end with a period |
+| `separate-note-paragraph` | Pre-question notes should be inline with question text, not separate paragraphs |
 
 ### Answer lines
 Validates `ANSWER:` line formatting, directives, and structure.
@@ -104,12 +134,15 @@ Validates `ANSWER:` line formatting, directives, and structure.
 | `reject-quotes` | Text in `[reject]` directives is quoted |
 | `prompt-question-quotes` | "by asking" questions are quoted |
 | `prompt-with-not-by-asking` | Directed prompts use "by asking" instead of "with" |
-| `prompt-partial-answers` | Avoid "prompt on partial answers" — spell out what's promptable |
+| `prompt-partial-answers` | Avoid "prompt on partial answers" -- spell out what's promptable |
 | `directive-typo` | Catches typos in directive keywords |
 | `deprecated-directive` | Flags deprecated directives (anti-prompt, do not accept, etc.) |
 | `post-notes` | Text after the last bracket is in parentheses |
 | `post-note-no-quote-start` | Post-notes don't start with quotation marks |
 | `no-parenthetical-optional` | No parenthesized optional text like "(The) Great Gatsby" |
+| `directive-separator` | Directives after the first are separated by semicolons |
+| `reject-no-alone` | No "alone" after a quoted reject directive |
+| `directive-brackets` | Directives use square brackets, not parentheses |
 
 ### Pronunciation
 Checks pronunciation guide formatting.
@@ -117,7 +150,9 @@ Checks pronunciation guide formatting.
 | Rule | Description |
 |------|-------------|
 | `paren-delimiter` | Guides use parentheses, not square brackets |
+| `quotes-required` | Pronunciation text must be wrapped in quotes |
 | `trailing-punct` | Punctuation goes after the closing parenthesis, not inside |
+| `possessive-ending` | Guides after possessives end with 's, s, or z |
 
 ### Formatting
 Enforces typography and text conventions.
@@ -135,6 +170,8 @@ Enforces typography and text conventions.
 | `bce-ce-system` | Use BCE/CE, not BC/AD |
 | `no-latin-abbrev` | Write out Latin abbreviations (e.g., i.e., etc.) |
 | `punctuation-inside-quotes` | Punctuation goes inside closing quotation marks |
+| `no-format-bleeding` | Bold/italic formatting should not include leading/trailing spaces |
+| `no-format-bleeding-underline` | Underline formatting should not include leading/trailing spaces |
 
 ### Tags
 Validates author/category tags.
@@ -161,7 +198,7 @@ Flags common style issues in question prose.
 
 ## How it works
 
-qbcheck runs entirely in the browser -- no data is sent to any server. The extension popup processes files locally through a four-stage pipeline:
+qbcheck runs entirely in the browser -- no data is sent to any server. The extension popup processes files locally through a five-stage pipeline:
 
 1. **Parse**: `.docx` files are unzipped (using [jszip](https://github.com/Stuk/jszip)) and the Word XML is walked to extract paragraphs with run-level formatting (bold, italic, underline). Clipboard HTML is parsed with `DOMParser`, reading formatting from inline styles.
 
@@ -169,7 +206,9 @@ qbcheck runs entirely in the browser -- no data is sent to any server. The exten
 
 3. **Check**: Each rule function receives the structured packet and returns diagnostics. Rules are independent and can be individually disabled.
 
-4. **Display**: Diagnostics are sorted, enriched with question labels and answer previews, and rendered in the popup. Settings (disabled rules, ignored instances) persist via `chrome.storage.local`.
+4. **Fix** (paste mode only): Diagnostics with auto-fix data are applied to produce corrected paragraphs. Text-level fixes replace strings at specific offsets. Format-level fixes split runs and strip formatting from spaces without changing the text. Fixed paragraphs can be copied to the clipboard as rich HTML.
+
+5. **Display**: Diagnostics are sorted, enriched with question labels and answer previews, and rendered in the popup. Settings (disabled rules, ignored instances) persist via `chrome.storage.local`.
 
 ## Development
 
@@ -178,9 +217,10 @@ npm install          # install dependencies
 npm test             # run tests
 npm run build        # build to dist/
 npm run dev          # watch mode (rebuilds on changes)
+npm run lint         # run ESLint (fails on warnings)
 ```
 
-Tests use [Vitest](https://vitest.dev/). The test suite covers the parser, segmenter, all rule categories, and YAPP compatibility rules.
+Tests use [Vitest](https://vitest.dev/). The test suite covers the parser, segmenter, all rule categories, fixer, and YAPP compatibility rules.
 
 ## License
 
