@@ -526,6 +526,15 @@ function findFormatBleeding(
           ? charPos
           : charPos + run.text.length - 1;
 
+        // Build formatFix ranges for each offending space
+        const ranges: Array<{ offset: number; length: number }> = [];
+        if (shouldFlagLeading) {
+          ranges.push({ offset: charPos, length: 1 });
+        }
+        if (shouldFlagTrailing) {
+          ranges.push({ offset: charPos + run.text.length - 1, length: 1 });
+        }
+
         diags.push({
           rule: underlineOnly
             ? 'formatting.no-format-bleeding-underline'
@@ -536,9 +545,8 @@ function findFormatBleeding(
           sourceText: para.rawText,
           offset: spaceOffset,
           length: 1,
+          formatFix: { ranges },
         });
-        // Only report once per paragraph
-        break;
       }
 
       charPos += run.text.length;

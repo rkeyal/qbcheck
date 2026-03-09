@@ -350,12 +350,14 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'formatting',
     description: 'No formatting on leading/trailing spaces (bold/italic)',
     defaultSeverity: 'info',
+    autoFixable: true,
   },
   {
     id: 'formatting.no-format-bleeding-underline',
     category: 'formatting',
     description: 'No underline formatting on leading/trailing spaces',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   // tag (5 rules)
   {

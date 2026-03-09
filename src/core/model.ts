@@ -48,6 +48,10 @@ export interface AutoFix {
   offset: number;
 }
 
+export interface AutoFixFormat {
+  ranges: Array<{ offset: number; length: number }>;
+}
+
 export interface LintDiagnostic {
   rule: string;
   severity: Severity;
@@ -60,6 +64,7 @@ export interface LintDiagnostic {
   offset?: number; // char offset of match within sourceText
   length?: number; // length of matched text
   fix?: AutoFix;
+  formatFix?: AutoFixFormat;
 }
 
 export type LintRule = (packet: Packet) => LintDiagnostic[];

@@ -1,4 +1,10 @@
-import { Paragraph, Run, LintDiagnostic, AutoFix } from './model.js';
+import {
+  Paragraph,
+  Run,
+  LintDiagnostic,
+  AutoFix,
+  AutoFixFormat,
+} from './model.js';
 
 export interface FixResult {
   fixedParagraphs: Paragraph[];
@@ -13,6 +19,8 @@ export interface FixResult {
  *
  * Fixes are applied at the rawText level and propagated into the runs
  * array so that run-level formatting is preserved for HTML clipboard output.
+ * Format fixes operate only on runs (splitting runs and stripping formatting
+ * from space characters) without changing rawText.
  */
 export function applyFixes(
   paragraphs: Paragraph[],
@@ -25,22 +33,37 @@ export function applyFixes(
   const remaining: LintDiagnostic[] = [];
 
   // Separate fixable from non-fixable
-  const fixableByPara = new Map<
+  const textFixByPara = new Map<
     number,
     { diag: LintDiagnostic; fix: AutoFix }[]
   >();
+  const formatFixByPara = new Map<
+    number,
+    { diag: LintDiagnostic; formatFix: AutoFixFormat }[]
+  >();
 
   for (const d of diagnostics) {
-    if (d.fix && !disabledSet.has(d.rule)) {
-      const list = fixableByPara.get(d.paragraph) ?? [];
+    if (disabledSet.has(d.rule)) {
+      remaining.push(d);
+      continue;
+    }
+    if (d.fix) {
+      const list = textFixByPara.get(d.paragraph) ?? [];
       list.push({ diag: d, fix: d.fix });
-      fixableByPara.set(d.paragraph, list);
+      textFixByPara.set(d.paragraph, list);
+    } else if (d.formatFix) {
+      const list = formatFixByPara.get(d.paragraph) ?? [];
+      list.push({ diag: d, formatFix: d.formatFix });
+      formatFixByPara.set(d.paragraph, list);
     } else {
       remaining.push(d);
     }
   }
 
-  if (fixableByPara.size === 0) {
+  const hasTextFixes = textFixByPara.size > 0;
+  const hasFormatFixes = formatFixByPara.size > 0;
+
+  if (!hasTextFixes && !hasFormatFixes) {
     return {
       fixedParagraphs: paragraphs,
       fixCount: 0,
@@ -49,9 +72,14 @@ export function applyFixes(
     };
   }
 
+  // Collect all paragraph indices that need modification
+  const parasToClone = new Set<number>();
+  for (const idx of textFixByPara.keys()) parasToClone.add(idx);
+  for (const idx of formatFixByPara.keys()) parasToClone.add(idx);
+
   // Deep-clone paragraphs that need modification
   const fixedParagraphs = paragraphs.map((p) => {
-    if (!fixableByPara.has(p.index)) return p;
+    if (!parasToClone.has(p.index)) return p;
     return {
       ...p,
       runs: p.runs.map((r) => ({ ...r })),
@@ -64,10 +92,25 @@ export function applyFixes(
     paraByIndex.set(fixedParagraphs[i].index, i);
   }
 
-  for (const [paraIndex, fixes] of fixableByPara) {
+  // Apply format fixes first (they don't change rawText, so no offset shifting)
+  for (const [paraIndex, fixes] of formatFixByPara) {
     const arrIdx = paraByIndex.get(paraIndex);
     if (arrIdx === undefined) {
-      // Paragraph not found; move diagnostics to remaining
+      for (const f of fixes) remaining.push(f.diag);
+      continue;
+    }
+
+    const para = fixedParagraphs[arrIdx];
+    for (const { diag, formatFix } of fixes) {
+      applyFormatFix(para.runs, formatFix.ranges);
+      applied.push(diag);
+    }
+  }
+
+  // Apply text-level fixes
+  for (const [paraIndex, fixes] of textFixByPara) {
+    const arrIdx = paraByIndex.get(paraIndex);
+    if (arrIdx === undefined) {
       for (const f of fixes) remaining.push(f.diag);
       continue;
     }
@@ -119,6 +162,112 @@ export function applyFixes(
     appliedFixes: applied,
     remainingDiagnostics: remaining,
   };
+}
+
+/**
+ * Apply a format fix to the runs array by splitting runs at the given
+ * character offsets and stripping all formatting from those characters.
+ * This does not change the rawText — only run boundaries and formatting flags.
+ */
+export function applyFormatFix(
+  runs: Run[],
+  ranges: Array<{ offset: number; length: number }>
+): void {
+  // Process ranges from end to start so earlier offsets remain valid
+  const sorted = [...ranges].sort((a, b) => b.offset - a.offset);
+  for (const range of sorted) {
+    splitAndStripFormatting(runs, range.offset, range.length);
+  }
+  mergeAdjacentRuns(runs);
+}
+
+/**
+ * Split a run at the given global offset to isolate `length` characters,
+ * then strip all formatting from the isolated segment.
+ */
+function splitAndStripFormatting(
+  runs: Run[],
+  offset: number,
+  length: number
+): void {
+  // Find which run contains the offset
+  let charPos = 0;
+  let runIdx = -1;
+  let runOffset = 0;
+
+  for (let i = 0; i < runs.length; i++) {
+    const runEnd = charPos + runs[i].text.length;
+    if (offset < runEnd) {
+      runIdx = i;
+      runOffset = offset - charPos;
+      break;
+    }
+    charPos = runEnd;
+  }
+
+  if (runIdx === -1) return;
+
+  const run = runs[runIdx];
+  const endOffset = runOffset + length;
+
+  // If the range matches the entire run, just strip formatting
+  if (runOffset === 0 && endOffset >= run.text.length) {
+    run.bold = false;
+    run.italic = false;
+    run.underline = false;
+    return;
+  }
+
+  // Split into up to 3 parts: before | target | after
+  const newRuns: Run[] = [];
+
+  if (runOffset > 0) {
+    newRuns.push({ ...run, text: run.text.substring(0, runOffset) });
+  }
+
+  // The target segment with formatting stripped
+  newRuns.push({
+    text: run.text.substring(runOffset, endOffset),
+    bold: false,
+    italic: false,
+    underline: false,
+    superscript: false,
+    subscript: false,
+  });
+
+  if (endOffset < run.text.length) {
+    newRuns.push({ ...run, text: run.text.substring(endOffset) });
+  }
+
+  runs.splice(runIdx, 1, ...newRuns);
+}
+
+/**
+ * Merge adjacent runs that have identical formatting.
+ */
+export function mergeAdjacentRuns(runs: Run[]): void {
+  let i = 0;
+  while (i < runs.length - 1) {
+    if (sameFormatting(runs[i], runs[i + 1])) {
+      runs[i] = { ...runs[i], text: runs[i].text + runs[i + 1].text };
+      runs.splice(i + 1, 1);
+    } else {
+      i++;
+    }
+  }
+}
+
+/**
+ * Check if two runs have identical formatting flags.
+ */
+export function sameFormatting(a: Run, b: Run): boolean {
+  return (
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.superscript === b.superscript &&
+    a.subscript === b.subscript
+  );
 }
 
 /**

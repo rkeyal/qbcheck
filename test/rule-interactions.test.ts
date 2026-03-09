@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lint } from '../src/core/engine.js';
+import { applyFixes } from '../src/core/fixer.js';
 import { makePacket, makeQuestion, makeBonusPart, hasDiag } from './helpers.js';
 import { Run } from '../src/core/model.js';
 
@@ -459,6 +460,99 @@ describe('formatting bleeding rule does not suppress other rules', () => {
     const diags = lint(packetFrom(t));
     // pronunciation.quotes-required should fire
     expect(hasDiag(diags, 'pronunciation.quotes-required')).toBe(true);
+  });
+
+  it('format bleeding AND double space both detected on same paragraph', () => {
+    const t = tossupWithRuns([
+      bold('Name '),
+      plain('this  thing. For 10 points, name it.'),
+    ]);
+    const diags = lint(packetFrom(t));
+    expect(hasDiag(diags, 'formatting.no-format-bleeding')).toBe(true);
+    expect(hasDiag(diags, 'formatting.no-double-spaces')).toBe(true);
+  });
+
+  it('format bleeding AND em dash both detected on same paragraph', () => {
+    const t = tossupWithRuns([
+      bold('Name '),
+      plain('this thing\u2014a concept. For 10 points, name it.'),
+    ]);
+    const diags = lint(packetFrom(t));
+    expect(hasDiag(diags, 'formatting.no-format-bleeding')).toBe(true);
+    expect(hasDiag(diags, 'formatting.no-em-dash')).toBe(true);
+  });
+
+  it('multiple format bleedings AND other formatting rule all detected', () => {
+    const t = tossupWithRuns([
+      bold(' first '),
+      plain('and  '),
+      bold(' second '),
+      plain('thing. For 10 points, name it.'),
+    ]);
+    const diags = lint(packetFrom(t));
+    const bleedingDiags = diags.filter(
+      (d) => d.rule === 'formatting.no-format-bleeding'
+    );
+    expect(bleedingDiags.length).toBe(2);
+    expect(hasDiag(diags, 'formatting.no-double-spaces')).toBe(true);
+  });
+
+  it('format fix and text fix both applied via lint + applyFixes', () => {
+    // Bold run with trailing space + double space in plain text
+    const t = tossupWithRuns([
+      bold('Name '),
+      plain('this  thing. For 10 points, name it.'),
+    ]);
+    const packet = packetFrom(t);
+    const diags = lint(packet);
+
+    const result = applyFixes(packet.allParagraphs, diags, []);
+
+    // Both fixes should be applied
+    const appliedRules = result.appliedFixes.map((d) => d.rule);
+    expect(appliedRules).toContain('formatting.no-format-bleeding');
+    expect(appliedRules).toContain('formatting.no-double-spaces');
+
+    // rawText should have the double space removed
+    const fixedPara = result.fixedParagraphs.find(
+      (p) => p.rawText.includes('Name')
+    );
+    expect(fixedPara).toBeDefined();
+    expect(fixedPara!.rawText).not.toContain('  ');
+
+    // Runs should have the trailing space stripped from bold
+    const boldRuns = fixedPara!.runs.filter((r) => r.bold);
+    for (const r of boldRuns) {
+      expect(r.text).not.toMatch(/ $/);
+    }
+  });
+
+  it('format fix on answer line coexists with answerline rules', () => {
+    // Answer line with underline bleeding + a text-level fix (deprecated directive)
+    const answerText = 'ANSWER: The Great Gatsby [do not accept The Gatsby]';
+    const t = makeQuestion('tossup', 1, 'test question', answerText, {
+      numberParagraphIndex: 1,
+      answerRuns: [
+        plain('ANSWER: '),
+        bu('The Great Gatsby '), // trailing space bleeding underline
+        plain('[do not accept '),
+        bu('The Gatsby'),
+        plain(']'),
+      ],
+      tag: '<Auth, American Literature>',
+    });
+    t.answerLine!.rawText = answerText;
+    t.paragraphs[1].rawText = answerText;
+
+    const packet = packetFrom(t);
+    const diags = lint(packet);
+
+    // Underline bleeding should be detected
+    expect(
+      hasDiag(diags, 'formatting.no-format-bleeding-underline')
+    ).toBe(true);
+    // Answer formatting rules should also fire independently
+    // (the question text "test question" lacks FTP, so question rules fire too)
   });
 });
 

@@ -1170,6 +1170,11 @@ function renderAutofixBanner() {
             <div class="diff-old">${prefix}${escapeHtml(before)}<strong>${escapeHtml(d.fix.oldText)}</strong>${escapeHtml(after)}${suffix}</div>
             <div class="diff-new">${prefix}${escapeHtml(before)}<strong>${escapeHtml(d.fix.newText)}</strong>${escapeHtml(after)}${suffix}</div>
           </div>`;
+      } else if (d.formatFix) {
+        diffHtml = `
+          <div class="autofix-item-diff">
+            <div class="diff-new">Formatting stripped from space</div>
+          </div>`;
       }
 
       return `

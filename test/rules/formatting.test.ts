@@ -491,6 +491,90 @@ describe('formatting.no-format-bleeding', () => {
     // Should NOT flag - bolded spaces adjacent to directives are acceptable
     expect(bleedingDiags.length).toBe(0);
   });
+
+  it('includes formatFix with correct range for leading space', () => {
+    const boldWithLeading: Run = {
+      text: ' bold text',
+      bold: true,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const t = makeQuestion('tossup', 1, 'test', 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: [plain('1. For 10 points,'), boldWithLeading],
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+    });
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const diag = diags.find(
+      (d) => d.rule === 'formatting.no-format-bleeding'
+    );
+    expect(diag).toBeDefined();
+    expect(diag!.formatFix).toBeDefined();
+    expect(diag!.formatFix!.ranges).toHaveLength(1);
+    // Leading space is at charPos 17 (length of "1. For 10 points,")
+    expect(diag!.formatFix!.ranges[0]).toEqual({ offset: 17, length: 1 });
+  });
+
+  it('includes formatFix with correct range for trailing space', () => {
+    const ulWithTrailing: Run = {
+      text: 'underlined text ',
+      bold: false,
+      italic: false,
+      underline: true,
+      superscript: false,
+      subscript: false,
+    };
+    const t = makeQuestion('tossup', 1, 'test', 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: [
+        plain('1. For 10 points, '),
+        ulWithTrailing,
+        plain('name this.'),
+      ],
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+    });
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const diag = diags.find(
+      (d) => d.rule === 'formatting.no-format-bleeding-underline'
+    );
+    expect(diag).toBeDefined();
+    expect(diag!.formatFix).toBeDefined();
+    expect(diag!.formatFix!.ranges).toHaveLength(1);
+    // Trailing space: "1. For 10 points, " is 18 chars, run is 16 chars, trailing space at 18+16-1=33
+    expect(diag!.formatFix!.ranges[0]).toEqual({ offset: 33, length: 1 });
+  });
+
+  it('detects multiple format-bleeding runs in the same paragraph', () => {
+    // Two separate bold runs, each with a trailing space
+    // "prefix " (plain, 7) + "first " (bold, 6) + "middle " (plain, 7) + "second " (bold, 7) + "end" (plain, 3)
+    const t = makeQuestion('tossup', 1, 'test', 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: [
+        plain('1. For 10 points, '),
+        { text: 'first ', bold: true, italic: false, underline: false, superscript: false, subscript: false },
+        plain('middle '),
+        { text: 'second ', bold: true, italic: false, underline: false, superscript: false, subscript: false },
+        plain('end.'),
+      ],
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+    });
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const bleedingDiags = diags.filter(
+      (d) => d.rule === 'formatting.no-format-bleeding'
+    );
+    expect(bleedingDiags.length).toBe(2);
+    // First diagnostic should have formatFix for the first bold run's trailing space
+    expect(bleedingDiags[0].formatFix).toBeDefined();
+    expect(bleedingDiags[0].formatFix!.ranges[0].offset).toBe(23); // 18 + 6 - 1
+    // Second diagnostic should have formatFix for the second bold run's trailing space
+    expect(bleedingDiags[1].formatFix).toBeDefined();
+    expect(bleedingDiags[1].formatFix!.ranges[0].offset).toBe(37); // 18 + 6 + 7 + 7 - 1
+  });
 });
 
 describe('formatting.punctuation-inside-quotes', () => {

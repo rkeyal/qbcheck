@@ -1,10 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyFixes,
+  applyFormatFix,
+  mergeAdjacentRuns,
+  sameFormatting,
   paragraphsToHtml,
   paragraphsToPlainText,
 } from '../src/core/fixer.js';
-import { Paragraph, Run, LintDiagnostic, AutoFix } from '../src/core/model.js';
+import {
+  Paragraph,
+  Run,
+  LintDiagnostic,
+  AutoFix,
+  AutoFixFormat,
+} from '../src/core/model.js';
 import { lint } from '../src/core/engine.js';
 import {
   makePacket as makePacketH,
@@ -50,7 +59,8 @@ function makePara(text: string, index: number, runs?: Run[]): Paragraph {
 function makeDiag(
   rule: string,
   paragraph: number,
-  fix?: AutoFix
+  fix?: AutoFix,
+  formatFix?: AutoFixFormat
 ): LintDiagnostic {
   return {
     rule,
@@ -58,6 +68,7 @@ function makeDiag(
     paragraph,
     message: 'test diagnostic',
     fix,
+    formatFix,
   };
 }
 
@@ -405,6 +416,218 @@ describe('applyFixes – run-level propagation', () => {
 
     // Original run should be untouched
     expect(origRuns[0].text).toBe('hello  world');
+  });
+});
+
+// ── Format fixes (formatFix) ─────────────────────────────────────────
+
+describe('applyFormatFix', () => {
+  it('strips formatting from trailing space on bold run', () => {
+    const runs: Run[] = [bold('hello '), plain('world')];
+    applyFormatFix(runs, [{ offset: 5, length: 1 }]);
+    // Should split: "hello" (bold) + " " (plain) + "world" (plain)
+    // Then merge adjacent plain runs: "hello" (bold) + " world" (plain)
+    expect(runs).toHaveLength(2);
+    expect(runs[0]).toEqual(expect.objectContaining({ text: 'hello', bold: true }));
+    expect(runs[1]).toEqual(
+      expect.objectContaining({ text: ' world', bold: false })
+    );
+  });
+
+  it('strips formatting from leading space on bold run', () => {
+    const runs: Run[] = [plain('prefix'), bold(' text')];
+    applyFormatFix(runs, [{ offset: 6, length: 1 }]);
+    // Should split bold run: " " (plain) + "text" (bold)
+    // Then merge "prefix" (plain) + " " (plain) → "prefix " (plain)
+    expect(runs).toHaveLength(2);
+    expect(runs[0]).toEqual(
+      expect.objectContaining({ text: 'prefix ', bold: false })
+    );
+    expect(runs[1]).toEqual(
+      expect.objectContaining({ text: 'text', bold: true })
+    );
+  });
+
+  it('strips formatting from both leading and trailing spaces', () => {
+    const runs: Run[] = [plain('a'), bold(' hello '), plain('b')];
+    applyFormatFix(runs, [
+      { offset: 1, length: 1 },
+      { offset: 7, length: 1 },
+    ]);
+    // Leading space stripped, trailing space stripped
+    // "a" + " " + "hello" + " " + "b" → "a " + "hello" (bold) + " b"
+    expect(runs).toHaveLength(3);
+    expect(runs[0]).toEqual(
+      expect.objectContaining({ text: 'a ', bold: false })
+    );
+    expect(runs[1]).toEqual(
+      expect.objectContaining({ text: 'hello', bold: true })
+    );
+    expect(runs[2]).toEqual(
+      expect.objectContaining({ text: ' b', bold: false })
+    );
+  });
+
+  it('strips formatting from entire run when it is a single space', () => {
+    const runs: Run[] = [plain('a'), bold(' '), plain('b')];
+    applyFormatFix(runs, [{ offset: 1, length: 1 }]);
+    // Bold " " becomes plain " ", merges with adjacent plain runs
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toEqual(
+      expect.objectContaining({ text: 'a b', bold: false })
+    );
+  });
+});
+
+describe('mergeAdjacentRuns', () => {
+  it('merges adjacent runs with same formatting', () => {
+    const runs: Run[] = [bold('hel'), bold('lo')];
+    mergeAdjacentRuns(runs);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].text).toBe('hello');
+    expect(runs[0].bold).toBe(true);
+  });
+
+  it('does not merge runs with different formatting', () => {
+    const runs: Run[] = [bold('a'), plain('b')];
+    mergeAdjacentRuns(runs);
+    expect(runs).toHaveLength(2);
+  });
+});
+
+describe('sameFormatting', () => {
+  it('returns true for identical formatting', () => {
+    expect(sameFormatting(plain('a'), plain('b'))).toBe(true);
+    expect(sameFormatting(bold('a'), bold('b'))).toBe(true);
+  });
+
+  it('returns false for different formatting', () => {
+    expect(sameFormatting(bold('a'), plain('b'))).toBe(false);
+    expect(sameFormatting(italic('a'), underline('b'))).toBe(false);
+  });
+});
+
+describe('applyFixes – format fixes', () => {
+  it('applies format fix and keeps rawText unchanged', () => {
+    // "hello " (bold) + "world" (plain)
+    const paras = [makePara('hello world', 0, [bold('hello '), plain('world')])];
+    const diags = [
+      makeDiag(
+        'formatting.no-format-bleeding',
+        0,
+        undefined,
+        { ranges: [{ offset: 5, length: 1 }] }
+      ),
+    ];
+
+    const result = applyFixes(paras, diags, []);
+
+    expect(result.fixCount).toBe(1);
+    expect(result.fixedParagraphs[0].rawText).toBe('hello world'); // unchanged
+    expect(result.fixedParagraphs[0].runs[0]).toEqual(
+      expect.objectContaining({ text: 'hello', bold: true })
+    );
+    expect(result.fixedParagraphs[0].runs[1]).toEqual(
+      expect.objectContaining({ text: ' world', bold: false })
+    );
+  });
+
+  it('skips format fix for disabled rules', () => {
+    const paras = [makePara('hello world', 0, [bold('hello '), plain('world')])];
+    const diags = [
+      makeDiag(
+        'formatting.no-format-bleeding',
+        0,
+        undefined,
+        { ranges: [{ offset: 5, length: 1 }] }
+      ),
+    ];
+
+    const result = applyFixes(paras, diags, [
+      'formatting.no-format-bleeding',
+    ]);
+
+    expect(result.fixCount).toBe(0);
+    expect(result.remainingDiagnostics).toHaveLength(1);
+  });
+
+  it('coexists with text-level fixes on the same paragraph', () => {
+    // Double space at offset 5, bold trailing space at offset 12
+    const paras = [
+      makePara('hello  world x', 0, [
+        plain('hello  world '),
+        bold(' x'),
+      ]),
+    ];
+    const diags = [
+      makeDiag('formatting.no-double-spaces', 0, {
+        oldText: '  ',
+        newText: ' ',
+        offset: 5,
+      }),
+      makeDiag(
+        'formatting.no-format-bleeding',
+        0,
+        undefined,
+        { ranges: [{ offset: 13, length: 1 }] }
+      ),
+    ];
+
+    const result = applyFixes(paras, diags, []);
+
+    expect(result.fixCount).toBe(2);
+    // Text fix applied: double space removed
+    expect(result.fixedParagraphs[0].rawText).toBe('hello world x');
+  });
+
+  it('does not mutate original paragraph runs for format fixes', () => {
+    const origRuns = [bold('hello '), plain('world')];
+    const paras = [makePara('hello world', 0, origRuns)];
+    const diags = [
+      makeDiag(
+        'formatting.no-format-bleeding',
+        0,
+        undefined,
+        { ranges: [{ offset: 5, length: 1 }] }
+      ),
+    ];
+
+    applyFixes(paras, diags, []);
+
+    // Original runs should be untouched
+    expect(origRuns[0].text).toBe('hello ');
+    expect(origRuns[0].bold).toBe(true);
+  });
+});
+
+describe('auto-fix integration with format-bleeding', () => {
+  function tossupWith(text: string, runs: Run[]) {
+    return makeQuestionH('tossup', 1, text, 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: runs,
+      answerRuns: [plain('ANSWER: '), boldUnderline('thing')],
+      tag: '<Auth, American History>',
+    });
+  }
+
+  it('lint + applyFixes fixes format-bleeding diagnostic', () => {
+    // Bold run with trailing space
+    const runs: Run[] = [plain('1. For 10 points, '), bold('name '), plain('this thing.')];
+    const t = tossupWith('1. For 10 points, name this thing.', runs);
+    const packet = makePacketH({
+      tossups: [t],
+      allParagraphs: t.paragraphs,
+    });
+    const diags = lint(packet);
+    const bleedingDiag = diags.find(
+      (d) => d.rule === 'formatting.no-format-bleeding'
+    );
+    expect(bleedingDiag).toBeDefined();
+    expect(bleedingDiag!.formatFix).toBeDefined();
+
+    const result = applyFixes(packet.allParagraphs, diags, []);
+    // The format-bleeding fix should be applied
+    expect(result.appliedFixes.some((d) => d.rule === 'formatting.no-format-bleeding')).toBe(true);
   });
 });
 
