@@ -342,7 +342,7 @@ function checkLatinAbbreviations(packet: Packet): LintDiagnostic[] {
     const latinAbbrevs: [RegExp, string][] = [
       [/\be\.g\./gi, 'Use "for example" or "such as" instead of "e.g."'],
       [/\bi\.e\./gi, 'Use "that is" instead of "i.e."'],
-      [/\betc\./gi, 'Avoid "etc." — be specific or use "and others"'],
+      [/\betc\./gi, 'Avoid "etc." — be specific'],
       [/\bviz\./gi, 'Use "namely" instead of "viz."'],
       [/\bcf\./gi, 'Use "compare" or "see" instead of "cf."'],
     ];
