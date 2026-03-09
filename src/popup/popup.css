@@ -651,17 +651,16 @@ h1 {
 
 #settings-back-btn {
   background: none;
-  border: 1px solid #ddd;
-  border-radius: 3px;
+  border: none;
   cursor: pointer;
-  padding: 3px 8px;
-  font-size: 12px;
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
   color: #555;
 }
 
 #settings-back-btn:hover {
-  background: #f0f0f0;
-  color: #333;
+  color: #1a1a2e;
 }
 
 .settings-title {
@@ -1347,12 +1346,10 @@ body.dark .settings-title {
 }
 
 body.dark #settings-back-btn {
-  border-color: #3a3a4e;
   color: #aaa;
 }
 
 body.dark #settings-back-btn:hover {
-  background: #2a2a3e;
   color: #e0e0e0;
 }
 
