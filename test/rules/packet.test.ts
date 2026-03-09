@@ -146,6 +146,43 @@ describe('packet.no-bold-numbers', () => {
     const diags = lint(packet);
     expect(hasDiag(diags, 'packet.no-bold-numbers')).toBe(true);
   });
+
+  it('does not flag non-bold question numbers', () => {
+    const tossup = makeQuestion(
+      'tossup',
+      3,
+      'For 10 points, name this.',
+      'ANSWER: x',
+      {
+        tag: '<Auth, Biology>',
+        numberParagraphIndex: 1,
+        numberRuns: [
+          {
+            text: '3. ',
+            bold: false,
+            italic: false,
+            underline: false,
+            superscript: false,
+            subscript: false,
+          },
+          {
+            text: 'For 10 points, name this.',
+            bold: false,
+            italic: false,
+            underline: false,
+            superscript: false,
+            subscript: false,
+          },
+        ],
+      }
+    );
+    const packet = makePacket({
+      tossups: [tossup],
+      allParagraphs: tossup.paragraphs,
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'packet.no-bold-numbers')).toBe(false);
+  });
 });
 
 describe('packet.blank-paragraphs', () => {

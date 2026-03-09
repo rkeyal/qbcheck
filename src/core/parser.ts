@@ -58,7 +58,10 @@ function parseRuns(paraXml: string): Run[] {
     if (!text) continue;
 
     // Check formatting in the run properties (<w:rPr>)
-    const rPr = extractBetween(chunk, '<w:rPr>', '</w:rPr>') ?? '';
+    // Scope to content after <w:r> to skip paragraph-level <w:pPr><w:rPr>
+    const runTagMatch = chunk.match(/<w:r[\s>]/);
+    const runScope = runTagMatch ? chunk.substring(runTagMatch.index!) : chunk;
+    const rPr = extractBetween(runScope, '<w:rPr>', '</w:rPr>') ?? '';
 
     const bold = hasProp(rPr, 'w:b');
     const italic = hasProp(rPr, 'w:i');
