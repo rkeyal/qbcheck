@@ -55,6 +55,9 @@ const autofixCopy = document.getElementById(
 ) as HTMLButtonElement;
 const autofixDetails = document.getElementById('autofix-details')!;
 const darkModeToggle = document.getElementById('dark-mode-toggle')!;
+const autofixMasterToggle = document.getElementById(
+  'autofix-master-toggle'
+) as HTMLInputElement;
 
 interface PacketResult {
   filename: string;
@@ -733,9 +736,70 @@ function renderSettingsRules() {
         }
       }
       await saveSettings(settings);
+      syncAutofixMaster();
     });
   }
+
+  // Sync master auto-fix checkbox state
+  syncAutofixMaster();
 }
+
+function getAutoFixableRuleIds(): string[] {
+  return RULE_REGISTRY.filter((r) => r.autoFixable).map((r) => r.id);
+}
+
+function syncAutofixMaster(): void {
+  const allIds = getAutoFixableRuleIds();
+  const disabledCount = allIds.filter((id) =>
+    settings.autoFixDisabled.includes(id)
+  ).length;
+
+  if (disabledCount === 0) {
+    autofixMasterToggle.checked = true;
+    autofixMasterToggle.indeterminate = false;
+  } else if (disabledCount === allIds.length) {
+    autofixMasterToggle.checked = false;
+    autofixMasterToggle.indeterminate = false;
+  } else {
+    autofixMasterToggle.checked = false;
+    autofixMasterToggle.indeterminate = true;
+  }
+}
+
+autofixMasterToggle.addEventListener('change', async () => {
+  const allIds = getAutoFixableRuleIds();
+  const allEnabled = allIds.every(
+    (id) => !settings.autoFixDisabled.includes(id)
+  );
+
+  if (allEnabled) {
+    // All currently enabled → disable all
+    for (const id of allIds) {
+      if (!settings.autoFixDisabled.includes(id)) {
+        settings.autoFixDisabled.push(id);
+      }
+    }
+  } else {
+    // Some or all disabled → enable all
+    settings.autoFixDisabled = settings.autoFixDisabled.filter(
+      (id) => !allIds.includes(id)
+    );
+  }
+
+  await saveSettings(settings);
+
+  // Update all per-rule Auto checkboxes in the DOM
+  for (const cb of Array.from(
+    settingsRules.querySelectorAll(
+      'input[data-autofix-id]'
+    ) as NodeListOf<HTMLInputElement>
+  )) {
+    const ruleId = cb.dataset.autofixId!;
+    cb.checked = !settings.autoFixDisabled.includes(ruleId);
+  }
+
+  syncAutofixMaster();
+});
 
 // --- Re-lint with current settings ---
 

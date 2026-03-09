@@ -986,6 +986,9 @@ h1 {
 }
 
 .settings-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -995,6 +998,22 @@ h1 {
   padding: 0 2px;
   border-bottom: 1px solid #e0e0e0;
   padding-bottom: 4px;
+}
+
+.autofix-master {
+  font-size: 10px;
+  color: #2e7d32;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.autofix-master input[type='checkbox'] {
+  margin: 0;
 }
 
 /* Toggle switch */
@@ -1367,6 +1386,10 @@ body.dark .rule-item-id {
 
 body.dark .rule-item-desc {
   color: #888;
+}
+
+body.dark .autofix-master {
+  color: #66bb6a;
 }
 
 body.dark .rule-autofix {
