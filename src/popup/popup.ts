@@ -81,7 +81,12 @@ interface SessionState {
 }
 
 const DEFAULT_SETTINGS: QBLintSettings = {
-  disabledRules: [],
+  disabledRules: [
+    'formatting.smart-quotes',
+    'formatting.no-format-bleeding',
+    'writing.word-replacements',
+    'writing.no-weasel-words',
+  ],
   ignoredDiagnostics: [],
   autoFixDisabled: [],
   darkMode: false,
