@@ -235,3 +235,118 @@ describe('answerline.reject-no-alone', () => {
     expect(hasDiag(diags, 'answerline.reject-no-alone')).toBe(false);
   });
 });
+
+describe('answerline.directive-brackets', () => {
+  it('flags accept directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (accept stuff)', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (accept stuff)'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('flags reject directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (reject "wrong")', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (reject "wrong")'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('flags prompt directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (prompt on partial)', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (prompt on partial)'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('flags or directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (or other thing)', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (or other thing)'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('flags "do not accept" directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (do not accept "wrong")', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (do not accept "wrong")'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('flags anti-prompt directive in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: thing (anti-prompt on partial)', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' (anti-prompt on partial)'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(true);
+  });
+
+  it('passes directives in square brackets', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept stuff]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept stuff]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);
+  });
+
+  it('passes pronunciation guides in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: Goethe ("GUR-tuh")', [
+      plain('ANSWER: '),
+      bu('Goethe'),
+      plain(' ("GUR-tuh")'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);
+  });
+
+  it('passes parenthetical notes without directives', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept stuff] (note: something)',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept stuff] (note: something)'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);
+  });
+
+  it('passes subtitle in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: The Great Gatsby (by F. Scott Fitzgerald)', [
+      plain('ANSWER: '),
+      bu('The Great Gatsby'),
+      plain(' (by F. Scott Fitzgerald)'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);
+  });
+});

@@ -133,7 +133,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'Post-question notes styled as sentences',
     defaultSeverity: 'warning',
   },
-  // answerline (15 rules)
+  // answerline (16 rules)
   {
     id: 'answerline.answer-prefix',
     category: 'answerline',
@@ -237,6 +237,13 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'answerline',
     description: 'No "alone" after quoted reject directive',
     defaultSeverity: 'warning',
+  },
+  {
+    id: 'answerline.directive-brackets',
+    category: 'answerline',
+    description: 'Directives must use square brackets, not parentheses',
+    defaultSeverity: 'error',
+    autoFixable: true,
   },
   // pronunciation (4 rules)
   {

@@ -954,6 +954,46 @@ function checkRejectAlone(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkDirectiveParentheses(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  for (const para of getAnswerLines(packet)) {
+    const text = para.rawText;
+
+    // Find all parenthesized content
+    for (const match of text.matchAll(/\(([^)]+)\)/g)) {
+      const content = match[1].trim();
+      if (!content) continue;
+
+      // Check if content starts with a directive keyword
+      const directivePattern = /^(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|reject|prompt|or)\s+/i;
+      const directiveMatch = content.match(directivePattern);
+
+      if (directiveMatch) {
+        const directiveName = directiveMatch[1].toLowerCase().replace(/\s+/g, ' ');
+        const offset = match.index!;
+
+        diags.push({
+          rule: 'answerline.directive-brackets',
+          severity: 'error',
+          paragraph: para.index,
+          message: `Answerline directives must use square brackets, not parentheses. Change "(${content})" to "[${content}]".`,
+          sourceText: text,
+          offset: offset,
+          length: match[0].length,
+          fix: {
+            oldText: match[0],
+            newText: `[${match[1]}]`,
+            offset: offset,
+          },
+        });
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const answerlineRules: LintRule[] = [
   checkNonstandardPrefix,
   checkAnswerPrefix,
@@ -972,4 +1012,5 @@ export const answerlineRules: LintRule[] = [
   checkParentheticalOptional,
   checkDirectiveSeparator,
   checkRejectAlone,
+  checkDirectiveParentheses,
 ];
