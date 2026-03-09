@@ -565,7 +565,8 @@ h1 {
   border-radius: 3px;
   cursor: pointer;
   font-size: 12px;
-  color: #aaa;
+  color: #999;
+  opacity: 0.6;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -577,6 +578,7 @@ h1 {
   background: rgba(0, 0, 0, 0.06);
   color: #666;
   border-color: #ddd;
+  opacity: 1;
 }
 
 /* Action dropdown menu */
@@ -994,6 +996,89 @@ h1 {
 
 .shortcut-row span {
   color: #666;
+}
+
+/* Help modal tabs */
+.help-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.help-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #888;
+  padding: 4px 12px 8px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.help-tab:hover {
+  color: #444;
+}
+
+.help-tab.active {
+  color: #1a1a2e;
+  border-bottom-color: #4a6cf7;
+  font-weight: 600;
+}
+
+/* Help about section */
+.help-about-section {
+  margin-bottom: 20px;
+}
+
+.help-about-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-about-section p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #444;
+  margin-bottom: 6px;
+}
+
+.help-about-section h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #444;
+}
+
+.help-severity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #555;
+}
+
+.help-sev-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.help-sev-error { background: #e53935; }
+.help-sev-warning { background: #f9a825; }
+.help-sev-info { background: #1e88e5; }
+
+.help-tips {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.help-tips li {
+  margin-bottom: 4px;
 }
 
 /* Shortcut letter underline hints on filter chips */
@@ -1442,6 +1527,36 @@ body.dark .shortcut-row kbd {
 
 body.dark .shortcut-row span {
   color: #aaa;
+}
+
+/* Dark mode: help tabs & about */
+body.dark .help-tab {
+  color: #888;
+}
+
+body.dark .help-tab:hover {
+  color: #ccc;
+}
+
+body.dark .help-tab.active {
+  color: #e0e0e0;
+  border-bottom-color: #7a9cff;
+}
+
+body.dark .help-about-section p {
+  color: #ccc;
+}
+
+body.dark .help-about-section h3 {
+  color: #ccc;
+}
+
+body.dark .help-severity-row {
+  color: #bbb;
+}
+
+body.dark .help-tips {
+  color: #bbb;
 }
 
 /* Toast notification */

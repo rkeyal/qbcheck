@@ -496,7 +496,7 @@ diagnosticsList.addEventListener('scroll', () => {
   }, 500); // 500ms debounce
 });
 
-// Keyboard shortcuts help modal
+// Help modal with About + Shortcuts tabs
 function showKeyboardHelp(): void {
   // Check if help modal already exists
   let helpModal = document.getElementById('keyboard-help-modal');
@@ -508,51 +508,101 @@ function showKeyboardHelp(): void {
     helpModal.innerHTML = `
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Keyboard Shortcuts</h2>
+          <div class="help-tabs">
+            <button class="help-tab active" data-tab="about">About</button>
+            <button class="help-tab" data-tab="shortcuts">Shortcuts</button>
+          </div>
           <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="shortcut-section">
-            <h3>Navigation</h3>
-            <div class="shortcut-row">
-              <kbd>←</kbd> <kbd>→</kbd>
-              <span>Previous/Next packet</span>
+          <div class="help-tab-content" data-tab-content="about">
+            <div class="help-about-section">
+              <p>qbcheck proofreads quizbowl questions for style and formatting issues.</p>
+              <p>Upload <strong>.docx</strong> packet files, or <strong>paste</strong> questions directly from Google Docs or Word.</p>
             </div>
-            <div class="shortcut-row">
-              <kbd>1</kbd>-<kbd>9</kbd>
-              <span>Jump to packet number</span>
+            <div class="help-about-section">
+              <h3>Severity levels</h3>
+              <div class="help-severity-row">
+                <span class="help-sev-dot help-sev-error"></span>
+                <span><strong>Error</strong> &mdash; likely wrong, should be fixed</span>
+              </div>
+              <div class="help-severity-row">
+                <span class="help-sev-dot help-sev-warning"></span>
+                <span><strong>Warning</strong> &mdash; probably needs attention</span>
+              </div>
+              <div class="help-severity-row">
+                <span class="help-sev-dot help-sev-info"></span>
+                <span><strong>Info</strong> &mdash; stylistic suggestion</span>
+              </div>
+            </div>
+            <div class="help-about-section">
+              <h3>Tips</h3>
+              <ul class="help-tips">
+                <li>When you <strong>paste</strong> questions, some issues are auto-fixed. Click <strong>Copy</strong> to get the corrected text.</li>
+                <li>Click <strong>&#x2026;</strong> on any issue to ignore it or disable that rule.</li>
+                <li>Click an issue to expand it and see the surrounding text.</li>
+              </ul>
             </div>
           </div>
-          <div class="shortcut-section">
-            <h3>Filtering</h3>
-            <div class="shortcut-row">
-              <kbd>E</kbd>
-              <span>Toggle errors</span>
+          <div class="help-tab-content" data-tab-content="shortcuts" hidden>
+            <div class="shortcut-section">
+              <h3>Navigation</h3>
+              <div class="shortcut-row">
+                <kbd>&#x2190;</kbd> <kbd>&#x2192;</kbd>
+                <span>Previous/Next packet</span>
+              </div>
+              <div class="shortcut-row">
+                <kbd>1</kbd>-<kbd>9</kbd>
+                <span>Jump to packet number</span>
+              </div>
             </div>
-            <div class="shortcut-row">
-              <kbd>W</kbd>
-              <span>Toggle warnings</span>
+            <div class="shortcut-section">
+              <h3>Filtering</h3>
+              <div class="shortcut-row">
+                <kbd>E</kbd>
+                <span>Toggle errors</span>
+              </div>
+              <div class="shortcut-row">
+                <kbd>W</kbd>
+                <span>Toggle warnings</span>
+              </div>
+              <div class="shortcut-row">
+                <kbd>I</kbd>
+                <span>Toggle info</span>
+              </div>
             </div>
-            <div class="shortcut-row">
-              <kbd>I</kbd>
-              <span>Toggle info</span>
-            </div>
-          </div>
-          <div class="shortcut-section">
-            <h3>Actions</h3>
-            <div class="shortcut-row">
-              <kbd>Esc</kbd>
-              <span>Close settings/menus</span>
-            </div>
-            <div class="shortcut-row">
-              <kbd>?</kbd>
-              <span>Show this help</span>
+            <div class="shortcut-section">
+              <h3>Actions</h3>
+              <div class="shortcut-row">
+                <kbd>Esc</kbd>
+                <span>Close settings/menus</span>
+              </div>
+              <div class="shortcut-row">
+                <kbd>?</kbd>
+                <span>Show this help</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     `;
     document.body.appendChild(helpModal);
+
+    // Tab switching
+    const tabs = helpModal.querySelectorAll('.help-tab');
+    const contents = helpModal.querySelectorAll('.help-tab-content');
+    for (const tab of Array.from(tabs)) {
+      tab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const target = (tab as HTMLElement).dataset.tab!;
+        for (const t of Array.from(tabs)) t.classList.remove('active');
+        tab.classList.add('active');
+        for (const c of Array.from(contents)) {
+          (c as HTMLElement).hidden =
+            (c as HTMLElement).dataset.tabContent !== target;
+        }
+      });
+    }
 
     // Close on click outside or close button
     helpModal.addEventListener('click', (e) => {
@@ -1302,7 +1352,7 @@ function renderDiagnostics() {
         ${d.suggestion ? `<div class="diag-suggestion">${escapeHtml(d.suggestion)}</div>` : ''}
         ${d.sourceText ? `<div class="diag-snippet" hidden>${buildSnippet(d.sourceText, d.offset, d.length)}</div>` : ''}
       </div>
-      <button class="diag-action" data-fp="${escapeHtml(diagnosticFingerprint(d))}" data-rule="${escapeHtml(d.rule)}" title="Actions">\u2026</button>
+      <button class="diag-action" data-fp="${escapeHtml(diagnosticFingerprint(d))}" data-rule="${escapeHtml(d.rule)}" title="Actions">&#x2026;</button>
     </div>
   `
     )
