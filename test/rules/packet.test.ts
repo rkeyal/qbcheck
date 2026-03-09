@@ -148,39 +148,6 @@ describe('packet.no-bold-numbers', () => {
   });
 });
 
-describe('packet.no-extras-label', () => {
-  it('flags Extra label', () => {
-    const tossup = makeQuestion(
-      'tossup',
-      1,
-      'For 10 points, name this.',
-      'ANSWER: x',
-      {
-        tag: '<Auth, Biology>',
-        numberParagraphIndex: 1,
-      }
-    );
-    // Override the rawText to include "Extra" before the number
-    tossup.numberParagraph.rawText = 'Extra 1. For 10 points, name this.';
-    tossup.numberParagraph.runs = [
-      {
-        text: tossup.numberParagraph.rawText,
-        bold: false,
-        italic: false,
-        underline: false,
-        superscript: false,
-        subscript: false,
-      },
-    ];
-    const packet = makePacket({
-      tossups: [tossup],
-      allParagraphs: tossup.paragraphs,
-    });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'packet.no-extras-label')).toBe(true);
-  });
-});
-
 describe('packet.blank-paragraphs', () => {
   it('flags consecutive blank paragraphs', () => {
     const t1 = validTossup(1);

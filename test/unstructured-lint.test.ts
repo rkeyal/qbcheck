@@ -23,7 +23,6 @@ describe('lint() with unstructured packets', () => {
       'packet.section-order',
       'packet.question-numbering',
       'packet.no-bold-numbers',
-      'packet.no-extras-label',
       'packet.blank-paragraphs',
       'packet.expected-count',
       'tag.consistent-categories',

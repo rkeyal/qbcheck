@@ -35,12 +35,6 @@ export const RULE_REGISTRY: RuleMeta[] = [
     defaultSeverity: 'info',
   },
   {
-    id: 'packet.no-extras-label',
-    category: 'packet',
-    description: "No 'Extra' or 'TB' labels",
-    defaultSeverity: 'info',
-  },
-  {
     id: 'packet.blank-paragraphs',
     category: 'packet',
     description: 'No consecutive blank paragraphs',

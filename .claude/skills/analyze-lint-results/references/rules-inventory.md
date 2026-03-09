@@ -8,7 +8,6 @@
 | packet.question-numbering | error | Non-sequential question numbers |
 | packet.numbering-sequence | error | Question numbers don't increase from previous |
 | packet.no-bold-numbers | warning | Question numbers should not be bold |
-| packet.no-extras-label | warning | Don't label questions as "Extra"/"TB" |
 | packet.blank-paragraphs | info | Consecutive blank paragraphs detected |
 | packet.expected-count | warning | Tossup/bonus count != 20 |
 

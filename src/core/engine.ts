@@ -23,7 +23,6 @@ const PACKET_STRUCTURE_RULES = new Set([
   'packet.question-numbering',
   'packet.numbering-sequence',
   'packet.no-bold-numbers',
-  'packet.no-extras-label',
   'packet.blank-paragraphs',
   'packet.expected-count',
   'tag.consistent-categories',

@@ -71,7 +71,6 @@ Validates that the packet is organized correctly for downstream parsing.
 | `numbering-sequence` | Question numbers must strictly increase (non-increasing numbers break YAPP) |
 | `expected-count` | Expects 20 tossups and 20 bonuses |
 | `no-bold-numbers` | Question numbers should not be bold |
-| `no-extras-label` | Don't label questions as "Extra" or "TB" |
 | `blank-paragraphs` | No groups of consecutive blank lines in question sections |
 
 ### Question text

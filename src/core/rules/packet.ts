@@ -115,28 +115,6 @@ function checkBoldNumbers(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
-function checkExtrasLabel(packet: Packet): LintDiagnostic[] {
-  const diags: LintDiagnostic[] = [];
-  const re = /\b(extra|tiebreaker|TB)\b/i;
-
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
-    const text = q.numberParagraph.rawText;
-    const numEnd = text.indexOf('. ');
-    const prefix = numEnd !== -1 ? text.substring(0, numEnd + 2) : '';
-    if (re.test(prefix)) {
-      diags.push({
-        rule: 'packet.no-extras-label',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message:
-          'Don\'t label questions as "Extra", "Tiebreaker", or "TB". Use sequential numbering instead.',
-      });
-    }
-  }
-
-  return diags;
-}
-
 function checkBlankParagraphs(packet: Packet): LintDiagnostic[] {
   const paras = packet.allParagraphs;
 
@@ -247,7 +225,6 @@ export const packetRules: LintRule[] = [
   checkQuestionNumbering,
   checkNumberingSequence,
   checkBoldNumbers,
-  checkExtrasLabel,
   checkBlankParagraphs,
   checkExpectedCount,
 ];
