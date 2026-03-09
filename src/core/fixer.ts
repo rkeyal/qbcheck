@@ -25,7 +25,10 @@ export function applyFixes(
   const remaining: LintDiagnostic[] = [];
 
   // Separate fixable from non-fixable
-  const fixableByPara = new Map<number, { diag: LintDiagnostic; fix: AutoFix }[]>();
+  const fixableByPara = new Map<
+    number,
+    { diag: LintDiagnostic; fix: AutoFix }[]
+  >();
 
   for (const d of diagnostics) {
     if (d.fix && !disabledSet.has(d.rule)) {
@@ -201,7 +204,8 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
   while (end > 0 && paragraphs[end - 1].rawText.trim() === '') {
     end--;
   }
-  const trimmed = end === paragraphs.length ? paragraphs : paragraphs.slice(0, end);
+  const trimmed =
+    end === paragraphs.length ? paragraphs : paragraphs.slice(0, end);
 
   const lines = trimmed.map((p) => {
     return p.runs
@@ -212,8 +216,7 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
         if (r.underline) styles.push('text-decoration:underline');
         if (r.superscript)
           styles.push('vertical-align:super', 'font-size:smaller');
-        if (r.subscript)
-          styles.push('vertical-align:sub', 'font-size:smaller');
+        if (r.subscript) styles.push('vertical-align:sub', 'font-size:smaller');
 
         const text = escapeHtml(r.text);
         return styles.length > 0

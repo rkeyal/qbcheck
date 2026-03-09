@@ -121,9 +121,7 @@ describe('multiple rules fire on same paragraph', () => {
   });
 
   it('double space AND straight quote both flagged', () => {
-    const t = tossupWith(
-      'He wrote "something."  For 10 points, name him.'
-    );
+    const t = tossupWith('He wrote "something."  For 10 points, name him.');
     const diags = lint(packetFrom(t));
     expect(hasDiag(diags, 'formatting.smart-quotes')).toBe(true);
     expect(hasDiag(diags, 'formatting.no-double-spaces')).toBe(true);
@@ -194,7 +192,9 @@ describe('pronunciation guide filtering does not suppress other rules', () => {
 
   it('PG not treated as post-question note but contraction still flagged', () => {
     const t = tossupWith(
-      "This author can" + "'t be named " + '("AW-thur"). For 10 points, name this person.'
+      'This author can' +
+        "'t be named " +
+        '("AW-thur"). For 10 points, name this person.'
     );
     const diags = lint(packetFrom(t));
     expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
@@ -202,9 +202,7 @@ describe('pronunciation guide filtering does not suppress other rules', () => {
   });
 
   it('unquoted PG flags pronunciation rule but not post-question-note', () => {
-    const t = tossupWith(
-      'For 10 points, name this composer (BAHK).'
-    );
+    const t = tossupWith('For 10 points, name this composer (BAHK).');
     const diags = lint(packetFrom(t));
     expect(hasDiag(diags, 'pronunciation.quotes-required')).toBe(true);
     expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
@@ -356,13 +354,11 @@ describe('paragraph filtering consistency across rules', () => {
     // "famous" and "It's" are in the tag — should NOT be flagged by writing rules
     const weaselOnTag = diags.filter(
       (d) =>
-        d.rule === 'writing.no-weasel-words' &&
-        d.sourceText?.includes('<Auth')
+        d.rule === 'writing.no-weasel-words' && d.sourceText?.includes('<Auth')
     );
     const contractionOnTag = diags.filter(
       (d) =>
-        d.rule === 'writing.no-contractions' &&
-        d.sourceText?.includes('<Auth')
+        d.rule === 'writing.no-contractions' && d.sourceText?.includes('<Auth')
     );
     expect(weaselOnTag).toHaveLength(0);
     expect(contractionOnTag).toHaveLength(0);
@@ -391,9 +387,7 @@ describe('pronunciation guide and post-question note coexistence', () => {
   });
 
   it('all-caps PG without quotes is not treated as post-question note', () => {
-    const t = tossupWith(
-      'For 10 points, name this composer (BAHK).'
-    );
+    const t = tossupWith('For 10 points, name this composer (BAHK).');
     const diags = lint(packetFrom(t));
     // Should flag pronunciation.quotes-required
     expect(hasDiag(diags, 'pronunciation.quotes-required')).toBe(true);

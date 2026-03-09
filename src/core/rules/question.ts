@@ -13,9 +13,7 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
       // Build fix: preserve original casing of "For" and "points"
       const orig = ftenMatch[0];
       const fixNew =
-        orig[0] === orig[0].toUpperCase()
-          ? 'For 10 points'
-          : 'for 10 points';
+        orig[0] === orig[0].toUpperCase() ? 'For 10 points' : 'for 10 points';
       diags.push({
         rule: 'question.ftp-format',
         severity: 'error',

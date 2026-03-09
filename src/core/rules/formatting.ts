@@ -65,13 +65,13 @@ function checkEmDash(packet: Packet): LintDiagnostic[] {
       // Build context-aware replacement: add spaces around en dash
       // only where the em dash doesn't already have them
       const hasPrecedingSpace = idx > 0 && text[idx - 1] === ' ';
-      const hasFollowingSpace =
-        idx < text.length - 1 && text[idx + 1] === ' ';
+      const hasFollowingSpace = idx < text.length - 1 && text[idx + 1] === ' ';
       const oldText = text.substring(
         hasPrecedingSpace ? idx - 1 : idx,
         hasFollowingSpace ? idx + 2 : idx + 1
       );
-      const newText = (hasPrecedingSpace ? ' ' : '') +
+      const newText =
+        (hasPrecedingSpace ? ' ' : '') +
         ' \u2013 ' +
         (hasFollowingSpace ? ' ' : '');
       // Normalize to avoid double spaces
@@ -479,7 +479,9 @@ function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
       // Check if spaces are adjacent to pronunciation guides (always allow)
       // or instruction directives (only for pure whitespace runs)
       const isNextToPronunciationGuideOpening =
-        hasTrailingSpace && nextRun && isPronunciationGuideOpening(nextRun.text);
+        hasTrailingSpace &&
+        nextRun &&
+        isPronunciationGuideOpening(nextRun.text);
 
       const isNextToPronunciationGuideClosing =
         hasLeadingSpace && prevRun && isPronunciationGuideClosing(prevRun.text);

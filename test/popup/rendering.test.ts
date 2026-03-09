@@ -34,7 +34,8 @@ describe('Popup Rendering', () => {
     });
 
     it('has all stat counters for errors, warnings, and info', () => {
-      const { countError, countWarning, countInfo, countIgnored } = getElements();
+      const { countError, countWarning, countInfo, countIgnored } =
+        getElements();
 
       expect(countError).toBeTruthy();
       expect(countWarning).toBeTruthy();
@@ -58,7 +59,9 @@ describe('Popup Rendering', () => {
       expect(filterCategory.tagName).toBe('SELECT');
 
       // Should have "All" option and category options
-      const options = Array.from(filterCategory.options).map((opt) => opt.value);
+      const options = Array.from(filterCategory.options).map(
+        (opt) => opt.value
+      );
       expect(options).toContain('all');
     });
 

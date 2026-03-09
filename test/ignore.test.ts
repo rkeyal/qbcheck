@@ -65,10 +65,7 @@ describe('matchesPattern', () => {
       true
     );
     expect(
-      matchesPattern(
-        'ExamplePackets/2023_IQBT_UG/Round 01.docx',
-        '**/*.docx'
-      )
+      matchesPattern('ExamplePackets/2023_IQBT_UG/Round 01.docx', '**/*.docx')
     ).toBe(true);
     expect(matchesPattern('foo.docx', '**/*.docx')).toBe(true);
   });

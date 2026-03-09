@@ -147,12 +147,18 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
             message: '"ANSWER" must be in all caps.',
             suggestion: 'ANSWER:',
             sourceText: text,
-            offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            offset:
+              prefixMatch.index! +
+              prefixMatch[0].length -
+              prefixMatch[1].length,
             length: prefixMatch[1].length,
             fix: {
               oldText: prefixMatch[1],
               newText: 'ANSWER:',
-              offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+              offset:
+                prefixMatch.index! +
+                prefixMatch[0].length -
+                prefixMatch[1].length,
             },
           });
         }
@@ -187,12 +193,18 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
             message: 'Answer line must start with "ANSWER: ".',
             suggestion: 'ANSWER: ',
             sourceText: text,
-            offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+            offset:
+              prefixMatch.index! +
+              prefixMatch[0].length -
+              prefixMatch[1].length,
             length: prefixMatch[1].length,
             fix: {
               oldText: prefixMatch[1],
               newText: 'ANSWER: ',
-              offset: prefixMatch.index! + prefixMatch[0].length - prefixMatch[1].length,
+              offset:
+                prefixMatch.index! +
+                prefixMatch[0].length -
+                prefixMatch[1].length,
             },
           });
         }
@@ -603,6 +615,14 @@ function checkDeprecatedDirectives(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: '"do not accept" is deprecated. Use "reject" instead.',
+            sourceText: para.rawText,
+            offset: sub.fullStart,
+            length: sub.fullText.length,
+            fix: {
+              oldText: sub.fullText,
+              newText: 'reject ' + sub.contentText,
+              offset: sub.fullStart,
+            },
           });
         }
 
@@ -613,6 +633,14 @@ function checkDeprecatedDirectives(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: '"do not prompt" is deprecated. Use "reject" instead.',
+            sourceText: para.rawText,
+            offset: sub.fullStart,
+            length: sub.fullText.length,
+            fix: {
+              oldText: sub.fullText,
+              newText: 'reject ' + sub.contentText,
+              offset: sub.fullStart,
+            },
           });
         }
       }
@@ -874,7 +902,8 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
       // Find all directive keywords in the bracket content (excluding "or")
       // "or" is special - it can be used within a directive to list alternatives
       // Match word boundaries, handling multi-word directives
-      const directivePattern = /\b(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|prompt|reject)\s+/gi;
+      const directivePattern =
+        /\b(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|prompt|reject)\s+/gi;
       const matches = [...content.matchAll(directivePattern)];
 
       // Skip if only one or no directives found
@@ -936,6 +965,7 @@ function checkRejectAlone(packet: Packet): LintDiagnostic[] {
         if (aloneMatch) {
           const directive =
             sub.type === 'do not accept' ? 'do not accept' : 'reject';
+          const fixedContent = content.replace(/\s+alone$/i, '');
           diags.push({
             rule: 'answerline.reject-no-alone',
             severity: 'warning',
@@ -944,6 +974,11 @@ function checkRejectAlone(packet: Packet): LintDiagnostic[] {
             sourceText: para.rawText,
             offset: sub.contentStart,
             length: content.length,
+            fix: {
+              oldText: content,
+              newText: fixedContent,
+              offset: sub.contentStart,
+            },
           });
         }
       }
@@ -965,7 +1000,8 @@ function checkDirectiveParentheses(packet: Packet): LintDiagnostic[] {
       if (!content) continue;
 
       // Check if content starts with a directive keyword
-      const directivePattern = /^(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|reject|prompt|or)\s+/i;
+      const directivePattern =
+        /^(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|reject|prompt|or)\s+/i;
       const directiveMatch = content.match(directivePattern);
 
       if (directiveMatch) {

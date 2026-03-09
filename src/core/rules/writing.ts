@@ -215,6 +215,11 @@ function checkAnswerSomeQuestions(packet: Packet): LintDiagnostic[] {
     const text = q.numberParagraph.rawText;
     const asqMatch = text.match(/\banswer\s+some\s+questions?\s+about\b/i);
     if (asqMatch) {
+      const matched = asqMatch[0];
+      const startsUpper = matched[0] === matched[0].toUpperCase();
+      const replacement = startsUpper
+        ? 'Answer the following about'
+        : 'answer the following about';
       diags.push({
         rule: 'writing.answer-some-questions',
         severity: 'warning',
@@ -224,6 +229,11 @@ function checkAnswerSomeQuestions(packet: Packet): LintDiagnostic[] {
         sourceText: text,
         offset: asqMatch.index!,
         length: asqMatch[0].length,
+        fix: {
+          oldText: matched,
+          newText: replacement,
+          offset: asqMatch.index!,
+        },
       });
     }
   }

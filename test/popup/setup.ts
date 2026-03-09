@@ -81,7 +81,9 @@ export function setupChromeMocks() {
 export function clearStorageMocks() {
   // Clear in-memory storage
   Object.keys(localStorageData).forEach((key) => delete localStorageData[key]);
-  Object.keys(sessionStorageData).forEach((key) => delete sessionStorageData[key]);
+  Object.keys(sessionStorageData).forEach(
+    (key) => delete sessionStorageData[key]
+  );
 
   // Clear mock call history
   vi.clearAllMocks();

@@ -150,6 +150,83 @@ describe('answerline.deprecated-directive', () => {
       )
     ).toBe(true);
   });
+
+  it('provides fix for "do not accept" → "reject"', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [do not accept "wrong"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [do not accept "wrong"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find(
+      (d) =>
+        d.rule === 'answerline.deprecated-directive' &&
+        d.message.includes('do not accept')
+    )!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.newText).toBe('reject "wrong"');
+  });
+
+  it('provides fix for "do not prompt" → "reject"', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [do not prompt "wrong"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [do not prompt "wrong"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find(
+      (d) =>
+        d.rule === 'answerline.deprecated-directive' &&
+        d.message.includes('do not prompt')
+    )!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.newText).toBe('reject "wrong"');
+  });
+
+  it('does not provide fix for "anti-prompt"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [anti-prompt on other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [anti-prompt on '),
+      ul('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find(
+      (d) =>
+        d.rule === 'answerline.deprecated-directive' &&
+        d.message.includes('anti-prompt')
+    )!;
+    expect(d.fix).toBeUndefined();
+  });
+
+  it('does not provide fix for meta-directive deprecations', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept in either order]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept in either order]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find(
+      (d) =>
+        d.rule === 'answerline.deprecated-directive' &&
+        d.message.includes('accept in either order')
+    )!;
+    expect(d.fix).toBeUndefined();
+  });
 });
 
 describe('answerline.directive-separator', () => {
@@ -233,6 +310,20 @@ describe('answerline.reject-no-alone', () => {
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.reject-no-alone')).toBe(false);
+  });
+
+  it('provides fix that removes " alone"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "Persians" alone]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "Persians" alone]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find((d) => d.rule === 'answerline.reject-no-alone')!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.oldText).toBe('"Persians" alone');
+    expect(d.fix!.newText).toBe('"Persians"');
   });
 });
 
@@ -340,11 +431,14 @@ describe('answerline.directive-brackets', () => {
   });
 
   it('passes subtitle in parentheses', () => {
-    const t = tossupWithAnswer('ANSWER: The Great Gatsby (by F. Scott Fitzgerald)', [
-      plain('ANSWER: '),
-      bu('The Great Gatsby'),
-      plain(' (by F. Scott Fitzgerald)'),
-    ]);
+    const t = tossupWithAnswer(
+      'ANSWER: The Great Gatsby (by F. Scott Fitzgerald)',
+      [
+        plain('ANSWER: '),
+        bu('The Great Gatsby'),
+        plain(' (by F. Scott Fitzgerald)'),
+      ]
+    );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);

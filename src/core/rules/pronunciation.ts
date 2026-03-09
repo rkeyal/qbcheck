@@ -117,9 +117,7 @@ function checkPossessivePronunciation(packet: Packet): LintDiagnostic[] {
 
     // Find pronunciation guides preceded by possessives (ending in 's)
     // e.g., Toibin's ("TOY-bin") should be ("TOY-binz") or ("TOY-bin's")
-    const possessiveMatches = [
-      ...text.matchAll(/'s\s*\(["']([^"']+)["']\)/g),
-    ];
+    const possessiveMatches = [...text.matchAll(/'s\s*\(["']([^"']+)["']\)/g)];
 
     for (const match of possessiveMatches) {
       const pgContent = match[1];

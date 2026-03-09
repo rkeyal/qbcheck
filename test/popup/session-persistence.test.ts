@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  setupChromeMocks,
-  clearStorageMocks,
-} from './setup.js';
+import { setupChromeMocks, clearStorageMocks } from './setup.js';
 import { loadPopupHTML, nextTick } from './helpers.js';
 
 /**
@@ -207,13 +204,23 @@ describe('Session Persistence', () => {
           {
             filename: 'packet1.docx',
             diagnostics: [
-              { rule: 'test.rule1', severity: 'error' as const, paragraph: 0, message: 'Error 1' },
+              {
+                rule: 'test.rule1',
+                severity: 'error' as const,
+                paragraph: 0,
+                message: 'Error 1',
+              },
             ],
           },
           {
             filename: 'packet2.docx',
             diagnostics: [
-              { rule: 'test.rule2', severity: 'warning' as const, paragraph: 1, message: 'Warning 1' },
+              {
+                rule: 'test.rule2',
+                severity: 'warning' as const,
+                paragraph: 1,
+                message: 'Warning 1',
+              },
             ],
           },
           {
@@ -230,8 +237,12 @@ describe('Session Persistence', () => {
 
       const stored = await chrome.storage.session.get('qbcheckSession');
       expect(stored.qbcheckSession.packetResults).toHaveLength(3);
-      expect(stored.qbcheckSession.packetResults[0].filename).toBe('packet1.docx');
-      expect(stored.qbcheckSession.packetResults[1].filename).toBe('packet2.docx');
+      expect(stored.qbcheckSession.packetResults[0].filename).toBe(
+        'packet1.docx'
+      );
+      expect(stored.qbcheckSession.packetResults[1].filename).toBe(
+        'packet2.docx'
+      );
       expect(stored.qbcheckSession.currentIndex).toBe(1);
     });
 
@@ -241,8 +252,18 @@ describe('Session Persistence', () => {
           {
             filename: 'packet1.docx',
             diagnostics: [
-              { rule: 'test.rule', severity: 'error' as const, paragraph: 0, message: 'Error' },
-              { rule: 'test.rule2', severity: 'warning' as const, paragraph: 1, message: 'Warning' },
+              {
+                rule: 'test.rule',
+                severity: 'error' as const,
+                paragraph: 0,
+                message: 'Error',
+              },
+              {
+                rule: 'test.rule2',
+                severity: 'warning' as const,
+                paragraph: 1,
+                message: 'Warning',
+              },
             ],
           },
         ],
@@ -254,9 +275,15 @@ describe('Session Persistence', () => {
       await chrome.storage.session.set({ qbcheckSession: sessionState });
 
       const stored = await chrome.storage.session.get('qbcheckSession');
-      expect(stored.qbcheckSession.packetResults[0].diagnostics).toHaveLength(2);
-      expect(stored.qbcheckSession.packetResults[0].diagnostics[0].severity).toBe('error');
-      expect(stored.qbcheckSession.packetResults[0].diagnostics[1].severity).toBe('warning');
+      expect(stored.qbcheckSession.packetResults[0].diagnostics).toHaveLength(
+        2
+      );
+      expect(
+        stored.qbcheckSession.packetResults[0].diagnostics[0].severity
+      ).toBe('error');
+      expect(
+        stored.qbcheckSession.packetResults[0].diagnostics[1].severity
+      ).toBe('warning');
     });
   });
 

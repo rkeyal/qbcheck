@@ -206,6 +206,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'answerline',
     description: 'No deprecated directives',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'answerline.post-note-no-quote-start',
@@ -237,6 +238,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'answerline',
     description: 'No "alone" after quoted reject directive',
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'answerline.directive-brackets',
@@ -410,6 +412,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'writing',
     description: "No 'answer some questions'",
     defaultSeverity: 'warning',
+    autoFixable: true,
   },
   {
     id: 'writing.would-go-on-to',

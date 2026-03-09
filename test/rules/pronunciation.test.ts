@@ -181,9 +181,7 @@ describe('pronunciation.possessive-ending', () => {
   });
 
   it("passes pronunciation guide after possessive ending in 's", () => {
-    const t = tossupWith(
-      'For 10 points, name Toibin\'s ("TOY-bin\'s") novel.'
-    );
+    const t = tossupWith('For 10 points, name Toibin\'s ("TOY-bin\'s") novel.');
     const packet = makePacket({
       tossups: [t],
       allParagraphs: t.paragraphs,

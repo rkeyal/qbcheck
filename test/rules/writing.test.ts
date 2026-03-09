@@ -146,6 +146,53 @@ describe('writing.absolute-time', () => {
   });
 });
 
+describe('writing.answer-some-questions', () => {
+  function bonusWith(text: string) {
+    const b = makeQuestion('bonus', 1, text, 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+    });
+    return b;
+  }
+
+  it('flags "answer some questions about"', () => {
+    const b = bonusWith('Answer some questions about music.');
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'writing.answer-some-questions')).toBe(true);
+  });
+
+  it('provides fix with correct replacement (capitalized)', () => {
+    const b = bonusWith('Answer some questions about music.');
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'writing.answer-some-questions')!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.oldText).toBe('Answer some questions about');
+    expect(d.fix!.newText).toBe('Answer the following about');
+  });
+
+  it('provides fix preserving lowercase', () => {
+    const b = bonusWith('answer some questions about music.');
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'writing.answer-some-questions')!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.oldText).toBe('answer some questions about');
+    expect(d.fix!.newText).toBe('answer the following about');
+  });
+
+  it('handles "answer some question about" (singular)', () => {
+    const b = bonusWith('Answer some question about history.');
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'writing.answer-some-questions')!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.oldText).toBe('Answer some question about');
+    expect(d.fix!.newText).toBe('Answer the following about');
+  });
+});
+
 describe('writing.would-go-on-to', () => {
   it('flags "would go on to"', () => {
     const t = tossupWith(

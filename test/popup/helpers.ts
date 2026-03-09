@@ -15,12 +15,7 @@ export async function loadPopupHTML(): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
 
-  const htmlPath = path.join(
-    process.cwd(),
-    'src',
-    'popup',
-    'popup.html'
-  );
+  const htmlPath = path.join(process.cwd(), 'src', 'popup', 'popup.html');
   const html = await fs.readFile(htmlPath, 'utf-8');
 
   // Extract just the body content (skip <!DOCTYPE> and <html>/<head>)
@@ -54,7 +49,9 @@ export function getElements() {
     settingsRules: document.getElementById('settings-rules')!,
     unstructuredBanner: document.getElementById('unstructured-banner')!,
     autofixBanner: document.getElementById('autofix-banner')!,
-    filterCategory: document.getElementById('filter-category') as HTMLSelectElement,
+    filterCategory: document.getElementById(
+      'filter-category'
+    ) as HTMLSelectElement,
   };
 }
 
@@ -129,9 +126,10 @@ export function createMockFile(
   content: ArrayBuffer | string,
   type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 ): File {
-  const blob = typeof content === 'string'
-    ? new Blob([content], { type })
-    : new Blob([content], { type });
+  const blob =
+    typeof content === 'string'
+      ? new Blob([content], { type })
+      : new Blob([content], { type });
   return new File([blob], name, { type });
 }
 

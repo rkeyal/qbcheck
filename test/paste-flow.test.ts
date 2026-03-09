@@ -67,8 +67,7 @@ function restoreBlankLines(
 
 /** Parse plain text to HTML paragraphs (includes empty paragraphs for blank lines). */
 function plainTextToParas(text: string): Paragraph[] {
-  const html =
-    '<p>' + escHtml(text).split('\n').join('</p><p>') + '</p>';
+  const html = '<p>' + escHtml(text).split('\n').join('</p><p>') + '</p>';
   return parseHtml(html);
 }
 
@@ -89,8 +88,7 @@ function simulateGDocsClipboard(text: string) {
  * (e.g., some versions of Google Docs or other editors).
  */
 function simulateHtmlWithBlanks(text: string) {
-  const html =
-    '<p>' + escHtml(text).split('\n').join('</p><p>') + '</p>';
+  const html = '<p>' + escHtml(text).split('\n').join('</p><p>') + '</p>';
   return { paragraphs: parseHtml(html), plainText: text };
 }
 
@@ -139,9 +137,7 @@ describe('paste flow – empty paragraph between questions', () => {
   it('preserves empty paragraph through applyFixes', () => {
     const { result } = simulatePaste(input);
 
-    const emptyParas = result.fixedParagraphs.filter(
-      (p) => p.rawText === ''
-    );
+    const emptyParas = result.fixedParagraphs.filter((p) => p.rawText === '');
     expect(emptyParas.length).toBeGreaterThanOrEqual(1);
   });
 

@@ -38,11 +38,7 @@ function boldUnderline(text: string): Run {
   return { ...plain(text), bold: true, underline: true };
 }
 
-function makePara(
-  text: string,
-  index: number,
-  runs?: Run[]
-): Paragraph {
+function makePara(text: string, index: number, runs?: Run[]): Paragraph {
   return {
     index,
     runs: runs ?? [plain(text)],
@@ -128,10 +124,7 @@ describe('applyFixes', () => {
   });
 
   it('applies fixes across different paragraphs', () => {
-    const paras = [
-      makePara('hello  world', 0),
-      makePara('foo  bar', 1),
-    ];
+    const paras = [makePara('hello  world', 0), makePara('foo  bar', 1)];
     const diags = [
       makeDiag('formatting.no-double-spaces', 0, {
         oldText: '  ',
@@ -153,10 +146,7 @@ describe('applyFixes', () => {
   });
 
   it('does not modify paragraphs that have no fixes', () => {
-    const paras = [
-      makePara('unchanged', 0),
-      makePara('hello  world', 1),
-    ];
+    const paras = [makePara('unchanged', 0), makePara('hello  world', 1)];
     const diags = [
       makeDiag('formatting.no-double-spaces', 1, {
         oldText: '  ',
@@ -182,9 +172,7 @@ describe('applyFixes', () => {
       }),
     ];
 
-    const result = applyFixes(paras, diags, [
-      'formatting.no-double-spaces',
-    ]);
+    const result = applyFixes(paras, diags, ['formatting.no-double-spaces']);
 
     expect(result.fixCount).toBe(0);
     expect(result.fixedParagraphs[0].rawText).toBe('hello  world');
@@ -265,9 +253,7 @@ describe('applyFixes', () => {
     expect(result.appliedFixes).toHaveLength(1);
     expect(result.appliedFixes[0].rule).toBe('formatting.no-double-spaces');
     expect(result.remainingDiagnostics).toHaveLength(1);
-    expect(result.remainingDiagnostics[0].rule).toBe(
-      'formatting.smart-quotes'
-    );
+    expect(result.remainingDiagnostics[0].rule).toBe('formatting.smart-quotes');
   });
 
   it('applies fix that changes text length (expansion)', () => {
@@ -322,9 +308,7 @@ describe('applyFixes – run-level propagation', () => {
   });
 
   it('preserves formatting when fix is within a formatted run', () => {
-    const paras = [
-      makePara('ANSWER:  thing', 0, [bold('ANSWER:  thing')]),
-    ];
+    const paras = [makePara('ANSWER:  thing', 0, [bold('ANSWER:  thing')])];
     const diags = [
       makeDiag('test.rule', 0, {
         oldText: '  ',
@@ -359,18 +343,14 @@ describe('applyFixes – run-level propagation', () => {
 
     const result = applyFixes(paras, diags, []);
 
-    expect(result.fixedParagraphs[0].rawText).toBe(
-      'Hello beautiful world!'
-    );
+    expect(result.fixedParagraphs[0].rawText).toBe('Hello beautiful world!');
     expect(result.fixedParagraphs[0].runs[1].text).toBe('beautiful world');
     expect(result.fixedParagraphs[0].runs[1].bold).toBe(true);
   });
 
   it('handles fix spanning two runs', () => {
     // "hel" (plain) + "lo" (bold) → replace "ello" with "i"
-    const paras = [
-      makePara('hello', 0, [plain('hel'), bold('lo')]),
-    ];
+    const paras = [makePara('hello', 0, [plain('hel'), bold('lo')])];
     const diags = [
       makeDiag('test.rule', 0, {
         oldText: 'ello',
@@ -390,11 +370,7 @@ describe('applyFixes – run-level propagation', () => {
   it('handles fix spanning multiple runs, preserving trailing run', () => {
     // "ab" (plain) + "cd" (bold) + "ef" (italic) → replace "bcde" with "X"
     const paras = [
-      makePara('abcdef', 0, [
-        plain('ab'),
-        bold('cd'),
-        italic('ef'),
-      ]),
+      makePara('abcdef', 0, [plain('ab'), bold('cd'), italic('ef')]),
     ];
     const diags = [
       makeDiag('test.rule', 0, {
@@ -456,9 +432,7 @@ describe('paragraphsToHtml', () => {
   it('renders underline run with inline style', () => {
     const paras = [makePara('hello', 0, [underline('hello')])];
     const html = paragraphsToHtml(paras);
-    expect(html).toBe(
-      '<span style="text-decoration:underline">hello</span>'
-    );
+    expect(html).toBe('<span style="text-decoration:underline">hello</span>');
   });
 
   it('renders combined bold+underline', () => {
@@ -489,10 +463,7 @@ describe('paragraphsToHtml', () => {
 
   it('renders mixed runs preserving formatting', () => {
     const paras = [
-      makePara('ANSWER: thing', 0, [
-        plain('ANSWER: '),
-        boldUnderline('thing'),
-      ]),
+      makePara('ANSWER: thing', 0, [plain('ANSWER: '), boldUnderline('thing')]),
     ];
     const html = paragraphsToHtml(paras);
     expect(html).toBe(
@@ -501,10 +472,7 @@ describe('paragraphsToHtml', () => {
   });
 
   it('wraps all but last paragraph in <p> tags', () => {
-    const paras = [
-      makePara('first', 0),
-      makePara('second', 1),
-    ];
+    const paras = [makePara('first', 0), makePara('second', 1)];
     const html = paragraphsToHtml(paras);
     expect(html).toBe('<p style="margin:0">first</p>\nsecond');
   });
@@ -522,10 +490,7 @@ describe('paragraphsToHtml', () => {
   });
 
   it('strips trailing empty paragraphs', () => {
-    const paras = [
-      makePara('content', 0),
-      makePara('', 1),
-    ];
+    const paras = [makePara('content', 0), makePara('', 1)];
     const html = paragraphsToHtml(paras);
     expect(html).toBe('content');
   });
@@ -541,10 +506,7 @@ describe('paragraphsToHtml', () => {
 
 describe('paragraphsToPlainText', () => {
   it('joins paragraph rawText with newlines', () => {
-    const paras = [
-      makePara('line one', 0),
-      makePara('line two', 1),
-    ];
+    const paras = [makePara('line one', 0), makePara('line two', 1)];
     const text = paragraphsToPlainText(paras);
     expect(text).toBe('line one\nline two');
   });
@@ -618,9 +580,7 @@ describe('auto-fix integration with lint rules', () => {
   });
 
   it('question.ftp-format produces fixable diagnostic for "ten points"', () => {
-    const t = tossupWith(
-      'For ten points, name this thing.'
-    );
+    const t = tossupWith('For ten points, name this thing.');
     const packet = makePacketH({
       tossups: [t],
       allParagraphs: t.paragraphs,
@@ -637,9 +597,7 @@ describe('auto-fix integration with lint rules', () => {
   });
 
   it('question.ftp-format fix preserves casing', () => {
-    const t = tossupWith(
-      'for ten points, name this thing.'
-    );
+    const t = tossupWith('for ten points, name this thing.');
     const packet = makePacketH({
       tossups: [t],
       allParagraphs: t.paragraphs,
@@ -673,10 +631,7 @@ describe('auto-fix integration with lint rules', () => {
   });
 
   it('answerline.answer-prefix produces fixable diagnostic for wrong case', () => {
-    const t = tossupWith(
-      'For 10 points, name this thing.',
-      'Answer: thing'
-    );
+    const t = tossupWith('For 10 points, name this thing.', 'Answer: thing');
     const packet = makePacketH({
       tossups: [t],
       allParagraphs: t.paragraphs,
@@ -693,10 +648,7 @@ describe('auto-fix integration with lint rules', () => {
 
   it('end-to-end: apply all fixes and verify remaining diagnostics', () => {
     // Create a question with multiple fixable issues
-    const t = tossupWith(
-      'For ten points,  name this thing.',
-      'ANSWER: thing'
-    );
+    const t = tossupWith('For ten points,  name this thing.', 'ANSWER: thing');
     const packet = makePacketH({
       tossups: [t],
       allParagraphs: t.paragraphs,
@@ -709,8 +661,9 @@ describe('auto-fix integration with lint rules', () => {
     const result = applyFixes(packet.allParagraphs, diags, []);
 
     // All fixable should be applied (or in remaining if overlapping)
-    expect(result.fixCount + result.remainingDiagnostics.filter((d) => d.fix).length)
-      .toBe(fixableBefore.length);
+    expect(
+      result.fixCount + result.remainingDiagnostics.filter((d) => d.fix).length
+    ).toBe(fixableBefore.length);
 
     // Non-fixable should all remain
     for (const d of nonFixableBefore) {
@@ -718,4 +671,3 @@ describe('auto-fix integration with lint rules', () => {
     }
   });
 });
-
