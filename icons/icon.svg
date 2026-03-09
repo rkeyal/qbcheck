@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="16" fill="#4a6cf7"/>
-  <text x="64" y="92" text-anchor="middle" font-family="Georgia, serif" font-size="80" font-weight="700" fill="#fff">Q</text>
-  <circle cx="100" cy="28" r="20" fill="#4caf50"/>
-  <path d="M90 28 l7 7 l13 -13" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="128" height="128" rx="16" fill="#14375E"/>
+  <text x="64" y="88" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="72" font-weight="700" fill="#fff">qb</text>
+  <circle cx="100" cy="100" r="20" fill="#4caf50"/>
+  <path d="M90 100 l7 7 l13 -13" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
