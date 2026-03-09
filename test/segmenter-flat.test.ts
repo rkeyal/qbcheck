@@ -28,6 +28,36 @@ describe('segmentPacket() flat-list fallback', () => {
     expect(packet.bonusHeader).not.toBeNull();
   });
 
+  it.each([
+    ['Toss-Ups', 'Bonuses'],
+    ['Toss-ups', 'Bonuses'],
+    ['Toss Ups', 'Bonuses'],
+    ['Tossup', 'Bonus'],
+    ['Round 1 - Tossups', 'Bonuses'],
+  ])(
+    'recognizes variant section headers: %s / %s',
+    (tossupHeader, bonusHeader) => {
+      const paras = makeParas([
+        tossupHeader,
+        '1. Question text for 10 points.',
+        'ANSWER: answer',
+        '',
+        bonusHeader,
+        '1. Bonus lead-in for 10 points each.',
+        '[10e] Easy part.',
+        'ANSWER: easy',
+        '[10m] Medium part.',
+        'ANSWER: medium',
+        '[10h] Hard part.',
+        'ANSWER: hard',
+      ]);
+      const packet = segmentPacket(paras);
+      expect(packet.structured).toBe(true);
+      expect(packet.tossupHeader).not.toBeNull();
+      expect(packet.bonusHeader).not.toBeNull();
+    }
+  );
+
   it('sets structured=false and infers tossups from flat list', () => {
     const paras = makeParas([
       'This is a tossup question. For 10 points, name it.',

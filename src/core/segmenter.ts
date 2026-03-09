@@ -27,10 +27,10 @@ export function segmentPacket(paragraphs: Paragraph[]): Packet {
 
   for (let i = 0; i < processed.length; i++) {
     const text = processed[i].rawText.trim().toLowerCase();
-    if (/\btossups:?\s*$/.test(text) && tossupIdx === -1) {
+    if (/\btoss[-\s]?ups?:?\s*$/.test(text) && tossupIdx === -1) {
       tossupIdx = i;
       packet.tossupHeader = processed[i];
-    } else if (/\bbonuses:?\s*$/.test(text) && bonusIdx === -1) {
+    } else if (/\bbonus(?:es)?:?\s*$/.test(text) && bonusIdx === -1) {
       bonusIdx = i;
       packet.bonusHeader = processed[i];
     }
