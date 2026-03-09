@@ -53,7 +53,7 @@ const autofixToggle = document.getElementById(
 const autofixCopy = document.getElementById(
   'autofix-copy'
 ) as HTMLButtonElement;
-const autofixDetails = document.getElementById('autofix-details')!;;
+const autofixDetails = document.getElementById('autofix-details')!;
 
 interface PacketResult {
   filename: string;
@@ -300,7 +300,8 @@ pasteTarget.addEventListener('paste', (e) => {
     diagnostics,
     settings.autoFixDisabled
   );
-  lastFixedParagraphs = fixResult.fixCount > 0 ? fixResult.fixedParagraphs : null;
+  lastFixedParagraphs =
+    fixResult.fixCount > 0 ? fixResult.fixedParagraphs : null;
   lastAppliedFixes = fixResult.appliedFixes;
   isPasteMode = true;
 
@@ -336,6 +337,25 @@ clearBtn.addEventListener('click', () => {
   clearSession();
 });
 
+// Toggle severity filter (used by both click and keyboard shortcuts)
+function toggleSeverity(severity: string): void {
+  if (activeSeverities.has(severity)) {
+    // Don't allow hiding all severities
+    if (activeSeverities.size === 1) return;
+    activeSeverities.delete(severity);
+  } else {
+    activeSeverities.add(severity);
+  }
+
+  // Update button visual state
+  const btn = document.querySelector(`[data-severity="${severity}"]`);
+  if (btn) {
+    btn.classList.toggle('active', activeSeverities.has(severity));
+  }
+
+  renderDiagnostics();
+}
+
 // Filters
 statsBar.addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest(
@@ -348,18 +368,9 @@ statsBar.addEventListener('click', (e) => {
     showIgnored = !showIgnored;
     btn.classList.toggle('active', showIgnored);
     renderDiagnostics();
-    return;
-  }
-
-  if (activeSeverities.has(sev)) {
-    if (activeSeverities.size === 1) return;
-    activeSeverities.delete(sev);
-    btn.classList.remove('active');
   } else {
-    activeSeverities.add(sev);
-    btn.classList.add('active');
+    toggleSeverity(sev);
   }
-  renderDiagnostics();
 });
 filterCategory.addEventListener('change', renderDiagnostics);
 
@@ -386,6 +397,172 @@ diagnosticsList.addEventListener('scroll', () => {
   scrollSaveTimeout = window.setTimeout(() => {
     saveSession();
   }, 500); // 500ms debounce
+});
+
+// Keyboard shortcuts help modal
+function showKeyboardHelp(): void {
+  // Check if help modal already exists
+  let helpModal = document.getElementById('keyboard-help-modal');
+
+  if (!helpModal) {
+    helpModal = document.createElement('div');
+    helpModal.id = 'keyboard-help-modal';
+    helpModal.className = 'modal-overlay';
+    helpModal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Keyboard Shortcuts</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="shortcut-section">
+            <h3>Navigation</h3>
+            <div class="shortcut-row">
+              <kbd>←</kbd> <kbd>→</kbd>
+              <span>Previous/Next packet</span>
+            </div>
+            <div class="shortcut-row">
+              <kbd>1</kbd>-<kbd>9</kbd>
+              <span>Jump to packet number</span>
+            </div>
+          </div>
+          <div class="shortcut-section">
+            <h3>Filtering</h3>
+            <div class="shortcut-row">
+              <kbd>E</kbd>
+              <span>Toggle errors</span>
+            </div>
+            <div class="shortcut-row">
+              <kbd>W</kbd>
+              <span>Toggle warnings</span>
+            </div>
+            <div class="shortcut-row">
+              <kbd>I</kbd>
+              <span>Toggle info</span>
+            </div>
+          </div>
+          <div class="shortcut-section">
+            <h3>Actions</h3>
+            <div class="shortcut-row">
+              <kbd>Esc</kbd>
+              <span>Close settings/menus</span>
+            </div>
+            <div class="shortcut-row">
+              <kbd>?</kbd>
+              <span>Show this help</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(helpModal);
+
+    // Close on click outside or close button
+    helpModal.addEventListener('click', (e) => {
+      if (
+        e.target === helpModal ||
+        (e.target as HTMLElement).classList.contains('modal-close')
+      ) {
+        helpModal!.remove();
+      }
+    });
+  }
+}
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ignore keyboard shortcuts when typing in input fields
+  const target = e.target as HTMLElement;
+  if (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+
+  // Only process shortcuts when results are visible
+  const resultsVisible = !resultsArea.hidden;
+  const settingsVisible = !settingsView.hidden;
+
+  // Handle shortcuts
+  switch (e.key) {
+    case 'ArrowLeft':
+      if (resultsVisible && packetResults.length > 1 && currentIndex > 0) {
+        e.preventDefault();
+        currentIndex--;
+        showCurrentPacket();
+      }
+      break;
+
+    case 'ArrowRight':
+      if (
+        resultsVisible &&
+        packetResults.length > 1 &&
+        currentIndex < packetResults.length - 1
+      ) {
+        e.preventDefault();
+        currentIndex++;
+        showCurrentPacket();
+      }
+      break;
+
+    case 'e':
+    case 'E':
+      if (resultsVisible && !settingsVisible) {
+        e.preventDefault();
+        toggleSeverity('error');
+      }
+      break;
+
+    case 'w':
+    case 'W':
+      if (resultsVisible && !settingsVisible) {
+        e.preventDefault();
+        toggleSeverity('warning');
+      }
+      break;
+
+    case 'i':
+    case 'I':
+      if (resultsVisible && !settingsVisible) {
+        e.preventDefault();
+        toggleSeverity('info');
+      }
+      break;
+
+    case 'Escape':
+      if (settingsVisible) {
+        e.preventDefault();
+        closeSettings();
+      } else if (resultsVisible) {
+        // Close any open menus
+        closeAllMenus();
+        // Remove focus from paste target if focused
+        if (document.activeElement === pasteTarget) {
+          pasteTarget.blur();
+        }
+      }
+      break;
+
+    case '?':
+      if (resultsVisible || settingsVisible) {
+        e.preventDefault();
+        showKeyboardHelp();
+      }
+      break;
+  }
+
+  // Handle number keys 1-9 for packet jumping
+  if (resultsVisible && !settingsVisible && /^[1-9]$/.test(e.key)) {
+    const packetNum = parseInt(e.key, 10);
+    if (packetNum <= packetResults.length) {
+      e.preventDefault();
+      currentIndex = packetNum - 1;
+      showCurrentPacket();
+    }
+  }
 });
 
 // Settings view
