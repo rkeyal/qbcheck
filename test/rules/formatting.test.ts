@@ -173,7 +173,9 @@ describe('formatting.no-format-bleeding', () => {
     });
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    const diag = diags.find((d) => d.rule === 'formatting.no-format-bleeding');
+    const diag = diags.find(
+      (d) => d.rule === 'formatting.no-format-bleeding-underline'
+    );
     expect(diag).toBeDefined();
     expect(diag?.severity).toBe('warning'); // Underline is more severe
   });
@@ -307,7 +309,7 @@ describe('formatting.no-format-bleeding', () => {
     const diags = lint(packet);
 
     const bleedingDiags = diags.filter(
-      (d) => d.rule === 'formatting.no-format-bleeding'
+      (d) => d.rule === 'formatting.no-format-bleeding-underline'
     );
 
     // SHOULD flag - underline is bleeding onto the trailing space
