@@ -66,6 +66,13 @@ interface QBLintSettings {
   autoFixDisabled: string[];
 }
 
+interface SessionState {
+  packetResults: PacketResult[];
+  currentIndex: number;
+  scrollPosition: number;
+  mode: 'file' | 'paste';
+}
+
 const DEFAULT_SETTINGS: QBLintSettings = {
   disabledRules: [],
   ignoredDiagnostics: [],
@@ -113,6 +120,50 @@ async function saveSettings(s: QBLintSettings): Promise<void> {
   }
 }
 
+// --- Session persistence ---
+
+async function saveSession(): Promise<void> {
+  // Only save if we have results to preserve
+  if (packetResults.length === 0) {
+    await clearSession();
+    return;
+  }
+
+  // Get current scroll position
+  const scrollPos = diagnosticsList.scrollTop || 0;
+
+  const sessionState: SessionState = {
+    packetResults,
+    currentIndex,
+    scrollPosition: scrollPos,
+    mode: isPasteMode ? 'paste' : 'file',
+  };
+
+  try {
+    await chrome.storage.session.set({ qbcheckSession: sessionState });
+  } catch (e) {
+    console.warn('Failed to save session:', e);
+  }
+}
+
+async function loadSession(): Promise<SessionState | null> {
+  try {
+    const result = await chrome.storage.session.get('qbcheckSession');
+    const session = result.qbcheckSession as SessionState | undefined;
+    return session || null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearSession(): Promise<void> {
+  try {
+    await chrome.storage.session.remove('qbcheckSession');
+  } catch {
+    // Ignore errors
+  }
+}
+
 // --- Diagnostic fingerprinting ---
 
 function diagnosticFingerprint(d: LintDiagnostic): string {
@@ -126,8 +177,29 @@ function diagnosticFingerprint(d: LintDiagnostic): string {
 
 // --- Initialization ---
 
-loadSettings().then((s) => {
+Promise.all([loadSettings(), loadSession()]).then(([s, session]) => {
   settings = s;
+
+  if (session) {
+    // Restore UI state
+    packetResults = session.packetResults;
+    currentIndex = session.currentIndex;
+    isPasteMode = session.mode === 'paste';
+
+    // Note: lastParsedPackets stays empty (can't re-lint)
+    // But that's OK - user can just re-upload to change settings
+
+    // Show results UI
+    uploadArea.hidden = true;
+    resultsArea.hidden = false;
+    populatePacketSelect();
+    showCurrentPacket();
+
+    // Restore scroll position after render
+    setTimeout(() => {
+      diagnosticsList.scrollTop = session.scrollPosition || 0;
+    }, 0);
+  }
 });
 
 // File input handler
@@ -244,6 +316,7 @@ pasteTarget.addEventListener('paste', (e) => {
   resultsArea.hidden = false;
   populatePacketSelect();
   showCurrentPacket();
+  saveSession();
 });
 
 // Clear button
@@ -260,6 +333,7 @@ clearBtn.addEventListener('click', () => {
   settingsView.hidden = true;
   fileInput.value = '';
   folderInput.value = '';
+  clearSession();
 });
 
 // Filters
@@ -303,6 +377,15 @@ nextBtn.addEventListener('click', () => {
 packetSelect.addEventListener('change', () => {
   currentIndex = parseInt(packetSelect.value, 10);
   showCurrentPacket();
+});
+
+// Debounce scroll saves to avoid excessive storage writes
+let scrollSaveTimeout: number | null = null;
+diagnosticsList.addEventListener('scroll', () => {
+  if (scrollSaveTimeout) clearTimeout(scrollSaveTimeout);
+  scrollSaveTimeout = window.setTimeout(() => {
+    saveSession();
+  }, 500); // 500ms debounce
 });
 
 // Settings view
@@ -613,6 +696,7 @@ async function processFiles(files: File[]) {
   currentIndex = 0;
   populatePacketSelect();
   showCurrentPacket();
+  saveSession();
 }
 
 function populatePacketSelect() {
@@ -644,8 +728,14 @@ function showCurrentPacket() {
   // Show/hide auto-fix banner
   renderAutofixBanner();
 
+  // Reset scroll to top when switching packets
+  diagnosticsList.scrollTop = 0;
+
   updateCounts();
   renderDiagnostics();
+
+  // Save session after updating state
+  saveSession();
 }
 
 function updateCounts() {
