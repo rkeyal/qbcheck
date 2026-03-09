@@ -186,8 +186,8 @@ h1 {
   color: #999;
 }
 
-/* Info banner */
-.info-banner {
+/* Info banner - use :not([hidden]) so display:flex doesn't override hidden attribute */
+.info-banner:not([hidden]) {
   display: flex;
   align-items: center;
   gap: 6px;
