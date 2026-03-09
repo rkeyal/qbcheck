@@ -54,6 +54,7 @@ const autofixCopy = document.getElementById(
   'autofix-copy'
 ) as HTMLButtonElement;
 const autofixDetails = document.getElementById('autofix-details')!;
+const darkModeToggle = document.getElementById('dark-mode-toggle')!;
 
 interface PacketResult {
   filename: string;
@@ -64,6 +65,7 @@ interface QBLintSettings {
   disabledRules: string[];
   ignoredDiagnostics: string[];
   autoFixDisabled: string[];
+  darkMode: boolean;
 }
 
 interface SessionState {
@@ -77,6 +79,7 @@ const DEFAULT_SETTINGS: QBLintSettings = {
   disabledRules: [],
   ignoredDiagnostics: [],
   autoFixDisabled: [],
+  darkMode: false,
 };
 
 let packetResults: PacketResult[] = [];
@@ -106,6 +109,7 @@ async function loadSettings(): Promise<QBLintSettings> {
       disabledRules: stored.disabledRules ?? [],
       ignoredDiagnostics: stored.ignoredDiagnostics ?? [],
       autoFixDisabled: stored.autoFixDisabled ?? [],
+      darkMode: stored.darkMode ?? false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -179,6 +183,13 @@ function diagnosticFingerprint(d: LintDiagnostic): string {
 
 Promise.all([loadSettings(), loadSession()]).then(([s, session]) => {
   settings = s;
+
+  // Apply dark mode
+  if (settings.darkMode) {
+    document.body.classList.add('dark');
+  }
+  darkModeToggle.setAttribute('aria-checked', String(settings.darkMode));
+  darkModeToggle.classList.toggle('on', settings.darkMode);
 
   if (session) {
     // Restore UI state
@@ -318,6 +329,15 @@ pasteTarget.addEventListener('paste', (e) => {
   populatePacketSelect();
   showCurrentPacket();
   saveSession();
+});
+
+// Dark mode toggle
+darkModeToggle.addEventListener('click', async () => {
+  settings.darkMode = !settings.darkMode;
+  document.body.classList.toggle('dark', settings.darkMode);
+  darkModeToggle.setAttribute('aria-checked', String(settings.darkMode));
+  darkModeToggle.classList.toggle('on', settings.darkMode);
+  await saveSettings(settings);
 });
 
 // Clear button
@@ -585,6 +605,9 @@ settingsBackBtn.addEventListener('click', closeSettings);
 resetDefaultsBtn.addEventListener('click', async () => {
   settings = { ...DEFAULT_SETTINGS };
   await saveSettings(settings);
+  document.body.classList.remove('dark');
+  darkModeToggle.setAttribute('aria-checked', 'false');
+  darkModeToggle.classList.remove('on');
   renderSettingsRules();
   // Re-lint if we have packets loaded
   if (lastParsedPackets.length > 0) {

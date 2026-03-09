@@ -959,3 +959,486 @@ h1 {
 .shortcut-row span {
   color: #666;
 }
+
+/* Shortcut letter underline hints on filter chips */
+.stat u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+/* --- Preferences section in settings --- */
+.settings-prefs {
+  margin-bottom: 10px;
+}
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 2px;
+}
+
+.pref-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.settings-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  padding: 0 2px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 4px;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  background: #ccc;
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.on .toggle-track {
+  background: #4a6cf7;
+}
+
+.toggle-switch.on .toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* === Dark Mode === */
+body.dark {
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+body.dark #app {
+  background: #1a1a2e;
+}
+
+body.dark h1 {
+  color: #e0e0e0;
+}
+
+body.dark .subtitle {
+  color: #aaa;
+}
+
+body.dark #settings-btn {
+  color: #aaa;
+}
+
+body.dark #settings-btn:hover {
+  color: #e0e0e0;
+}
+
+/* Drop zone & paste */
+body.dark #drop-zone {
+  border-color: #3a3a4e;
+  background: #2a2a3e;
+}
+
+body.dark #drop-zone:hover,
+body.dark #drop-zone.drag-over {
+  border-color: #4a6cf7;
+  background: #2e2e48;
+}
+
+body.dark #drop-zone p {
+  color: #aaa;
+}
+
+body.dark .paste-divider::before,
+body.dark .paste-divider::after {
+  background: #3a3a4e;
+}
+
+body.dark .paste-target {
+  background: #2a2a3e;
+  border-color: #4a6cf7;
+}
+
+body.dark .paste-target:hover,
+body.dark .paste-target:focus {
+  background: #2e2e48;
+  border-color: #5a7cff;
+}
+
+body.dark .paste-target.paste-active {
+  background: #333358;
+}
+
+body.dark .paste-target-label {
+  color: #7a9cff;
+}
+
+body.dark .file-btn-secondary {
+  background: #2a2a3e;
+  color: #7a9cff;
+  border-color: #4a6cf7;
+}
+
+body.dark .file-btn-secondary:hover {
+  background: #2e2e48;
+}
+
+/* File info bar */
+body.dark #file-info {
+  background: #2a2a3e;
+}
+
+body.dark #clear-btn {
+  color: #aaa;
+}
+
+body.dark #clear-btn:hover {
+  color: #e0e0e0;
+}
+
+/* Info banner */
+body.dark .info-banner:not([hidden]) {
+  background: #1e2d4a;
+  border-color: #2a4a6e;
+  color: #6ab0e8;
+}
+
+/* Packet nav */
+body.dark #prev-btn,
+body.dark #next-btn {
+  border-color: #3a3a4e;
+  color: #aaa;
+}
+
+body.dark #prev-btn:hover:not(:disabled),
+body.dark #next-btn:hover:not(:disabled) {
+  background: #2a2a3e;
+  color: #e0e0e0;
+}
+
+body.dark #packet-select {
+  background: #2a2a3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+body.dark #packet-counter {
+  color: #aaa;
+}
+
+/* Stats bar chips */
+body.dark .stat-error.active {
+  background: #3a1a1a;
+  color: #f77;
+}
+
+body.dark .stat-warning.active {
+  background: #3a2e1a;
+  color: #eab050;
+}
+
+body.dark .stat-info.active {
+  background: #1a2a3e;
+  color: #6ab0e8;
+}
+
+body.dark .stat:not(.active) {
+  background: #2a2a3e;
+  color: #666;
+}
+
+body.dark .stat-ignored {
+  background: #2a2a3e;
+  color: #888;
+}
+
+body.dark .stat-ignored.active {
+  background: #3a3a4e;
+  color: #ccc;
+  border-color: #666;
+}
+
+/* Filters */
+body.dark #filters select {
+  background: #2a2a3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+/* Diagnostics */
+body.dark .diagnostic {
+  background: #2a2a3e;
+}
+
+body.dark .diagnostic.severity-error {
+  border-left-color: #e53935;
+  background: #2e1a1a;
+}
+
+body.dark .diagnostic.severity-warning {
+  border-left-color: #f9a825;
+  background: #2e2a1a;
+}
+
+body.dark .diagnostic.severity-info {
+  border-left-color: #1e88e5;
+  background: #1a2a3e;
+}
+
+body.dark .diag-rule {
+  color: #aaa;
+}
+
+body.dark .diag-message {
+  color: #e0e0e0;
+}
+
+body.dark .diag-location {
+  color: #888;
+}
+
+body.dark .diag-suggestion {
+  color: #7a9cff;
+}
+
+body.dark .diag-snippet {
+  background: #1e1e2e;
+  color: #ccc;
+}
+
+body.dark .diag-snippet mark {
+  background: #665500;
+  color: #ffe066;
+}
+
+body.dark .diag-action {
+  color: #888;
+}
+
+body.dark .diag-action:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  border-color: #3a3a4e;
+}
+
+body.dark .diag-menu {
+  background: #2a2a3e;
+  border-color: #3a3a4e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark .diag-menu button {
+  color: #e0e0e0;
+}
+
+body.dark .diag-menu button:hover {
+  background: #333358;
+}
+
+body.dark .diag-unignore {
+  border-color: #3a3a4e;
+  color: #888;
+}
+
+body.dark .diag-unignore:hover {
+  background: #2a2a3e;
+  color: #e0e0e0;
+}
+
+body.dark .ignored-separator {
+  color: #888;
+  border-top-color: #3a3a4e;
+}
+
+body.dark #no-issues p {
+  color: #4caf50;
+}
+
+/* Auto-fix banner */
+body.dark .autofix-banner {
+  background: #1a2e1a;
+  border-color: #2e5a2e;
+}
+
+body.dark .autofix-icon {
+  color: #66bb6a;
+}
+
+body.dark .autofix-label {
+  color: #66bb6a;
+}
+
+body.dark .autofix-toggle {
+  color: #66bb6a;
+}
+
+body.dark .autofix-details {
+  border-top-color: #2e5a2e;
+}
+
+body.dark .autofix-item {
+  background: #1e2e1e;
+}
+
+body.dark .autofix-item-rule {
+  color: #8bc34a;
+}
+
+body.dark .autofix-item-message {
+  color: #a5d6a7;
+}
+
+body.dark .autofix-item-location {
+  color: #81c784;
+}
+
+body.dark .diff-old {
+  background: #3a1a1a;
+  color: #f77;
+}
+
+body.dark .diff-new {
+  background: #1a2e1a;
+  color: #66bb6a;
+}
+
+/* Settings view */
+body.dark .settings-title {
+  color: #e0e0e0;
+}
+
+body.dark #settings-back-btn {
+  border-color: #3a3a4e;
+  color: #aaa;
+}
+
+body.dark #settings-back-btn:hover {
+  background: #2a2a3e;
+  color: #e0e0e0;
+}
+
+body.dark .pref-label {
+  color: #e0e0e0;
+}
+
+body.dark .settings-section-label {
+  color: #aaa;
+  border-bottom-color: #3a3a4e;
+}
+
+body.dark .rule-group-header {
+  color: #aaa;
+}
+
+body.dark .rule-item-id {
+  color: #e0e0e0;
+}
+
+body.dark .rule-item-desc {
+  color: #888;
+}
+
+body.dark .rule-autofix {
+  background: #1a2e1a;
+  color: #66bb6a;
+}
+
+body.dark #reset-defaults-btn {
+  border-color: #3a3a4e;
+  color: #aaa;
+}
+
+body.dark #reset-defaults-btn:hover {
+  background: #3a1a1a;
+  color: #f77;
+  border-color: #5a2a2a;
+}
+
+/* Modal */
+body.dark .modal-content {
+  background: #2a2a3e;
+}
+
+body.dark .modal-header {
+  border-bottom-color: #3a3a4e;
+}
+
+body.dark .modal-header h2 {
+  color: #e0e0e0;
+}
+
+body.dark .modal-close {
+  color: #aaa;
+}
+
+body.dark .modal-close:hover {
+  background: #3a3a4e;
+}
+
+body.dark .shortcut-section h3 {
+  color: #ccc;
+}
+
+body.dark .shortcut-row kbd {
+  background: #1e1e2e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+body.dark .shortcut-row span {
+  color: #aaa;
+}
+
+/* Scrollbar */
+body.dark #diagnostics-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.dark #diagnostics-list::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+body.dark #diagnostics-list::-webkit-scrollbar-thumb {
+  background: #3a3a4e;
+  border-radius: 3px;
+}
+
+body.dark #diagnostics-list::-webkit-scrollbar-thumb:hover {
+  background: #4a4a5e;
+}
+
+body.dark .toggle-track {
+  background: #555;
+}

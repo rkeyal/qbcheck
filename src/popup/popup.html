@@ -86,21 +86,21 @@
         </div>
 
         <div id="packet-nav" hidden>
-          <button id="prev-btn" title="Previous packet">&lsaquo;</button>
+          <button id="prev-btn" title="Previous packet (←)">&#x2190;</button>
           <select id="packet-select"></select>
-          <button id="next-btn" title="Next packet">&rsaquo;</button>
+          <button id="next-btn" title="Next packet (→)">&#x2192;</button>
           <span id="packet-counter"></span>
         </div>
 
         <div id="stats-bar">
           <button class="stat stat-error active" data-severity="error">
-            <span id="count-error">0</span> errors
+            <span id="count-error">0</span> <u>e</u>rrors
           </button>
           <button class="stat stat-warning active" data-severity="warning">
-            <span id="count-warning">0</span> warnings
+            <span id="count-warning">0</span> <u>w</u>arnings
           </button>
           <button class="stat stat-info active" data-severity="info">
-            <span id="count-info">0</span> info
+            <span id="count-info">0</span> <u>i</u>nfo
           </button>
           <button class="stat stat-ignored" data-severity="ignored" hidden>
             <span id="count-ignored">0</span> ignored
@@ -130,8 +130,24 @@
       <div id="settings-view" hidden>
         <div class="settings-header">
           <button id="settings-back-btn">&lsaquo; Back</button>
-          <span class="settings-title">Rule Settings</span>
+          <span class="settings-title">Settings</span>
         </div>
+        <div id="settings-prefs" class="settings-prefs">
+          <div class="pref-row">
+            <span class="pref-label">Dark mode</span>
+            <button
+              id="dark-mode-toggle"
+              class="toggle-switch"
+              role="switch"
+              aria-checked="false"
+            >
+              <span class="toggle-track"
+                ><span class="toggle-thumb"></span
+              ></span>
+            </button>
+          </div>
+        </div>
+        <div class="settings-section-label">Rules</div>
         <div id="settings-rules"></div>
         <div class="settings-footer">
           <button id="reset-defaults-btn">Reset to Defaults</button>
