@@ -209,6 +209,62 @@ describe('answerline.deprecated-directive', () => {
     expect(d.fix).toBeUndefined();
   });
 
+  it("flags 'do not accept or prompt on' with full phrase", () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [do not accept or prompt on other]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [do not accept or prompt on other]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.filter(
+      (d) => d.rule === 'answerline.deprecated-directive'
+    );
+    expect(d.length).toBeGreaterThan(0);
+    expect(
+      d.some((dd) => dd.message.includes('do not accept or prompt on'))
+    ).toBe(true);
+  });
+
+  it('provides fix for "do not accept or prompt on" → "reject"', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [do not accept or prompt on "wrong"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [do not accept or prompt on "wrong"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = diags.find(
+      (d) =>
+        d.rule === 'answerline.deprecated-directive' &&
+        d.message.includes('do not accept or prompt on')
+    )!;
+    expect(d.fix).toBeDefined();
+    expect(d.fix!.newText).toBe('reject "wrong"');
+  });
+
+  it('does not fire directive-separator for "do not accept or prompt on"', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [do not accept or prompt on other]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [do not accept or prompt on other]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(
+      diags.some((d) => d.rule === 'answerline.directive-separator')
+    ).toBe(false);
+  });
+
   it('does not provide fix for meta-directive deprecations', () => {
     const t = tossupWithAnswer(
       'ANSWER: thing [accept in either order]',

@@ -34,6 +34,7 @@ interface SubDirective {
     | 'anti-prompt'
     | 'reject'
     | 'do not accept'
+    | 'do not accept or prompt on'
     | 'do not prompt'
     | 'unknown';
   /** Start offset of the content (after the keyword) in rawText */
@@ -81,6 +82,7 @@ function parseSubDirectives(
       type: SubDirective['type'];
       regex: RegExp;
     }[] = [
+      { type: 'do not accept or prompt on', regex: /^do\s+not\s+accept\s+or\s+prompt\s+(on\s+)?/i },
       { type: 'do not accept', regex: /^do\s+not\s+accept\s+/i },
       { type: 'do not prompt', regex: /^do\s+not\s+prompt\s+/i },
       { type: 'anti-prompt', regex: /^anti-?prompt\s+(on\s+)?/i },
@@ -608,6 +610,25 @@ function checkDeprecatedDirectives(packet: Packet): LintDiagnostic[] {
           });
         }
 
+        // "do not accept or prompt on" is deprecated in favor of "reject"
+        if (sub.type === 'do not accept or prompt on') {
+          diags.push({
+            rule: 'answerline.deprecated-directive',
+            severity: 'warning',
+            paragraph: para.index,
+            message:
+              '"do not accept or prompt on" is deprecated. Use "reject" instead.',
+            sourceText: para.rawText,
+            offset: sub.fullStart,
+            length: sub.fullText.length,
+            fix: {
+              oldText: sub.fullText,
+              newText: 'reject ' + sub.contentText,
+              offset: sub.fullStart,
+            },
+          });
+        }
+
         // "do not accept" is deprecated in favor of "reject" (§Formatting answerlines #6)
         if (sub.type === 'do not accept') {
           diags.push({
@@ -903,7 +924,7 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
       // "or" is special - it can be used within a directive to list alternatives
       // Match word boundaries, handling multi-word directives
       const directivePattern =
-        /\b(do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|prompt|reject)\s+/gi;
+        /\b(do\s+not\s+accept\s+or\s+prompt(\s+on)?|do\s+not\s+accept|do\s+not\s+prompt|anti-?prompt|accept|prompt|reject)\s+/gi;
       const matches = [...content.matchAll(directivePattern)];
 
       // Skip if only one or no directives found
