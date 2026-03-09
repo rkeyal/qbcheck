@@ -48,6 +48,28 @@ h1 {
   color: #1a1a2e;
 }
 
+.header-icon-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: Georgia, serif;
+}
+
+.header-icon-btn:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.06);
+}
+
 #settings-btn {
   background: none;
   border: none;
@@ -1410,6 +1432,102 @@ body.dark .shortcut-row span {
   color: #aaa;
 }
 
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 2000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: toast-in 0.2s ease-out;
+  max-width: 90%;
+  text-align: center;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Drop zone error message */
+.drop-error:not([hidden]) {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: #c00;
+  margin-top: 8px;
+  animation: toast-in 0.2s ease-out;
+}
+
+/* Parse error banner */
+.error-banner:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff5f5;
+  border: 1px solid #f5c6c6;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #c00;
+}
+
+.error-banner-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Warning banner (settings relint warning) */
+.warning-banner:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #b27a00;
+}
+
+.warning-banner-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Auto-fix paste-only hint */
+.autofix-paste-hint {
+  font-weight: 400;
+  color: #aaa;
+  font-size: 9px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Reset confirmation button */
+.reset-confirm-btn {
+  background: #c00;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.reset-confirm-btn:hover {
+  background: #a00;
+}
+
 /* Scrollbar */
 body.dark #diagnostics-list::-webkit-scrollbar {
   width: 6px;
@@ -1426,5 +1544,49 @@ body.dark #diagnostics-list::-webkit-scrollbar-thumb {
 
 body.dark #diagnostics-list::-webkit-scrollbar-thumb:hover {
   background: #4a4a5e;
+}
+
+/* Dark mode: new elements */
+body.dark .header-icon-btn {
+  border-color: #3a3a4e;
+  color: #aaa;
+}
+
+body.dark .header-icon-btn:hover {
+  color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body.dark .toast {
+  background: #e0e0e0;
+  color: #1a1a2e;
+}
+
+body.dark .drop-error {
+  color: #f77;
+}
+
+body.dark .error-banner:not([hidden]) {
+  background: #2e1a1a;
+  border-color: #5a2a2a;
+  color: #f77;
+}
+
+body.dark .warning-banner:not([hidden]) {
+  background: #2e2a1a;
+  border-color: #5a4a2a;
+  color: #eab050;
+}
+
+body.dark .autofix-paste-hint {
+  color: #666;
+}
+
+body.dark .reset-confirm-btn {
+  background: #e53935;
+}
+
+body.dark .reset-confirm-btn:hover {
+  background: #c62828;
 }
 

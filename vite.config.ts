@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { copyFileSync } from 'fs';
+import { copyFileSync, mkdirSync } from 'fs';
 
 export default defineConfig({
   base: './',
@@ -29,6 +29,14 @@ export default defineConfig({
           resolve(__dirname, 'THIRD_PARTY_NOTICES'),
           resolve(__dirname, 'dist/THIRD_PARTY_NOTICES')
         );
+        // Copy extension icons
+        mkdirSync(resolve(__dirname, 'dist/icons'), { recursive: true });
+        for (const size of [16, 32, 48, 128]) {
+          copyFileSync(
+            resolve(__dirname, `icons/icon${size}.png`),
+            resolve(__dirname, `dist/icons/icon${size}.png`)
+          );
+        }
       },
     },
   ],

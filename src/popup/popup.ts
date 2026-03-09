@@ -60,10 +60,20 @@ const darkModeToggle = document.getElementById(
 const autofixMasterToggle = document.getElementById(
   'autofix-master-toggle'
 ) as HTMLInputElement;
+const helpBtn = document.getElementById('help-btn')!;
+const toastEl = document.getElementById('toast')!;
+const dropError = document.getElementById('drop-error')!;
+const parseErrorBanner = document.getElementById('parse-error-banner')!;
+const parseErrorMessage = document.getElementById('parse-error-message')!;
+const relintWarning = document.getElementById('relint-warning')!;
+const resetConfirmBtn = document.getElementById(
+  'reset-confirm-btn'
+) as HTMLButtonElement;
 
 interface PacketResult {
   filename: string;
   diagnostics: LintDiagnostic[];
+  parseError?: string;
 }
 
 interface QBLintSettings {
@@ -247,6 +257,7 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', async (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
+  dropError.hidden = true;
 
   // Try to read directory entries first (handles dropped folders)
   const items = e.dataTransfer?.items;
@@ -261,13 +272,26 @@ dropZone.addEventListener('drop', async (e) => {
     if (hasDirectory) {
       const files = await readEntriesRecursive(entries);
       const docx = files.filter((f) => f.name.endsWith('.docx'));
-      if (docx.length > 0) processFiles(docx);
+      if (docx.length > 0) {
+        processFiles(docx);
+        return;
+      }
+      if (files.length > 0) {
+        dropError.textContent = 'Only .docx files are supported.';
+        dropError.hidden = false;
+      }
       return;
     }
   }
 
+  const droppedCount = e.dataTransfer?.files?.length ?? 0;
   const files = collectDocxFiles(e.dataTransfer?.files ?? null);
-  if (files.length > 0) processFiles(files);
+  if (files.length > 0) {
+    processFiles(files);
+  } else if (droppedCount > 0) {
+    dropError.textContent = 'Only .docx files are supported.';
+    dropError.hidden = false;
+  }
 });
 
 // Paste from clipboard — click focuses the target, then user pastes with Ctrl+V/Cmd+V
@@ -289,56 +313,72 @@ pasteTarget.addEventListener('paste', (e) => {
   const plainText = clipboardData.getData('text/plain');
 
   if (!html && !plainText) {
-    alert('No text found in clipboard. Copy some questions first.');
+    showToast('No text found in clipboard. Copy some questions first.');
     return;
   }
 
-  let paragraphs = html
-    ? parseHtml(html)
-    : parseHtml(`<p>${escapeHtml(plainText).split('\n').join('</p><p>')}</p>`);
-
-  // Google Docs clipboard HTML may drop blank lines between paragraphs.
-  // Restore them from the plain text, which always preserves \n\n gaps.
-  // This must happen BEFORE segmentation because the segmenter uses
-  // blank paragraphs as question boundaries in unstructured mode.
-  if (html && plainText) {
-    paragraphs = restoreBlankLines(paragraphs, plainText);
-  }
-
-  if (paragraphs.length === 0) {
-    alert('No content found in clipboard.');
-    return;
-  }
-
-  const packet = segmentPacket(paragraphs);
-  const disabledSet = new Set(settings.disabledRules);
-  const diagnostics = lint(packet, disabledSet);
-
-  // Apply auto-fixes
-  const fixResult = applyFixes(
-    paragraphs,
-    diagnostics,
-    settings.autoFixDisabled
-  );
-  lastFixedParagraphs =
-    fixResult.fixCount > 0 ? fixResult.fixedParagraphs : null;
-  lastAppliedFixes = fixResult.appliedFixes;
-  isPasteMode = true;
-
-  lastParsedPackets = [packet];
-  _lastSortedFiles = [];
-  packetResults = [
-    { filename: 'Pasted text', diagnostics: fixResult.remainingDiagnostics },
-  ];
-  currentIndex = 0;
-
+  // Show loading state
   settingsView.hidden = true;
   uploadArea.hidden = true;
   resultsArea.hidden = false;
-  populatePacketSelect();
-  showCurrentPacket();
-  saveSession();
+  diagnosticsList.innerHTML = '<div class="loading">Analyzing pasted text...</div>';
+
+  // Defer processing to allow the loading UI to render
+  setTimeout(() => {
+    let paragraphs = html
+      ? parseHtml(html)
+      : parseHtml(
+          `<p>${escapeHtml(plainText).split('\n').join('</p><p>')}</p>`
+        );
+
+    // Google Docs clipboard HTML may drop blank lines between paragraphs.
+    // Restore them from the plain text, which always preserves \n\n gaps.
+    // This must happen BEFORE segmentation because the segmenter uses
+    // blank paragraphs as question boundaries in unstructured mode.
+    if (html && plainText) {
+      paragraphs = restoreBlankLines(paragraphs, plainText);
+    }
+
+    if (paragraphs.length === 0) {
+      showToast('No content found in clipboard.');
+      uploadArea.hidden = false;
+      resultsArea.hidden = true;
+      return;
+    }
+
+    const packet = segmentPacket(paragraphs);
+    const disabledSet = new Set(settings.disabledRules);
+    const diagnostics = lint(packet, disabledSet);
+
+    // Apply auto-fixes
+    const fixResult = applyFixes(
+      paragraphs,
+      diagnostics,
+      settings.autoFixDisabled
+    );
+    lastFixedParagraphs =
+      fixResult.fixCount > 0 ? fixResult.fixedParagraphs : null;
+    lastAppliedFixes = fixResult.appliedFixes;
+    isPasteMode = true;
+
+    lastParsedPackets = [packet];
+    _lastSortedFiles = [];
+    packetResults = [
+      {
+        filename: 'Pasted text',
+        diagnostics: fixResult.remainingDiagnostics,
+      },
+    ];
+    currentIndex = 0;
+
+    populatePacketSelect();
+    showCurrentPacket();
+    saveSession();
+  }, 0);
 });
+
+// Help button
+helpBtn.addEventListener('click', showKeyboardHelp);
 
 // Dark mode toggle
 darkModeToggle.addEventListener('click', async () => {
@@ -400,7 +440,10 @@ statsBar.addEventListener('click', (e) => {
     toggleSeverity(sev);
   }
 });
-filterCategory.addEventListener('change', renderDiagnostics);
+filterCategory.addEventListener('change', () => {
+  updateCounts();
+  renderDiagnostics();
+});
 
 // Navigation
 prevBtn.addEventListener('click', () => {
@@ -610,7 +653,24 @@ settingsBtn.addEventListener('click', () => {
 
 settingsBackBtn.addEventListener('click', closeSettings);
 
-resetDefaultsBtn.addEventListener('click', async () => {
+let resetConfirmTimeout: number | null = null;
+resetDefaultsBtn.addEventListener('click', () => {
+  // Show confirmation button, hide the original
+  resetDefaultsBtn.hidden = true;
+  resetConfirmBtn.hidden = false;
+  // Auto-cancel after 3 seconds
+  if (resetConfirmTimeout) clearTimeout(resetConfirmTimeout);
+  resetConfirmTimeout = window.setTimeout(() => {
+    resetDefaultsBtn.hidden = false;
+    resetConfirmBtn.hidden = true;
+  }, 3000);
+});
+
+resetConfirmBtn.addEventListener('click', async () => {
+  if (resetConfirmTimeout) clearTimeout(resetConfirmTimeout);
+  resetDefaultsBtn.hidden = false;
+  resetConfirmBtn.hidden = true;
+
   settings = { ...DEFAULT_SETTINGS };
   await saveSettings(settings);
   document.body.classList.remove('dark');
@@ -622,10 +682,15 @@ resetDefaultsBtn.addEventListener('click', async () => {
   }
 });
 
+function isRestoredSession(): boolean {
+  return packetResults.length > 0 && lastParsedPackets.length === 0;
+}
+
 function openSettings() {
   uploadArea.hidden = true;
   resultsArea.hidden = true;
   settingsView.hidden = false;
+  relintWarning.hidden = true;
   renderSettingsRules();
 }
 
@@ -709,6 +774,11 @@ function renderSettingsRules() {
         }
       }
       await saveSettings(settings);
+
+      // Show warning if in a restored session
+      if (isRestoredSession()) {
+        relintWarning.hidden = false;
+      }
 
       // Update auto-fix checkbox state
       const ruleItem = input.closest('.rule-item');
@@ -941,6 +1011,7 @@ async function processFiles(files: File[]) {
       packetResults.push({
         filename: sorted[i].name,
         diagnostics: [],
+        parseError: `Failed to parse ${sorted[i].name}. The file may be corrupted or not a valid .docx.`,
       });
     }
   }
@@ -994,6 +1065,15 @@ function showCurrentPacket() {
   prevBtn.disabled = currentIndex === 0;
   nextBtn.disabled = currentIndex === packetResults.length - 1;
 
+  // Show/hide parse error banner
+  const currentResult = packetResults[currentIndex];
+  if (currentResult?.parseError) {
+    parseErrorBanner.hidden = false;
+    parseErrorMessage.textContent = currentResult.parseError;
+  } else {
+    parseErrorBanner.hidden = true;
+  }
+
   // Show/hide unstructured banner
   const currentPacket = lastParsedPackets[currentIndex];
   unstructuredBanner.hidden =
@@ -1014,6 +1094,7 @@ function showCurrentPacket() {
 
 function updateCounts() {
   const diags = getCurrentDiagnostics();
+  const catFilter = filterCategory.value;
   const ignoredFps = new Set(settings.ignoredDiagnostics);
 
   let errors = 0,
@@ -1021,6 +1102,7 @@ function updateCounts() {
     infos = 0,
     ignoredCount = 0;
   for (const d of diags) {
+    if (catFilter !== 'all' && !d.rule.startsWith(catFilter + '.')) continue;
     if (ignoredFps.has(diagnosticFingerprint(d))) {
       ignoredCount++;
     } else {
@@ -1143,7 +1225,17 @@ function renderDiagnostics() {
 
   if (visible.length === 0 && (!showIgnored || ignored.length === 0)) {
     diagnosticsList.innerHTML = '';
-    noIssues.hidden = false;
+    // Don't show "No issues found" if the file failed to parse
+    const hasParseError = !!packetResults[currentIndex]?.parseError;
+    noIssues.hidden = hasParseError;
+    if (!hasParseError) {
+      noIssues.querySelector('p')!.textContent =
+        catFilter !== 'all' ||
+        activeSeverities.size < 3 ||
+        allDiags.length > 0
+          ? 'No issues match current filters.'
+          : 'No issues found.';
+    }
     return;
   }
 
@@ -1285,8 +1377,14 @@ function toggleActionMenu(actionBtn: HTMLElement) {
       }
       await saveSettings(settings);
       closeAllMenus();
-      relintAll();
-      showCurrentPacket();
+      if (isRestoredSession()) {
+        showToast(
+          'Rule disabled. Re-upload files to see updated results.'
+        );
+      } else {
+        relintAll();
+        showCurrentPacket();
+      }
     });
 
   actionBtn.parentElement!.appendChild(menu);
@@ -1332,6 +1430,16 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+let toastTimeout: number | null = null;
+function showToast(message: string, durationMs = 3000): void {
+  toastEl.textContent = message;
+  toastEl.hidden = false;
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = window.setTimeout(() => {
+    toastEl.hidden = true;
+  }, durationMs);
 }
 
 /**

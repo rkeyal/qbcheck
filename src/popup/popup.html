@@ -11,6 +11,7 @@
       <header>
         <div class="header-row">
           <h1>qbcheck</h1>
+          <button id="help-btn" class="header-icon-btn" title="Keyboard shortcuts (?)">?</button>
           <button id="settings-btn" title="Rule settings">&#x2699;</button>
         </div>
         <p class="subtitle">Quizbowl Packet Style Checker</p>
@@ -48,12 +49,20 @@
             >Copy questions in Docs/Word, then paste here to check</span
           >
         </div>
+        <div id="drop-error" class="drop-error" hidden></div>
       </div>
+
+      <div id="toast" class="toast" hidden></div>
 
       <div id="results-area" hidden>
         <div id="file-info">
           <span id="file-name"></span>
           <button id="clear-btn" title="Clear">&#x2715;</button>
+        </div>
+
+        <div id="parse-error-banner" class="error-banner" hidden>
+          <span class="error-banner-icon">&#x26A0;</span>
+          <span id="parse-error-message">Failed to parse this file.</span>
         </div>
 
         <div id="unstructured-banner" class="info-banner" hidden>
@@ -139,16 +148,21 @@
             &#x25D0;
           </button>
         </div>
+        <div id="relint-warning" class="warning-banner" hidden>
+          <span class="warning-banner-icon">&#x26A0;</span>
+          <span>Rule changes require re-uploading files to take effect.</span>
+        </div>
         <div class="settings-section-label">
           <span>Rules</span>
           <label class="autofix-master">
             <input type="checkbox" id="autofix-master-toggle" checked />
-            Auto-fix
+            Auto-fix <span class="autofix-paste-hint">(paste only)</span>
           </label>
         </div>
         <div id="settings-rules"></div>
         <div class="settings-footer">
           <button id="reset-defaults-btn">Reset to Defaults</button>
+          <button id="reset-confirm-btn" class="reset-confirm-btn" hidden>Are you sure? Click to confirm</button>
         </div>
       </div>
     </div>
