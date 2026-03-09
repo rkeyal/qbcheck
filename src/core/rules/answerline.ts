@@ -161,7 +161,6 @@ function checkAnswerPrefix(packet: Packet): LintDiagnostic[] {
           // Skip when a case fix was emitted — the case-sensitive regex
           // wouldn't match the original text and would cause a false positive.
           const colonMatch = text.match(/ANSWER:/i)!;
-          const colonEnd = colonMatch.index! + colonMatch[0].length;
           diags.push({
             rule: 'answerline.answer-prefix',
             severity: 'warning',
@@ -970,7 +969,6 @@ function checkDirectiveParentheses(packet: Packet): LintDiagnostic[] {
       const directiveMatch = content.match(directivePattern);
 
       if (directiveMatch) {
-        const directiveName = directiveMatch[1].toLowerCase().replace(/\s+/g, ' ');
         const offset = match.index!;
 
         diags.push({

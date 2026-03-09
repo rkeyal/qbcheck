@@ -50,7 +50,6 @@ function bu(text: string): Run {
 
 function tossupWithRuns(runs: Run[], answer?: string, answerRuns?: Run[]) {
   const rawText = runs.map((r) => r.text).join('');
-  const questionText = `1. ${rawText}`;
   const questionRuns = [plain('1. '), ...runs];
   return makeQuestion('tossup', 1, rawText, answer ?? 'ANSWER: thing', {
     numberParagraphIndex: 1,

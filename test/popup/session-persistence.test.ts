@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   setupChromeMocks,
   clearStorageMocks,
-  getSessionStorage,
 } from './setup.js';
 import { loadPopupHTML, nextTick } from './helpers.js';
 

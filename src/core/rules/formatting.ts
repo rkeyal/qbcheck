@@ -461,7 +461,7 @@ function checkFormattingBleeding(packet: Packet): LintDiagnostic[] {
       // Helper to check if a space would remain formatted if moved to adjacent run
       const wouldRemainFormatted = (
         adjacentRun: typeof run | null,
-        checkType: 'leading' | 'trailing'
+        _checkType: 'leading' | 'trailing'
       ): boolean => {
         if (!adjacentRun) return false;
 

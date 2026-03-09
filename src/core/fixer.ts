@@ -75,7 +75,7 @@ export function applyFixes(
     fixes.sort((a, b) => b.fix.offset - a.fix.offset);
 
     // Track applied ranges to detect overlaps
-    let appliedRanges: { start: number; end: number }[] = [];
+    const appliedRanges: { start: number; end: number }[] = [];
 
     for (const { diag, fix } of fixes) {
       const fixEnd = fix.offset + fix.oldText.length;

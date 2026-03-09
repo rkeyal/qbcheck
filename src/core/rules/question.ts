@@ -541,7 +541,6 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
         const firstAlphaMatch = content.match(/[a-zA-Z]/);
         if (firstAlphaMatch) {
           const firstAlpha = firstAlphaMatch[0];
-          const firstAlphaIndex = firstAlphaMatch.index!;
 
           // Check if it's capitalized
           if (firstAlpha === firstAlpha.toLowerCase()) {

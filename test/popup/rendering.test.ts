@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setupChromeMocks, clearStorageMocks } from './setup.js';
-import { loadPopupHTML, getElements, makeDiagnostics } from './helpers.js';
+import { loadPopupHTML, getElements } from './helpers.js';
 
 describe('Popup Rendering', () => {
   beforeEach(async () => {
