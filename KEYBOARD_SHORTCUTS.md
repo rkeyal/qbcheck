@@ -17,7 +17,7 @@ Successfully implemented keyboard shortcuts for navigation and filtering in the 
 - **I**: Toggle info severity filter
 
 ### Actions
-- **Esc**: Close settings view or action menus (if open)
+- **Esc**: Close help modal, settings view, or action menus (in that order of priority)
 - **?**: Show keyboard shortcuts help modal
 
 ## Changes Made
@@ -50,7 +50,7 @@ Shortcuts are automatically disabled when focus is on:
 ### State Awareness
 - Navigation shortcuts only work when results are visible and multiple packets are loaded
 - Filter shortcuts only work when results are visible and settings are closed
-- Escape closes settings if open, otherwise closes menus and blurs paste target
+- Escape has priority order: closes help modal first, then settings, then menus/paste target
 - Help modal (?) works when either results or settings are visible
 
 ### Edge Cases Handled
@@ -86,6 +86,7 @@ Shortcuts are automatically disabled when focus is on:
 
 ### Action Tests
 - [ ] Press ? to show keyboard help modal
+- [ ] Press Esc while modal is open → should close modal only (not extension)
 - [ ] Click outside modal to close it
 - [ ] Click X button to close modal
 - [ ] Press ? again to reopen modal

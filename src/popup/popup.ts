@@ -532,8 +532,13 @@ document.addEventListener('keydown', (e) => {
       }
       break;
 
-    case 'Escape':
-      if (settingsVisible) {
+    case 'Escape': {
+      // Check if help modal is open first
+      const helpModal = document.getElementById('keyboard-help-modal');
+      if (helpModal) {
+        e.preventDefault();
+        helpModal.remove();
+      } else if (settingsVisible) {
         e.preventDefault();
         closeSettings();
       } else if (resultsVisible) {
@@ -545,6 +550,7 @@ document.addEventListener('keydown', (e) => {
         }
       }
       break;
+    }
 
     case '?':
       if (resultsVisible || settingsVisible) {
