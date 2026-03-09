@@ -382,11 +382,12 @@ function checkPunctuationInsideQuotes(packet: Packet): LintDiagnostic[] {
 
     // Check for closing quotation mark followed by comma or period only
     // (American style requires punctuation inside the quotes)
-    // Exclude ! and ? since those typically belong to the quoted material
-    const piqMatch = withoutPron.match(/[\u201d"][.,]/);
+    // Exclude cases where the quoted material ends in ? or ! — the
+    // comma/period is conventionally placed outside to avoid doubling
+    const piqMatch = withoutPron.match(/(?<![?!])[\u201d"][.,]/);
     if (piqMatch) {
       // Find the match position in the original text (may differ due to stripping)
-      const origMatch = text.match(/[\u201d"][.,]/);
+      const origMatch = text.match(/(?<![?!])[\u201d"][.,]/);
       diags.push({
         rule: 'formatting.punctuation-inside-quotes',
         severity: 'info',

@@ -492,3 +492,37 @@ describe('formatting.no-format-bleeding', () => {
     expect(bleedingDiags.length).toBe(0);
   });
 });
+
+describe('formatting.punctuation-inside-quotes', () => {
+  const RULE = 'formatting.punctuation-inside-quotes';
+
+  it('flags comma after closing quote', () => {
+    const t = tossupWith(
+      'This work includes the line \u201chello world\u201d, which is famous.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(true);
+  });
+
+  it('allows comma after quote ending in question mark', () => {
+    const t = tossupWith(
+      'This work asks \u201cwho are you?\u201d, prompting debate.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('allows period after quote ending in exclamation mark', () => {
+    const t = tossupWith('The speaker yells \u201cstop!\u201d.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('allows period after quote ending in question mark (real-world case)', () => {
+    const t = tossupWith(
+      'One hymn by Parkins, translates as \u201cWho is this who is coming?\u201d.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+});
