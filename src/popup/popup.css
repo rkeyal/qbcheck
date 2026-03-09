@@ -650,20 +650,22 @@ h1 {
 }
 
 #settings-back-btn {
-  background: none;
+  background: #f0f0f0;
   border: none;
+  border-radius: 10px;
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 16px;
-  line-height: 1;
+  padding: 3px 10px;
+  font-size: 11px;
   color: #555;
 }
 
 #settings-back-btn:hover {
-  color: #1a1a2e;
+  background: #e0e0e0;
+  color: #333;
 }
 
 .settings-title {
+  flex: 1;
   font-size: 14px;
   font-weight: 600;
   color: #1a1a2e;
@@ -1346,10 +1348,12 @@ body.dark .settings-title {
 }
 
 body.dark #settings-back-btn {
+  background: #2a2a3e;
   color: #aaa;
 }
 
 body.dark #settings-back-btn:hover {
+  background: #3a3a4e;
   color: #e0e0e0;
 }
 
