@@ -114,6 +114,7 @@ let _lastSortedFiles: File[] = [];
 let lastFixedParagraphs: Paragraph[] | null = null;
 let lastAppliedFixes: LintDiagnostic[] = [];
 let isPasteMode = false;
+let needsRelint = false;
 
 function getCurrentDiagnostics(): LintDiagnostic[] {
   return packetResults[currentIndex]?.diagnostics ?? [];
@@ -699,8 +700,10 @@ function closeSettings() {
   settingsView.hidden = true;
   if (packetResults.length > 0) {
     resultsArea.hidden = false;
-    // Re-lint with possibly updated rules
-    relintAll();
+    if (needsRelint && lastParsedPackets.length > 0) {
+      relintAll();
+      needsRelint = false;
+    }
     showCurrentPacket();
   } else {
     uploadArea.hidden = false;
@@ -766,20 +769,22 @@ function renderSettingsRules() {
       const input = e.target as HTMLInputElement;
       const ruleId = input.dataset.ruleId!;
       if (input.checked) {
+        // Enabling a rule — need to relint to generate its diagnostics
         settings.disabledRules = settings.disabledRules.filter(
           (r) => r !== ruleId
         );
+        needsRelint = true;
+        if (isRestoredSession()) {
+          relintWarning.hidden = false;
+        }
       } else {
+        // Disabling a rule — filter out its diagnostics immediately
         if (!settings.disabledRules.includes(ruleId)) {
           settings.disabledRules.push(ruleId);
         }
+        filterOutRule(ruleId);
       }
       await saveSettings(settings);
-
-      // Show warning if in a restored session
-      if (isRestoredSession()) {
-        relintWarning.hidden = false;
-      }
 
       // Update auto-fix checkbox state
       const ruleItem = input.closest('.rule-item');
@@ -876,7 +881,13 @@ autofixMasterToggle.addEventListener('change', async () => {
   syncAutofixMaster();
 });
 
-// --- Re-lint with current settings ---
+// --- Filter / Re-lint helpers ---
+
+function filterOutRule(ruleId: string): void {
+  for (const pr of packetResults) {
+    pr.diagnostics = pr.diagnostics.filter((d) => d.rule !== ruleId);
+  }
+}
 
 function relintAll() {
   if (lastParsedPackets.length === 0) return;
@@ -1378,14 +1389,8 @@ function toggleActionMenu(actionBtn: HTMLElement) {
       }
       await saveSettings(settings);
       closeAllMenus();
-      if (isRestoredSession()) {
-        showToast(
-          'Rule disabled. Re-upload files to see updated results.'
-        );
-      } else {
-        relintAll();
-        showCurrentPacket();
-      }
+      filterOutRule(ruleId);
+      showCurrentPacket();
     });
 
   actionBtn.parentElement!.appendChild(menu);
