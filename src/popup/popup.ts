@@ -96,6 +96,7 @@ const DEFAULT_SETTINGS: QBLintSettings = {
     'formatting.no-format-bleeding',
     'writing.word-replacements',
     'writing.no-weasel-words',
+    'packet.blank-paragraphs',
   ],
   ignoredDiagnostics: [],
   autoFixDisabled: [],
