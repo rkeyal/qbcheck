@@ -4,7 +4,11 @@ import { questionRules } from './rules/question.js';
 import { answerlineRules } from './rules/answerline.js';
 import { pronunciationRules } from './rules/pronunciation.js';
 import { formattingRules } from './rules/formatting.js';
-import { tagRules, extractTagCategory } from './rules/tag.js';
+import {
+  tagRules,
+  extractTagCategory,
+  extractBaseCategory,
+} from './rules/tag.js';
 import { writingRules } from './rules/writing.js';
 
 const allRules: LintRule[] = [
@@ -147,10 +151,7 @@ export function inferCrossPacketCategories(
       const cat = extractTagCategory(q.tag.rawText);
       if (!cat) continue;
 
-      // Extract base category (before colon if present)
-      const colonIndex = cat.indexOf(':');
-      const baseCategory =
-        colonIndex !== -1 ? cat.substring(0, colonIndex).trim() : cat;
+      const baseCategory = extractBaseCategory(cat);
       const key = baseCategory.toLowerCase();
 
       if (!baseCategoryToPackets.has(key))
@@ -168,10 +169,7 @@ export function inferCrossPacketCategories(
       const cat = extractTagCategory(q.tag.rawText);
       if (!cat) continue;
 
-      // Extract base category for frequency check
-      const colonIndex = cat.indexOf(':');
-      const baseCategory =
-        colonIndex !== -1 ? cat.substring(0, colonIndex).trim() : cat;
+      const baseCategory = extractBaseCategory(cat);
       const key = baseCategory.toLowerCase();
 
       const count = baseCategoryToPackets.get(key)?.size ?? 0;

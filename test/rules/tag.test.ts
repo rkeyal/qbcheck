@@ -96,12 +96,7 @@ describe('tag.valid-category', () => {
     const t = tossupWithTag('<Author, Social Science: Anthropology>');
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    // Should only get info severity for single usage, not warning for invalid base
-    const d = findDiag(diags, 'tag.valid-category');
-    if (d) {
-      expect(d.severity).toBe('info');
-      expect(d.message).toContain('appears only once');
-    }
+    expect(hasDiag(diags, 'tag.valid-category')).toBe(false);
   });
 
   it('flags invalid base category in subcategory', () => {
@@ -114,25 +109,27 @@ describe('tag.valid-category', () => {
     expect(d!.message).toContain('Fake');
   });
 
-  it('passes subcategory used consistently multiple times', () => {
-    const t1 = tossupWithTag('<Author, Biology: Ecology>');
-    const t2 = makeQuestion(
-      'tossup',
-      2,
-      'For 10 points, name another thing.',
-      'ANSWER: thing2',
-      {
-        numberParagraphIndex: 10,
-        answerRuns: [plain('ANSWER: '), bu('thing2')],
-        tag: '<Author, Biology: Ecology>',
-      }
-    );
-    const packet = makePacket({
-      tossups: [t1, t2],
-      allParagraphs: [...t1.paragraphs, ...t2.paragraphs],
-    });
+  it('passes dash-separated subcategory with valid base', () => {
+    const t = tossupWithTag('<Author, Other Science - Earth Science>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    // Should not flag since "Biology: Ecology" appears twice
     expect(hasDiag(diags, 'tag.valid-category')).toBe(false);
+  });
+
+  it('passes parenthetical subcategory with valid base', () => {
+    const t = tossupWithTag('<Author, Other Science (Math)>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'tag.valid-category')).toBe(false);
+  });
+
+  it('flags invalid base category with parenthetical subcategory', () => {
+    const t = tossupWithTag('<Author, Fake (Something)>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'tag.valid-category');
+    expect(d).toBeDefined();
+    expect(d!.severity).toBe('warning');
+    expect(d!.message).toContain('Fake');
   });
 });
