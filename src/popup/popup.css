@@ -48,6 +48,12 @@ h1 {
   color: #1a1a2e;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .header-icon-btn {
   background: none;
   border: 1px solid #ddd;
