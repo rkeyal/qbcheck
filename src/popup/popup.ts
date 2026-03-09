@@ -54,7 +54,9 @@ const autofixCopy = document.getElementById(
   'autofix-copy'
 ) as HTMLButtonElement;
 const autofixDetails = document.getElementById('autofix-details')!;
-const darkModeToggle = document.getElementById('dark-mode-toggle')!;
+const darkModeToggle = document.getElementById(
+  'dark-mode-toggle'
+) as HTMLButtonElement;
 const autofixMasterToggle = document.getElementById(
   'autofix-master-toggle'
 ) as HTMLInputElement;
@@ -191,8 +193,7 @@ Promise.all([loadSettings(), loadSession()]).then(([s, session]) => {
   if (settings.darkMode) {
     document.body.classList.add('dark');
   }
-  darkModeToggle.setAttribute('aria-checked', String(settings.darkMode));
-  darkModeToggle.classList.toggle('on', settings.darkMode);
+  darkModeToggle.textContent = settings.darkMode ? '\u2600' : '\u25D0';
 
   if (session) {
     // Restore UI state
@@ -338,8 +339,7 @@ pasteTarget.addEventListener('paste', (e) => {
 darkModeToggle.addEventListener('click', async () => {
   settings.darkMode = !settings.darkMode;
   document.body.classList.toggle('dark', settings.darkMode);
-  darkModeToggle.setAttribute('aria-checked', String(settings.darkMode));
-  darkModeToggle.classList.toggle('on', settings.darkMode);
+  darkModeToggle.textContent = settings.darkMode ? '\u2600' : '\u25D0';
   await saveSettings(settings);
 });
 
@@ -609,8 +609,7 @@ resetDefaultsBtn.addEventListener('click', async () => {
   settings = { ...DEFAULT_SETTINGS };
   await saveSettings(settings);
   document.body.classList.remove('dark');
-  darkModeToggle.setAttribute('aria-checked', 'false');
-  darkModeToggle.classList.remove('on');
+  darkModeToggle.textContent = '\u25D0';
   renderSettingsRules();
   // Re-lint if we have packets loaded
   if (lastParsedPackets.length > 0) {

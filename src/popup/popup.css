@@ -967,24 +967,6 @@ h1 {
   text-decoration-thickness: 1px;
 }
 
-/* --- Preferences section in settings --- */
-.settings-prefs {
-  margin-bottom: 10px;
-}
-
-.pref-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 2px;
-}
-
-.pref-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-}
-
 .settings-section-label {
   display: flex;
   align-items: center;
@@ -1016,45 +998,22 @@ h1 {
   margin: 0;
 }
 
-/* Toggle switch */
-.toggle-switch {
+/* Dark mode icon button */
+.dark-mode-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
+  font-size: 16px;
+  color: #888;
+  padding: 2px 4px;
+  margin-left: auto;
+  line-height: 1;
+  border-radius: 3px;
 }
 
-.toggle-track {
-  display: block;
-  width: 36px;
-  height: 20px;
-  background: #ccc;
-  border-radius: 10px;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.toggle-thumb {
-  display: block;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.toggle-switch.on .toggle-track {
-  background: #4a6cf7;
-}
-
-.toggle-switch.on .toggle-thumb {
-  transform: translateX(16px);
+.dark-mode-btn:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 /* === Dark Mode === */
@@ -1367,8 +1326,13 @@ body.dark #settings-back-btn:hover {
   color: #e0e0e0;
 }
 
-body.dark .pref-label {
+body.dark .dark-mode-btn {
+  color: #aaa;
+}
+
+body.dark .dark-mode-btn:hover {
   color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 body.dark .settings-section-label {
@@ -1462,6 +1426,3 @@ body.dark #diagnostics-list::-webkit-scrollbar-thumb:hover {
   background: #4a4a5e;
 }
 
-body.dark .toggle-track {
-  background: #555;
-}
