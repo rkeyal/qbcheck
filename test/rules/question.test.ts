@@ -157,7 +157,7 @@ describe('question.bonus-difficulty-spread', () => {
   });
 });
 
-describe('question.post-question-note', () => {
+describe('question.post-question-note-sentence', () => {
   it('flags lowercase post-question note', () => {
     const t = makeQuestion(
       'tossup',
@@ -168,8 +168,8 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
-    const d = findDiag(diags, 'question.post-question-note');
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(true);
+    const d = findDiag(diags, 'question.post-question-note-sentence');
     expect(d?.message).toContain('capitalize');
   });
 
@@ -183,8 +183,8 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
-    const d = findDiag(diags, 'question.post-question-note');
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(true);
+    const d = findDiag(diags, 'question.post-question-note-sentence');
     expect(d?.message).toContain('period');
   });
 
@@ -198,7 +198,7 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(true);
   });
 
   it('passes properly formatted post-question note', () => {
@@ -211,7 +211,7 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
   });
 
   it('passes author attribution without capitalization requirement', () => {
@@ -224,7 +224,7 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
   });
 
   it('passes author attribution with comma', () => {
@@ -237,7 +237,7 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
   });
 
   it('ignores pronunciation guides', () => {
@@ -250,7 +250,7 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(false);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(false);
   });
 
   it('checks bonus parts', () => {
@@ -273,6 +273,6 @@ describe('question.post-question-note', () => {
     );
     const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.post-question-note')).toBe(true);
+    expect(hasDiag(diags, 'question.post-question-note-sentence')).toBe(true);
   });
 });

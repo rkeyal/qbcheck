@@ -557,7 +557,7 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
         if (issues.length > 0) {
           const message = `Post-question note should be styled as a sentence: ${issues.join(' and ')}.`;
           diags.push({
-            rule: 'question.post-question-note',
+            rule: 'question.post-question-note-sentence',
             severity: 'warning',
             paragraph: para.index,
             message,

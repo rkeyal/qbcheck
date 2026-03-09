@@ -128,7 +128,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     defaultSeverity: 'error',
   },
   {
-    id: 'question.post-question-note',
+    id: 'question.post-question-note-sentence',
     category: 'question',
     description: 'Post-question notes styled as sentences',
     defaultSeverity: 'warning',
