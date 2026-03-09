@@ -76,6 +76,12 @@ h1 {
   background: rgba(0, 0, 0, 0.06);
 }
 
+.header-icon-btn.active {
+  background: #e8eeff;
+  color: #4a6cf7;
+  border-color: #4a6cf7;
+}
+
 #settings-btn {
   background: none;
   border: none;
@@ -1563,6 +1569,12 @@ body.dark .header-icon-btn:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
+body.dark .header-icon-btn.active {
+  background: #2e2e48;
+  color: #7a9cff;
+  border-color: #4a6cf7;
+}
+
 body.dark .toast {
   background: #e0e0e0;
   color: #1a1a2e;
@@ -1595,4 +1607,60 @@ body.dark .reset-confirm-btn {
 body.dark .reset-confirm-btn:hover {
   background: #c62828;
 }
+
+/* === Comfortable Mode === */
+body.comfortable { font-size: 14px; }
+body.comfortable #app { padding: 16px 20px; }
+body.comfortable header { margin-bottom: 16px; }
+
+/* Diagnostics list */
+body.comfortable #diagnostics-list { gap: 6px; }
+body.comfortable .diagnostic { padding: 10px 12px; gap: 10px; }
+body.comfortable .diag-icon { width: 18px; height: 18px; font-size: 11px; }
+body.comfortable .diag-rule { font-size: 11px; }
+body.comfortable .diag-message { font-size: 13px; margin-top: 2px; }
+body.comfortable .diag-location { font-size: 11px; margin-top: 3px; }
+body.comfortable .diag-suggestion { font-size: 12px; margin-top: 3px; }
+body.comfortable .diag-snippet { font-size: 12px; padding: 6px 8px; margin-top: 6px; }
+
+/* Stats bar / filters */
+body.comfortable #stats-bar { gap: 10px; margin-bottom: 10px; }
+body.comfortable .stat { font-size: 13px; padding: 4px 10px; }
+body.comfortable #filters { margin-bottom: 12px; }
+body.comfortable #filters select { padding: 5px 8px; font-size: 12px; }
+
+/* File info / banners */
+body.comfortable #file-info { padding: 8px 12px; margin-bottom: 10px; }
+body.comfortable #file-name { font-size: 13px; }
+body.comfortable .info-banner:not([hidden]) { padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+body.comfortable .error-banner:not([hidden]) { padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+body.comfortable .warning-banner:not([hidden]) { padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+
+/* Packet navigation */
+body.comfortable #packet-nav { gap: 8px; margin-bottom: 10px; }
+body.comfortable #packet-select { padding: 5px 8px; font-size: 12px; }
+body.comfortable #packet-counter { font-size: 12px; }
+
+/* Settings panel */
+body.comfortable .settings-header { margin-bottom: 14px; }
+body.comfortable .rule-group { margin-bottom: 16px; }
+body.comfortable .rule-group-header { font-size: 11px; margin-bottom: 6px; }
+body.comfortable .rule-item { gap: 8px; padding: 5px 4px; }
+body.comfortable .rule-item-id { font-size: 12px; }
+body.comfortable .rule-item-desc { font-size: 11px; }
+
+/* Autofix banner */
+body.comfortable .autofix-header { padding: 10px 12px; }
+body.comfortable .autofix-label { font-size: 13px; }
+body.comfortable .autofix-item { padding: 6px 8px; font-size: 12px; }
+
+/* Upload area */
+body.comfortable .paste-target { padding: 18px 20px; gap: 6px; }
+body.comfortable .paste-target-label { font-size: 14px; }
+body.comfortable .paste-target-hint { font-size: 12px; }
+body.comfortable .paste-divider { margin: 16px 0; }
+body.comfortable #drop-zone { padding: 32px 20px; }
+
+/* Ignored separator */
+body.comfortable .ignored-separator { font-size: 11px; padding: 8px 0 3px; margin-top: 6px; }
 

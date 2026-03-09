@@ -57,6 +57,9 @@ const autofixDetails = document.getElementById('autofix-details')!;
 const darkModeToggle = document.getElementById(
   'dark-mode-toggle'
 ) as HTMLButtonElement;
+const comfortableToggle = document.getElementById(
+  'comfortable-toggle'
+) as HTMLButtonElement;
 const autofixMasterToggle = document.getElementById(
   'autofix-master-toggle'
 ) as HTMLInputElement;
@@ -81,6 +84,7 @@ interface QBLintSettings {
   ignoredDiagnostics: string[];
   autoFixDisabled: string[];
   darkMode: boolean;
+  comfortableMode: boolean;
 }
 
 interface SessionState {
@@ -101,6 +105,7 @@ const DEFAULT_SETTINGS: QBLintSettings = {
   ignoredDiagnostics: [],
   autoFixDisabled: [],
   darkMode: false,
+  comfortableMode: false,
 };
 
 let packetResults: PacketResult[] = [];
@@ -132,6 +137,7 @@ async function loadSettings(): Promise<QBLintSettings> {
       ignoredDiagnostics: stored.ignoredDiagnostics ?? [],
       autoFixDisabled: stored.autoFixDisabled ?? [],
       darkMode: stored.darkMode ?? false,
+      comfortableMode: stored.comfortableMode ?? false,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -211,6 +217,12 @@ Promise.all([loadSettings(), loadSession()]).then(([s, session]) => {
     document.body.classList.add('dark');
   }
   darkModeToggle.textContent = settings.darkMode ? '\u2600' : '\u25D0';
+
+  // Apply comfortable mode
+  if (settings.comfortableMode) {
+    document.body.classList.add('comfortable');
+  }
+  comfortableToggle.classList.toggle('active', settings.comfortableMode);
 
   if (session) {
     // Restore UI state
@@ -390,6 +402,14 @@ darkModeToggle.addEventListener('click', async () => {
   settings.darkMode = !settings.darkMode;
   document.body.classList.toggle('dark', settings.darkMode);
   darkModeToggle.textContent = settings.darkMode ? '\u2600' : '\u25D0';
+  await saveSettings(settings);
+});
+
+// Comfortable mode toggle
+comfortableToggle.addEventListener('click', async () => {
+  settings.comfortableMode = !settings.comfortableMode;
+  document.body.classList.toggle('comfortable', settings.comfortableMode);
+  comfortableToggle.classList.toggle('active', settings.comfortableMode);
   await saveSettings(settings);
 });
 
@@ -681,6 +701,8 @@ resetConfirmBtn.addEventListener('click', async () => {
   await saveSettings(settings);
   document.body.classList.remove('dark');
   darkModeToggle.textContent = '\u25D0';
+  document.body.classList.remove('comfortable');
+  comfortableToggle.classList.remove('active');
   renderSettingsRules();
   // Re-lint if we have packets loaded
   if (lastParsedPackets.length > 0) {
