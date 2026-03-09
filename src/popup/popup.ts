@@ -231,6 +231,9 @@ Promise.all([loadSettings(), loadSession()]).then(([s, session]) => {
     setTimeout(() => {
       diagnosticsList.scrollTop = session.scrollPosition || 0;
     }, 0);
+  } else {
+    // No session to restore — auto-focus paste target so Ctrl+V works immediately
+    pasteTarget.focus();
   }
 });
 
@@ -405,6 +408,7 @@ clearBtn.addEventListener('click', () => {
   fileInput.value = '';
   folderInput.value = '';
   clearSession();
+  pasteTarget.focus();
 });
 
 // Toggle severity filter (used by both click and keyboard shortcuts)

@@ -12,6 +12,13 @@
         <div class="header-row">
           <h1>qbcheck</h1>
           <div class="header-actions">
+            <button
+              id="dark-mode-toggle"
+              class="dark-mode-btn"
+              title="Toggle dark mode"
+            >
+              &#x25D0;
+            </button>
             <button id="help-btn" class="header-icon-btn" title="Keyboard shortcuts (?)">?</button>
             <button id="settings-btn" title="Rule settings">&#x2699;</button>
           </div>
@@ -141,13 +148,6 @@
       <div id="settings-view" hidden>
         <div class="settings-header">
           <span class="settings-title">Settings</span>
-          <button
-            id="dark-mode-toggle"
-            class="dark-mode-btn"
-            title="Toggle dark mode"
-          >
-            &#x25D0;
-          </button>
           <button id="settings-back-btn" title="Close settings">Close</button>
         </div>
         <div id="relint-warning" class="warning-banner" hidden>
