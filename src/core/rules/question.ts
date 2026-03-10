@@ -642,10 +642,10 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
         const noteStart = text.indexOf(m[1]);
         if (noteStart === -1) continue;
 
-        const isReader = /^Note to readers?:/i.test(m[1]);
+        const isReader = label === 'Note to reader:';
         const message = isReader
-          ? `Use "Note to moderator:" instead of "${label}" \u2014 the person reading the question is the moderator.`
-          : `Use "Note to moderator:" instead of "${label}".`;
+          ? `Use "Note to moderator:" instead of "${m[1]}" \u2014 the person reading the question is the moderator.`
+          : `Use "Note to moderator:" instead of "${m[1]}".`;
 
         diags.push({
           rule: 'question.note-to-moderator-format',

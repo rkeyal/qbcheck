@@ -911,6 +911,8 @@ function checkNonstandardPrefix(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+const DIRECTIVE_SKIP_WORDS = new Set(['and', 'or', 'but', "don't", 'dont']);
+
 function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -960,8 +962,7 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
         // Skip conjunctions — these connect clauses rather than separate
         // directives (e.g. "read and prompt on it afterwards",
         // "but reject X", "or reject X", "don't accept the answer")
-        const skipWords = new Set(['and', 'or', 'but', "don't", 'dont']);
-        if (skipWords.has(tokenBefore.toLowerCase())) continue;
+        if (DIRECTIVE_SKIP_WORDS.has(tokenBefore.toLowerCase())) continue;
 
         // Flag — not preceded by semicolon
         const absPos = bracket.start + 1 + matchPos; // +1 for opening '['
