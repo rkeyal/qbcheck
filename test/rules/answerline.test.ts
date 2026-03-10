@@ -343,6 +343,66 @@ describe('answerline.directive-separator', () => {
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
   });
+
+  it('does not flag "and prompt" in conditional phrasing', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: styrene [accept vinylbenzene until "vinyl" is read and prompt on it afterwards]',
+      [
+        plain('ANSWER: '),
+        bu('styrene'),
+        plain(
+          ' [accept vinylbenzene until "vinyl" is read and prompt on it afterwards]'
+        ),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it('does not flag "or reject" conjunction', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept stuff; prompt on X; or reject "Y"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept stuff; prompt on X; or reject "Y"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it('does not flag "but reject" conjunction', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on momentum, but reject "linear momentum"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on momentum, but reject "linear momentum"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it("does not flag \"don't accept\" as directive", () => {
+    const t = tossupWithAnswer(
+      "ANSWER: 260 nanometers [accept just 260, but if they say any other units don't accept the answer]",
+      [
+        plain('ANSWER: '),
+        bu('260 nanometers'),
+        plain(
+          " [accept just 260, but if they say any other units don't accept the answer]"
+        ),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
 });
 
 describe('answerline.reject-no-alone', () => {

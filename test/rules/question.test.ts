@@ -353,3 +353,60 @@ describe('question.separate-note-paragraph', () => {
     expect(hasDiag(diags, 'question.separate-note-paragraph')).toBe(false);
   });
 });
+
+describe('question.note-to-moderator-format', () => {
+  it('flags "Note to reader:" as nonstandard', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Note to reader: Read answerline carefully. For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(true);
+    const d = findDiag(diags, 'question.note-to-moderator-format');
+    expect(d?.message).toContain('Note to moderator:');
+    expect(d?.message).toContain('moderator');
+  });
+
+  it('flags "Moderator note:" as nonstandard', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Moderator note: accept either order. For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(true);
+  });
+
+  it('passes "Note to moderator:" (correct format)', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Note to moderator: Read answerline carefully. For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(false);
+  });
+
+  it('passes normal question without notes', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(false);
+  });
+});

@@ -133,6 +133,12 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'Pre-question notes inline with question text',
     defaultSeverity: 'warning',
   },
+  {
+    id: 'question.note-to-moderator-format',
+    category: 'question',
+    description: 'Note to moderator format',
+    defaultSeverity: 'info',
+  },
   // answerline (16 rules)
   {
     id: 'answerline.answer-prefix',

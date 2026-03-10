@@ -935,29 +935,46 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
         const match = matches[i];
         const matchPos = match.index!;
 
-        // Look for the character before this directive (skip whitespace)
-        let charBefore = '';
-        for (let j = matchPos - 1; j >= 0; j--) {
-          if (content[j].trim()) {
-            charBefore = content[j];
-            break;
+        // Find the token before this directive (skip whitespace first)
+        let j = matchPos - 1;
+        while (j >= 0 && content[j] === ' ') j--;
+
+        // If preceded by semicolon, this directive is properly separated
+        if (j >= 0 && content[j] === ';') continue;
+
+        // Nothing before — skip (first in content)
+        if (j < 0) continue;
+
+        // Extract the token: a word (including apostrophes for "don't")
+        // or a single punctuation character
+        let tokenBefore = '';
+        if (/\w/.test(content[j]) || content[j] === "'") {
+          while (j >= 0 && (/\w/.test(content[j]) || content[j] === "'")) {
+            tokenBefore = content[j] + tokenBefore;
+            j--;
           }
+        } else {
+          tokenBefore = content[j];
         }
 
-        // If not preceded by semicolon, flag it
-        if (charBefore && charBefore !== ';') {
-          const absPos = bracket.start + 1 + matchPos; // +1 for opening '['
-          const directiveName = match[1].toLowerCase().trim();
-          diags.push({
-            rule: 'answerline.directive-separator',
-            severity: 'warning',
-            paragraph: para.index,
-            message: `Secondary directive "${directiveName}" should be preceded by a semicolon, not "${charBefore}".`,
-            sourceText: para.rawText,
-            offset: absPos,
-            length: match[0].length,
-          });
-        }
+        // Skip conjunctions — these connect clauses rather than separate
+        // directives (e.g. "read and prompt on it afterwards",
+        // "but reject X", "or reject X", "don't accept the answer")
+        const skipWords = new Set(['and', 'or', 'but', "don't", 'dont']);
+        if (skipWords.has(tokenBefore.toLowerCase())) continue;
+
+        // Flag — not preceded by semicolon
+        const absPos = bracket.start + 1 + matchPos; // +1 for opening '['
+        const directiveName = match[1].toLowerCase().trim();
+        diags.push({
+          rule: 'answerline.directive-separator',
+          severity: 'warning',
+          paragraph: para.index,
+          message: `Secondary directive "${directiveName}" should be preceded by a semicolon, not "${tokenBefore}".`,
+          sourceText: para.rawText,
+          offset: absPos,
+          length: match[0].length,
+        });
       }
     }
   }

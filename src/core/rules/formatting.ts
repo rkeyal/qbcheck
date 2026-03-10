@@ -105,11 +105,14 @@ function checkSubscriptSuperscript(packet: Packet): LintDiagnostic[] {
     for (const run of para.runs) {
       if (run.superscript || run.subscript) {
         const kind = run.superscript ? 'Superscripts' : 'Subscripts';
+        const example = run.superscript
+          ? 'x-squared'
+          : 'x-sub-two';
         diags.push({
           rule: 'formatting.no-sub-superscript',
           severity: 'warning',
           paragraph: para.index,
-          message: `${kind} should not be used. Write out in prose instead (e.g. "X-sub-two").`,
+          message: `${kind} should not be used. Write out in prose instead (e.g. "${example}").`,
           sourceText: para.rawText,
           offset: charPos,
           length: run.text.length,

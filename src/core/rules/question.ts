@@ -613,6 +613,57 @@ function checkSeparateNoteParagraph(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  // Non-standard note formats to flag
+  const nonstandardPatterns: [RegExp, string][] = [
+    [/^(Note to readers?:)/i, 'Note to reader:'],
+    [/^(Moderator note:)/i, 'Moderator note:'],
+    [/^(Reader note:)/i, 'Reader note:'],
+    [/^(Mod note:)/i, 'Mod note:'],
+    [/^(NTM:)/i, 'NTM:'],
+  ];
+
+  for (const q of [...packet.tossups, ...packet.bonuses]) {
+    const parasToCheck = [q.numberParagraph];
+    for (const part of q.parts) {
+      parasToCheck.push(part.textParagraph);
+    }
+
+    for (const para of parasToCheck) {
+      const text = para.rawText;
+      const body = text.replace(/^\s*(\d+\.\s*|\[[^\]]*\]\s*)/, '');
+
+      for (const [re, label] of nonstandardPatterns) {
+        const m = body.match(re);
+        if (!m) continue;
+
+        const noteStart = text.indexOf(m[1]);
+        if (noteStart === -1) continue;
+
+        const isReader = /^Note to readers?:/i.test(m[1]);
+        const message = isReader
+          ? `Use "Note to moderator:" instead of "${label}" \u2014 the person reading the question is the moderator.`
+          : `Use "Note to moderator:" instead of "${label}".`;
+
+        diags.push({
+          rule: 'question.note-to-moderator-format',
+          severity: 'info',
+          paragraph: para.index,
+          message,
+          sourceText: text,
+          offset: noteStart,
+          length: m[1].length,
+        });
+        break;
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const questionRules: LintRule[] = [
   checkFtpFormat,
   checkFtpePlacement,
@@ -627,4 +678,5 @@ export const questionRules: LintRule[] = [
   checkBonusPartOrder,
   checkPostQuestionNote,
   checkSeparateNoteParagraph,
+  checkNoteToModeratorFormat,
 ];
