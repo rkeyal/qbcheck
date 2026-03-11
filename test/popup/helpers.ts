@@ -1,4 +1,11 @@
 import { LintDiagnostic } from '../../src/core/model.js';
+import { PopupController, PopupElements } from '../../src/popup/popup-controller.js';
+import {
+  PacketResult,
+  QBLintSettings,
+  SessionState,
+} from '../../src/popup/popup-utils.js';
+import { setupChromeMocks } from './setup.js';
 
 /**
  * Test helpers for popup UI testing.
@@ -26,32 +33,66 @@ export async function loadPopupHTML(): Promise<void> {
 }
 
 /**
- * Gets commonly used DOM elements for tests.
+ * Gets all DOM elements needed by PopupController.
+ * Returns the full PopupElements interface for controller instantiation.
  */
-export function getElements() {
+export function getElements(): PopupElements {
   return {
     uploadArea: document.getElementById('upload-area')!,
     resultsArea: document.getElementById('results-area')!,
-    diagnosticsList: document.getElementById('diagnostics-list')!,
-    noIssues: document.getElementById('no-issues')!,
+    fileInput: document.getElementById('file-input') as HTMLInputElement,
+    folderInput: document.getElementById('folder-input') as HTMLInputElement,
+    dropZone: document.getElementById('drop-zone')!,
+    fileNameEl: document.getElementById('file-name')!,
+    clearBtn: document.getElementById('clear-btn')!,
     countError: document.getElementById('count-error')!,
     countWarning: document.getElementById('count-warning')!,
     countInfo: document.getElementById('count-info')!,
     countIgnored: document.getElementById('count-ignored')!,
-    fileNameEl: document.getElementById('file-name')!,
-    packetNav: document.getElementById('packet-nav')!,
-    packetSelect: document.getElementById('packet-select') as HTMLSelectElement,
-    prevBtn: document.getElementById('prev-btn') as HTMLButtonElement,
-    nextBtn: document.getElementById('next-btn') as HTMLButtonElement,
-    clearBtn: document.getElementById('clear-btn')!,
-    settingsBtn: document.getElementById('settings-btn')!,
-    settingsView: document.getElementById('settings-view')!,
-    settingsRules: document.getElementById('settings-rules')!,
-    unstructuredBanner: document.getElementById('unstructured-banner')!,
-    autofixBanner: document.getElementById('autofix-banner')!,
+    statsBar: document.getElementById('stats-bar')!,
     filterCategory: document.getElementById(
       'filter-category'
     ) as HTMLSelectElement,
+    diagnosticsList: document.getElementById('diagnostics-list')!,
+    noIssues: document.getElementById('no-issues')!,
+    packetNav: document.getElementById('packet-nav')!,
+    prevBtn: document.getElementById('prev-btn') as HTMLButtonElement,
+    nextBtn: document.getElementById('next-btn') as HTMLButtonElement,
+    packetSelect: document.getElementById('packet-select') as HTMLSelectElement,
+    packetCounter: document.getElementById('packet-counter')!,
+    settingsBtn: document.getElementById('settings-btn')!,
+    settingsView: document.getElementById('settings-view')!,
+    settingsRules: document.getElementById('settings-rules')!,
+    settingsBackBtn: document.getElementById('settings-back-btn')!,
+    resetDefaultsBtn: document.getElementById('reset-defaults-btn')!,
+    ignoredChip: document.querySelector('.stat-ignored') as HTMLButtonElement,
+    pasteTarget: document.getElementById('paste-target')!,
+    unstructuredBanner: document.getElementById('unstructured-banner')!,
+    autofixBanner: document.getElementById('autofix-banner')!,
+    autofixCount: document.getElementById('autofix-count')!,
+    autofixToggle: document.getElementById(
+      'autofix-toggle'
+    ) as HTMLButtonElement,
+    autofixCopy: document.getElementById('autofix-copy') as HTMLButtonElement,
+    autofixDetails: document.getElementById('autofix-details')!,
+    darkModeToggle: document.getElementById(
+      'dark-mode-toggle'
+    ) as HTMLButtonElement,
+    comfortableToggle: document.getElementById(
+      'comfortable-toggle'
+    ) as HTMLButtonElement,
+    autofixMasterToggle: document.getElementById(
+      'autofix-master-toggle'
+    ) as HTMLInputElement,
+    helpBtn: document.getElementById('help-btn')!,
+    toastEl: document.getElementById('toast')!,
+    dropError: document.getElementById('drop-error')!,
+    parseErrorBanner: document.getElementById('parse-error-banner')!,
+    parseErrorMessage: document.getElementById('parse-error-message')!,
+    relintWarning: document.getElementById('relint-warning')!,
+    resetConfirmBtn: document.getElementById(
+      'reset-confirm-btn'
+    ) as HTMLButtonElement,
   };
 }
 
@@ -149,4 +190,61 @@ export function getVisibleMessages(): string[] {
   return Array.from(diagnostics).map(
     (el) => el.querySelector('.diag-message')?.textContent || ''
   );
+}
+
+/**
+ * Creates and initializes a PopupController for testing.
+ * Sets up chrome mocks, loads the popup HTML, optionally pre-seeds
+ * settings and session state, then initializes the controller.
+ */
+export async function createTestController(opts?: {
+  settings?: Partial<QBLintSettings>;
+  session?: SessionState;
+}): Promise<PopupController> {
+  setupChromeMocks();
+  await loadPopupHTML();
+
+  if (opts?.settings) {
+    await chrome.storage.local.set({ qbcheckSettings: opts.settings });
+  }
+  if (opts?.session) {
+    await chrome.storage.session.set({ qbcheckSession: opts.session });
+  }
+
+  const elements = getElements();
+  const controller = new PopupController(elements, {
+    chromeStorage: chrome.storage,
+    clipboard: navigator.clipboard,
+  });
+
+  await controller.initialize();
+  return controller;
+}
+
+/**
+ * Creates a PacketResult with the given diagnostics.
+ */
+export function createPacketResult(
+  filename: string,
+  diagnostics: LintDiagnostic[],
+  parseError?: string
+): PacketResult {
+  return { filename, diagnostics, ...(parseError ? { parseError } : {}) };
+}
+
+/**
+ * Creates a SessionState with multiple packets containing varied diagnostics.
+ */
+export function createMultiPacketSession(
+  packets: Array<{ filename: string; diagnostics: LintDiagnostic[] }>
+): SessionState {
+  return {
+    packetResults: packets.map((p) => ({
+      filename: p.filename,
+      diagnostics: p.diagnostics,
+    })),
+    currentIndex: 0,
+    scrollPosition: 0,
+    mode: 'file',
+  };
 }

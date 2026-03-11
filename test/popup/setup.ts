@@ -18,7 +18,14 @@ const localStorageData: StorageArea = {};
 // In-memory storage for chrome.storage.session
 const sessionStorageData: StorageArea = {};
 
-export function setupChromeMocks() {
+export function setupChromeMocks(_globalOverrides?: boolean) {
+  // Mock ClipboardItem (not available in jsdom)
+  if (!globalThis.ClipboardItem) {
+    (globalThis as Record<string, unknown>).ClipboardItem = class MockClipboardItem {
+      constructor(public items: Record<string, Blob>) {}
+    };
+  }
+
   // Mock chrome.storage API
   global.chrome = {
     storage: {
