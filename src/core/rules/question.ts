@@ -1,5 +1,6 @@
-import { Packet, LintDiagnostic, LintRule } from '../model.js';
+import { Packet, Paragraph, LintDiagnostic, LintRule } from '../model.js';
 import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from '../patterns.js';
+import { stripItalicOnly } from './utils.js';
 
 function checkFtpFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -664,6 +665,210 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+interface Sentence {
+  text: string;
+  offset: number;
+  insideQuote: boolean;
+}
+
+/** Common abbreviations that produce false sentence splits. */
+const ABBREVIATIONS =
+  /(?:Mr|Mrs|Ms|Dr|St|Mt|Jr|Sr|Gen|Gov|Rev|Prof|Sgt|Cpl|Pvt|Lt|Capt|Maj|Col|Ave|Blvd|Vol|No|Inc|Ltd|Corp|Dept|Univ|Assoc|Pres|Rep|Sen|Fig|vs|approx|est)\.\s+$/;
+
+/**
+ * Single-letter initials in names (e.g. "A. E. Housman", "Cecil B. DeMille",
+ * "J. S. Bach") and "v." for court cases.
+ */
+const SINGLE_INITIAL =
+  /(?:[A-Z][a-z]+\s+|[A-Z]\.\s*|(?:^|[\s,(]))[A-Z]\.\s+$|(?:^|\s)v\.\s+$/;
+
+const CLUE_PRONOUN = /\b(?:this|these)\b/i;
+const FTP_PRONOUN = /\b(?:this|what|which|these)\b/i;
+const FTP_MARKER = /for\s+10\s+points/i;
+
+/**
+ * Check whether a character range in a paragraph is entirely italic,
+ * ignoring trailing punctuation/whitespace (which may fall in a separate
+ * non-italic run, e.g. the ". " after an italic instruction note).
+ */
+function isRangeItalic(para: Paragraph, start: number, length: number): boolean {
+  const raw = para.rawText.substring(start, start + length);
+  const trimmed = raw.replace(/[\s.!?,;:]+$/, '');
+  if (trimmed.length === 0) return false;
+  const end = start + trimmed.length;
+
+  let runOffset = 0;
+  for (const run of para.runs) {
+    const runEnd = runOffset + run.text.length;
+    const overlapStart = Math.max(runOffset, start);
+    const overlapEnd = Math.min(runEnd, end);
+    if (overlapStart < overlapEnd && !run.italic) {
+      // Check if the overlap contains any non-whitespace characters
+      const slice = para.rawText.substring(overlapStart, overlapEnd);
+      if (slice.trim().length > 0) return false;
+    }
+    runOffset = runEnd;
+  }
+  return true;
+}
+
+/**
+ * Compute quote depth at a given position in text by tracking open/close
+ * double-quote characters. Smart quotes have distinct open/close chars;
+ * straight quotes toggle.
+ */
+function quoteDepthAt(text: string, pos: number): number {
+  let depth = 0;
+  for (let i = 0; i < pos; i++) {
+    const ch = text[i];
+    if (ch === '\u201c') depth++;
+    else if (ch === '\u201d') depth = Math.max(0, depth - 1);
+    else if (ch === '"') depth = depth > 0 ? depth - 1 : depth + 1;
+  }
+  return depth;
+}
+
+/**
+ * Split question text into sentences using punctuation + uppercase letter boundaries,
+ * filtering out false splits after common abbreviations, name initials, and
+ * split points inside quoted passages.
+ */
+function splitSentences(text: string): Sentence[] {
+  const sentences: Sentence[] = [];
+  const re = /[.!?]\s+(?=[A-Z])/g;
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(text)) !== null) {
+    const candidateEnd = m.index + m[0].length;
+    const before = text.substring(0, candidateEnd);
+    if (ABBREVIATIONS.test(before) || SINGLE_INITIAL.test(before)) continue;
+    if (quoteDepthAt(text, m.index) > 0) continue;
+
+    sentences.push({
+      text: text.substring(lastIdx, candidateEnd),
+      offset: lastIdx,
+      insideQuote: quoteDepthAt(text, lastIdx) > 0,
+    });
+    lastIdx = candidateEnd;
+  }
+
+  if (lastIdx < text.length) {
+    sentences.push({
+      text: text.substring(lastIdx),
+      offset: lastIdx,
+      insideQuote: quoteDepthAt(text, lastIdx) > 0,
+    });
+  }
+
+  return sentences;
+}
+
+function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
+  const diags: LintDiagnostic[] = [];
+
+  // --- Tossups ---
+  for (const q of packet.tossups) {
+    const rawText = q.numberParagraph.rawText;
+
+    // Strip question number prefix
+    const numMatch = rawText.match(/^\s*\d+\.\s*/);
+    const numPrefixLen = numMatch ? numMatch[0].length : 0;
+    const body = rawText.substring(numPrefixLen);
+
+    // Skip if no FTP marker (handled by question.ftp-format)
+    if (!FTP_MARKER.test(body)) continue;
+
+    // Build stripped version (italic text blanked) for pronoun matching.
+    // Only strip italic (not quoted text) — stripQuotedText is too aggressive
+    // for pronouns because curly single quotes in names like Pe'ape'a can
+    // match a distant closing quote and blank a huge range.
+    const stripped = stripItalicOnly(q.numberParagraph);
+    const strippedBody = stripped.substring(numPrefixLen);
+
+    const sentences = splitSentences(body);
+
+    // Determine how many leading sentences are fully-italic instruction notes
+    // (e.g. "Common or scientific name acceptable.", "Description acceptable.")
+    let firstContentIdx = 0;
+    for (const sent of sentences) {
+      const absOffset = numPrefixLen + sent.offset;
+      const trimmed = sent.text.trim();
+      if (trimmed.length > 0 && isRangeItalic(q.numberParagraph, absOffset, trimmed.length)) {
+        firstContentIdx++;
+      } else {
+        break;
+      }
+    }
+
+    for (let i = firstContentIdx; i < sentences.length; i++) {
+      const sent = sentences[i];
+      // Skip short fragments
+      if (sent.text.trim().length < 20) continue;
+
+      // Skip sentences inside a quoted passage (they inherit the framing pronoun)
+      if (sent.insideQuote) continue;
+
+      // Get corresponding stripped text at the same offset
+      const strippedSent = strippedBody.substring(
+        sent.offset,
+        sent.offset + sent.text.length
+      );
+
+      const isFtp = FTP_MARKER.test(sent.text);
+      const pronounRe = isFtp ? FTP_PRONOUN : CLUE_PRONOUN;
+
+      if (!pronounRe.test(strippedSent)) {
+        const absOffset = numPrefixLen + sent.offset;
+        diags.push({
+          rule: 'question.missing-pronoun',
+          severity: 'info',
+          paragraph: q.numberParagraph.index,
+          message: isFtp
+            ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.'
+            : 'Clue sentence lacks a pronoun ("this"/"these") referring to the answer.',
+          sourceText: rawText,
+          offset: absOffset,
+          length: sent.text.trimEnd().length,
+        });
+      }
+    }
+  }
+
+  // --- Bonuses (parts only, skip lead-in) ---
+  for (const q of packet.bonuses) {
+    for (const part of q.parts) {
+      const rawText = part.textParagraph.rawText;
+
+      // Strip part marker prefix
+      const markerMatch = rawText.match(/^\s*\[(10[emh]?|[EMH])\]\s*/i);
+      const markerLen = markerMatch ? markerMatch[0].length : 0;
+      const body = rawText.substring(markerLen);
+
+      if (body.trim().length < 20) continue;
+
+      // Build stripped version (italic only) for pronoun matching
+      const stripped = stripItalicOnly(part.textParagraph);
+      const strippedBody = stripped.substring(markerLen);
+
+      if (!FTP_PRONOUN.test(strippedBody)) {
+        diags.push({
+          rule: 'question.missing-pronoun',
+          severity: 'info',
+          paragraph: part.textParagraph.index,
+          message:
+            'Bonus part lacks a pronoun ("this"/"what") referring to the answer.',
+          sourceText: rawText,
+          offset: markerLen,
+          length: body.trimEnd().length,
+        });
+      }
+    }
+  }
+
+  return diags;
+}
+
 export const questionRules: LintRule[] = [
   checkFtpFormat,
   checkFtpePlacement,
@@ -679,4 +884,5 @@ export const questionRules: LintRule[] = [
   checkPostQuestionNote,
   checkSeparateNoteParagraph,
   checkNoteToModeratorFormat,
+  checkMissingPronoun,
 ];

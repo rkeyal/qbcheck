@@ -410,3 +410,541 @@ describe('question.note-to-moderator-format', () => {
     expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(false);
   });
 });
+
+describe('question.missing-pronoun', () => {
+  it('passes tossup where every sentence has "this"', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('flags clue sentence missing "this"', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A composer wrote nine symphonies. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.missing-pronoun');
+    expect(d).toBeDefined();
+    expect(d!.message).toContain('Clue sentence');
+  });
+
+  it('flags FTP sentence missing "this"/"what"', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. For 10 points, name the German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.missing-pronoun');
+    expect(d).toBeDefined();
+    expect(d!.message).toContain('FTP sentence');
+  });
+
+  it('accepts "these" in clue sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'These symphonies were groundbreaking. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('accepts "what" in FTP sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. For 10 points, what German composer wrote the Eroica?',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('strips title text so "this" inside a title does not count', () => {
+    const italicRun = {
+      text: 'This Side of Paradise',
+      bold: false,
+      italic: true,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const plainBefore = {
+      text: '1. A novel titled ',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const plainAfter = {
+      text: ' was published in 1920. For 10 points, name this author.',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const rawText =
+      '1. A novel titled This Side of Paradise was published in 1920. For 10 points, name this author.';
+    const para = makeParagraph(rawText, {
+      index: 1,
+      runs: [plainBefore, italicRun, plainAfter],
+    });
+
+    const t: ReturnType<typeof makeQuestion> = {
+      type: 'tossup',
+      number: 1,
+      numberParagraph: para,
+      paragraphs: [
+        para,
+        makeParagraph('ANSWER: F. Scott Fitzgerald', { index: 2 }),
+      ],
+      answerLine: makeParagraph('ANSWER: F. Scott Fitzgerald', { index: 2 }),
+      tag: null,
+      parts: [],
+    };
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    // The first sentence has "this" only inside the italic title — should be flagged
+    const d = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(d.some((dd) => dd.message.includes('Clue sentence'))).toBe(true);
+  });
+
+  it('skips leading fully-italic instruction notes', () => {
+    const rawText =
+      '1. Description acceptable. This composer wrote nine symphonies. For 10 points, name this German composer.';
+    const italicNote = {
+      text: 'Description acceptable. ',
+      bold: false,
+      italic: true,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const plainBody = {
+      text: 'This composer wrote nine symphonies. For 10 points, name this German composer.',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const numRun = {
+      text: '1. ',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const para = makeParagraph(rawText, {
+      index: 1,
+      runs: [numRun, italicNote, plainBody],
+    });
+    const answerPara = makeParagraph('ANSWER: Ludwig van Beethoven', { index: 2 });
+    const t = {
+      type: 'tossup' as const,
+      number: 1,
+      numberParagraph: para,
+      paragraphs: [para, answerPara],
+      answerLine: answerPara,
+      tag: null,
+      parts: [],
+    };
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('skips short fragment sentences', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'OK then. This composer wrote nine symphonies. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    // "OK then." is < 20 chars, should be skipped
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('flags only the sentence missing a pronoun when others have one', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. A famous work is the Moonlight Sonata. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(1);
+    expect(mpDiags[0].message).toContain('Clue sentence');
+  });
+
+  // --- Bonus tests ---
+
+  it('passes bonus part with "this"', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following about composers for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart(
+            '[10e]',
+            'Name this German composer of nine symphonies.',
+            'Ludwig van Beethoven',
+            110
+          ),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('flags bonus part missing pronoun', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following about composers for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart(
+            '[10e]',
+            'Name the German composer of nine symphonies.',
+            'Ludwig van Beethoven',
+            110
+          ),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.missing-pronoun');
+    expect(d).toBeDefined();
+    expect(d!.message).toContain('Bonus part');
+  });
+
+  it('accepts "what" in bonus part', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following about composers for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart(
+            '[10e]',
+            'What German composer wrote nine symphonies?',
+            'Ludwig van Beethoven',
+            110
+          ),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  // --- Edge cases ---
+
+  it('skips leading italic note like "Common or scientific name acceptable"', () => {
+    const rawText =
+      '1. Common or scientific name acceptable. This organism reproduces asexually. For 10 points, name this organism.';
+    const numRun = {
+      text: '1. ',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const italicNote = {
+      text: 'Common or scientific name acceptable. ',
+      bold: false,
+      italic: true,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const plainBody = {
+      text: 'This organism reproduces asexually. For 10 points, name this organism.',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const para = makeParagraph(rawText, {
+      index: 1,
+      runs: [numRun, italicNote, plainBody],
+    });
+    const answerPara = makeParagraph('ANSWER: hydra', { index: 2 });
+    const t = {
+      type: 'tossup' as const,
+      number: 1,
+      numberParagraph: para,
+      paragraphs: [para, answerPara],
+      answerLine: answerPara,
+      tag: null,
+      parts: [],
+    };
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('does not split sentences at punctuation after closing quotes', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A canvas is blank besides the word "solidary." In a story by this author, a man travels. For 10 points, name this author.',
+      'ANSWER: Albert Camus',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('does not split at periods inside a quote that precedes "this"', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'The line "Life, friends, is boring. We must not say so," opens a poem in this collection. For 10 points, name this poetry collection.',
+      'ANSWER: The Dream Songs',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('does not false-flag FTP with single-letter initials', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This law was signed by a president. For 10 points, Chester A. Arthur signed what 1882 law?',
+      'ANSWER: Chinese Exclusion Act',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('does not false-split on standalone initials like A. E. Housman', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This poet was born in Worcestershire. For 10 points, A. E. Housman wrote what poetry collection?',
+      'ANSWER: A Shropshire Lad',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('does not false-flag FTP with court case "v."', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This concept was established in a landmark case. For 10 points, Roe v. Wade affirmed what right?',
+      'ANSWER: right to privacy',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('skips tossup with no FTP marker entirely', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A composer wrote nine symphonies by a German master.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('skips sentences inside a quoted passage', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This figure said, \u201cSentence one inside quote. Sentence two inside quote.\u201d For 10 points, name this figure.',
+      'ANSWER: test',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('skips sentences inside a straight-quoted passage', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A character created by this author declares "Man! It has a proud ring to it!" in a monologue from a play that ends with him complaining "He spoiled the song!" as singing is interrupted. For 10 points, name this author.',
+      'ANSWER: test',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('flags sentences outside quotes that lack pronouns even when quotes are present', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A figure said some words. A different sentence about a topic. For 10 points, name this thing.',
+      'ANSWER: test',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    // Both "A figure said..." and "A different sentence..." lack pronouns
+    expect(mpDiags).toHaveLength(2);
+  });
+
+  it('accepts "which" in FTP sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. For 10 points, name the symphony in which a chorus sings the "Ode to Joy."',
+      'ANSWER: Symphony No. 9',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('accepts "these" in FTP sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This type of structure stores data efficiently. For 10 points, name these computer science data structures.',
+      'ANSWER: binary trees',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('matches pronouns case-insensitively', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'THIS composer wrote nine symphonies. For 10 points, name THIS German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
+  it('skips short bonus parts', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name it.', 'answer', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    // "[10e] Name it." is < 20 chars of body text, should be skipped
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('does not split at common abbreviations like Dr. or St.', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This saint was born in Assisi. For 10 points, St. Francis founded what religious order?',
+      'ANSWER: Franciscans',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const mpDiags = diags.filter((d) => d.rule === 'question.missing-pronoun');
+    expect(mpDiags).toHaveLength(0);
+  });
+
+  it('reports correct offset and length in diagnostic', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'A composer wrote nine symphonies. For 10 points, name this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.missing-pronoun');
+    expect(d).toBeDefined();
+    // The flagged sentence is "A composer wrote nine symphonies. " starting after "1. "
+    const rawText = t.numberParagraph.rawText;
+    expect(d!.offset).toBe(3); // after "1. "
+    expect(rawText.substring(d!.offset!, d!.offset! + d!.length!)).toBe(
+      'A composer wrote nine symphonies.'
+    );
+  });
+});

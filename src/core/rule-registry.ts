@@ -52,7 +52,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     description: 'Question numbers strictly increase',
     defaultSeverity: 'error',
   },
-  // question (12 rules)
+  // question (15 rules)
   {
     id: 'question.ftp-format',
     category: 'question',
@@ -137,6 +137,12 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'question.note-to-moderator-format',
     category: 'question',
     description: 'Note to moderator format',
+    defaultSeverity: 'info',
+  },
+  {
+    id: 'question.missing-pronoun',
+    category: 'question',
+    description: 'Clue sentence or FTP references the answer with a pronoun',
     defaultSeverity: 'info',
   },
   // answerline (16 rules)
