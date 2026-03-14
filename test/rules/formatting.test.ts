@@ -610,3 +610,171 @@ describe('formatting.punctuation-inside-quotes', () => {
     expect(hasDiag(lint(packet), RULE)).toBe(false);
   });
 });
+
+describe('formatting.no-sub-superscript', () => {
+  const RULE = 'formatting.no-sub-superscript';
+
+  it('flags superscript text', () => {
+    const superRun: Run = {
+      text: '2',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: true,
+      subscript: false,
+    };
+    const t = makeQuestion('tossup', 1, 'x-squared', 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: [plain('1. x'), superRun, plain('. For 10 points, name this.')],
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+      tag: '<Auth, American History>',
+    });
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, RULE)).toBe(true);
+    const d = diags.find((d) => d.rule === RULE);
+    expect(d!.message).toContain('Superscripts');
+  });
+
+  it('flags subscript text', () => {
+    const subRun: Run = {
+      text: '2',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: true,
+    };
+    const t = makeQuestion('tossup', 1, 'H-sub-2-O', 'ANSWER: thing', {
+      numberParagraphIndex: 1,
+      numberRuns: [plain('1. H'), subRun, plain('O. For 10 points, name this.')],
+      answerRuns: [plain('ANSWER: '), bu('thing')],
+      tag: '<Auth, American History>',
+    });
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, RULE)).toBe(true);
+    const d = diags.find((d) => d.rule === RULE);
+    expect(d!.message).toContain('Subscripts');
+  });
+
+  it('passes plain text without sub/superscript', () => {
+    const t = tossupWith('For 10 points, name this x-squared thing.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+});
+
+describe('formatting.spell-out-small-numbers', () => {
+  const RULE = 'formatting.spell-out-small-numbers';
+
+  it('flags standalone small number in clue text', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote 9 symphonies.',
+      'ANSWER: thing',
+      {
+        numberParagraphIndex: 1,
+        answerRuns: [plain('ANSWER: '), bu('thing')],
+        tag: '<Auth, American History>',
+      }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, RULE)).toBe(true);
+    const d = diags.find((d) => d.rule === RULE);
+    expect(d!.message).toContain('nine');
+  });
+
+  it('does not flag "10 points"', () => {
+    const t = tossupWith('For 10 points, name this thing.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet).filter((d) => d.rule === RULE);
+    expect(diags).toHaveLength(0);
+  });
+
+  it('does not flag answer lines', () => {
+    const t = tossupWith('For 10 points, name this thing.');
+    // Answer line contains a small number but should be skipped
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet).filter((d) => d.rule === RULE);
+    expect(diags).toHaveLength(0);
+  });
+});
+
+describe('formatting.no-ampersand', () => {
+  const RULE = 'formatting.no-ampersand';
+
+  it('flags ampersand in question text', () => {
+    const t = tossupWith('For 10 points, name this arts & crafts movement.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(true);
+  });
+
+  it('does not flag tag lines with ampersands', () => {
+    // Tag lines like <Painting & Sculpture> are skipped
+    const t = tossupWith('For 10 points, name this thing.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('passes text using "and" instead', () => {
+    const t = tossupWith('For 10 points, name this arts and crafts movement.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+});
+
+describe('formatting.poetry-slash', () => {
+  const RULE = 'formatting.poetry-slash';
+
+  it('flags unspaced slashes in text with multiple slashes', () => {
+    const t = tossupWith(
+      'This poem begins "Shall I compare thee/to a summer\u2019s day?/Thou art more lovely." For 10 points, name it.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(true);
+  });
+
+  it('passes properly spaced slashes', () => {
+    const t = tossupWith(
+      'This poem begins "Shall I compare thee / to a summer\u2019s day? / Thou art more lovely." For 10 points, name it.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('does not flag text with fewer than two slashes', () => {
+    const t = tossupWith('For 10 points, name this and/or thing.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+});
+
+describe('formatting.no-abbreviation-periods', () => {
+  const RULE = 'formatting.no-abbreviation-periods';
+
+  it('flags U.K. with periods', () => {
+    const t = tossupWith('For 10 points, name this U.K. prime minister.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, RULE)).toBe(true);
+    const d = diags.find((d) => d.rule === RULE);
+    expect(d!.message).toContain('UK');
+    expect(d!.fix).toBeDefined();
+    expect(d!.fix!.newText).toBe('UK');
+  });
+
+  it('flags U.N. with periods', () => {
+    const t = tossupWith('For 10 points, name this U.N. resolution.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(true);
+  });
+
+  it('passes abbreviation without periods', () => {
+    const t = tossupWith('For 10 points, name this US president.');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+});

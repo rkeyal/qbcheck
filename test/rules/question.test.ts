@@ -948,3 +948,311 @@ describe('question.missing-pronoun', () => {
     );
   });
 });
+
+describe('question.ftpe-format', () => {
+  it('flags bonus lead-in missing "for 10 points each"', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following about biology.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name this organelle.', 'mitochondria', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.ftpe-format')).toBe(true);
+  });
+
+  it('passes bonus with "for 10 points each"', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following about biology for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name this organelle.', 'mitochondria', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.ftpe-format')).toBe(false);
+  });
+});
+
+describe('question.bonus-leadin-punctuation', () => {
+  it('flags general instruction ending with colon', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Name these composers for 10 points each:',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name this composer.', 'Bach', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.bonus-leadin-punctuation');
+    expect(d).toBeDefined();
+    expect(d!.message).toContain('period');
+  });
+
+  it('flags specific clue ending with period', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'A composer wrote nine symphonies for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name this composer.', 'Beethoven', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'question.bonus-leadin-punctuation');
+    expect(d).toBeDefined();
+    expect(d!.message).toContain('colon');
+  });
+
+  it('passes general instruction ending with period', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Name these composers for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Name this composer.', 'Bach', 110),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.bonus-leadin-punctuation')).toBe(false);
+  });
+});
+
+describe('question.no-ftp-midsentence', () => {
+  it('flags FTP interjected mid-paragraph with sentences after', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer, for 10 points, wrote many symphonies. He was born in Bonn.',
+      'ANSWER: Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.no-ftp-midsentence')).toBe(true);
+  });
+
+  it('passes FTP in final sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote many symphonies. For 10 points, name this German.',
+      'ANSWER: Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.no-ftp-midsentence')).toBe(false);
+  });
+
+  it('passes comma-embedded FTP when no sentences follow', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Name, for 10 points, this German composer of nine symphonies.',
+      'ANSWER: Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.no-ftp-midsentence')).toBe(false);
+  });
+});
+
+describe('question.multiline-answer', () => {
+  it('flags continuation line after answer', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this thing.',
+      'ANSWER: thing [accept',
+      { numberParagraphIndex: 1 }
+    );
+    const continuationPara = makeParagraph('other thing]', { index: 3 });
+    t.paragraphs.push(continuationPara);
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.multiline-answer')).toBe(true);
+  });
+
+  it('does not flag when next line is a new question', () => {
+    const t1 = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const t2 = makeQuestion(
+      'tossup',
+      2,
+      'For 10 points, name that thing.',
+      'ANSWER: that',
+      { numberParagraphIndex: 10 }
+    );
+    const packet = makePacket({
+      tossups: [t1, t2],
+      allParagraphs: [...t1.paragraphs, ...t2.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.multiline-answer')).toBe(false);
+  });
+
+  it('does not flag when next line is a tag', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1, tag: '<Author, Biology>' }
+    );
+    const packet = makePacket({
+      tossups: [t],
+      allParagraphs: [...t.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.multiline-answer')).toBe(false);
+  });
+});
+
+describe('question.pre-question-note-italics', () => {
+  it('flags non-italic "Description acceptable."', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Description acceptable. For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(true);
+  });
+
+  it('passes italic "Description acceptable."', () => {
+    const italicRun = {
+      text: 'Description acceptable. ',
+      bold: false,
+      italic: true,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const plainRun = {
+      text: 'For 10 points, name this thing.',
+      bold: false,
+      italic: false,
+      underline: false,
+      superscript: false,
+      subscript: false,
+    };
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Description acceptable. For 10 points, name this thing.',
+      'ANSWER: thing',
+      {
+        numberParagraphIndex: 1,
+        numberRuns: [
+          { text: '1. ', bold: false, italic: false, underline: false, superscript: false, subscript: false },
+          italicRun,
+          plainRun,
+        ],
+      }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(false);
+  });
+
+  it('flags non-italic "Two answers required."', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'Two answers required. For 10 points, name this thing.',
+      'ANSWER: thing',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(true);
+  });
+});
+
+describe('question.bonus-part-order', () => {
+  it('flags two consecutive parts without answer between them', () => {
+    const partPara1 = makeParagraph('[10e] Name this composer.', { index: 110 });
+    const partPara2 = makeParagraph('[10m] Name this symphony.', { index: 111 });
+    const answerPara = makeParagraph('ANSWER: Beethoven', { index: 112 });
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          { marker: '[10e]', textParagraph: partPara1, answerLine: null },
+          { marker: '[10m]', textParagraph: partPara2, answerLine: answerPara },
+        ],
+      }
+    );
+    // Ensure paragraphs reflect the out-of-order structure
+    b.paragraphs = [b.numberParagraph, partPara1, partPara2, answerPara];
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.bonus-part-order')).toBe(true);
+  });
+
+  it('passes correctly ordered parts with answers', () => {
+    const b = makeQuestion(
+      'bonus',
+      1,
+      'Answer the following for 10 points each.',
+      '',
+      {
+        numberParagraphIndex: 100,
+        parts: [
+          makeBonusPart('[10e]', 'Part one.', 'a1', 110),
+          makeBonusPart('[10m]', 'Part two.', 'a2', 120),
+          makeBonusPart('[10h]', 'Part three.', 'a3', 130),
+        ],
+      }
+    );
+    const packet = makePacket({ bonuses: [b], allParagraphs: b.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.bonus-part-order')).toBe(false);
+  });
+});

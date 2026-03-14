@@ -560,3 +560,366 @@ describe('answerline.directive-brackets', () => {
     expect(hasDiag(diags, 'answerline.directive-brackets')).toBe(false);
   });
 });
+
+describe('answerline.accept-formatting', () => {
+  it('flags accept directive text without bold+underline formatting', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept other]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.accept-formatting')).toBe(true);
+  });
+
+  it('passes accept directive text with bold+underline formatting', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.accept-formatting')).toBe(false);
+  });
+
+  it('skips meta-instructions like "either answer"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept either answer]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept either answer]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.accept-formatting')).toBe(false);
+  });
+
+  it('flags or directive text without bold+underline formatting', () => {
+    const t = tossupWithAnswer('ANSWER: thing [or other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [or other]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.accept-formatting')).toBe(true);
+  });
+});
+
+describe('answerline.prompt-formatting', () => {
+  it('flags prompt directive text without underline formatting', () => {
+    const t = tossupWithAnswer('ANSWER: thing [prompt on partial]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [prompt on partial]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-formatting')).toBe(true);
+  });
+
+  it('passes prompt directive text with underline formatting', () => {
+    const t = tossupWithAnswer('ANSWER: thing [prompt on partial]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [prompt on '),
+      ul('partial'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-formatting')).toBe(false);
+  });
+
+  it('only checks text before "by asking" for formatting', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial by asking "what kind?"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' by asking "what kind?"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-formatting')).toBe(false);
+  });
+});
+
+describe('answerline.reject-quotes', () => {
+  it('flags reject directive text not wrapped in quotes', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject wrong]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject wrong]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(true);
+  });
+
+  it('passes reject directive text wrapped in quotes', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "wrong"]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "wrong"]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+  });
+
+  it('skips descriptive rejects like "answers like..."', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [reject answers like anything else]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [reject answers like anything else]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+  });
+});
+
+describe('answerline.prompt-question-quotes', () => {
+  it('flags "by asking" question text not wrapped in quotes', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial by asking what kind]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' by asking what kind]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(true);
+  });
+
+  it('passes "by asking" question text wrapped in quotes', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial by asking "what kind?"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' by asking "what kind?"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(false);
+  });
+
+  it('does not fire when there is no "by asking" clause', () => {
+    const t = tossupWithAnswer('ANSWER: thing [prompt on partial]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [prompt on '),
+      ul('partial'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(false);
+  });
+});
+
+describe('answerline.prompt-with-not-by-asking', () => {
+  it('flags prompt directive using "with" followed by a quote', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial with "what kind?"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' with "what kind?"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-with-not-by-asking')).toBe(true);
+  });
+
+  it('passes prompt directive using "by asking"', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial by asking "what kind?"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' by asking "what kind?"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-with-not-by-asking')).toBe(false);
+  });
+});
+
+describe('answerline.prompt-partial-answers', () => {
+  it('flags prompt directive containing "partial answer"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [prompt on partial answer]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [prompt on partial answer]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-partial-answers')).toBe(true);
+  });
+
+  it('passes prompt directive without "partial answer"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [prompt on something]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [prompt on '),
+      ul('something'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.prompt-partial-answers')).toBe(false);
+  });
+});
+
+describe('answerline.post-notes', () => {
+  it('flags text after last bracket not wrapped in parentheses', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept other] note about this',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept '),
+        bu('other'),
+        plain('] note about this'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.post-notes')).toBe(true);
+  });
+
+  it('passes text after last bracket wrapped in parentheses', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept other] (note about this)',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept '),
+        bu('other'),
+        plain('] (note about this)'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.post-notes')).toBe(false);
+  });
+
+  it('passes when there is no text after the last bracket', () => {
+    const t = tossupWithAnswer('ANSWER: thing [accept other]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [accept '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.post-notes')).toBe(false);
+  });
+});
+
+describe('answerline.post-note-no-quote-start', () => {
+  it('flags parenthesized post-note starting with a quotation mark', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept other] ("GUR-tuh")',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept '),
+        bu('other'),
+        plain('] ("GUR-tuh")'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.post-note-no-quote-start')).toBe(true);
+  });
+
+  it('passes parenthesized post-note not starting with a quotation mark', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept other] (accept after the clue)',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept '),
+        bu('other'),
+        plain('] (accept after the clue)'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.post-note-no-quote-start')).toBe(false);
+  });
+});
+
+describe('answerline.no-parenthetical-optional', () => {
+  it('flags short parenthesized optional parts in the answer text', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: The Great (American) Novel [accept other]',
+      [
+        plain('ANSWER: '),
+        bu('The Great (American) Novel'),
+        plain(' [accept '),
+        bu('other'),
+        plain(']'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.no-parenthetical-optional')).toBe(true);
+  });
+
+  it('passes pronunciation guides in parentheses', () => {
+    const t = tossupWithAnswer('ANSWER: Goethe ("GUR-tuh") [accept other]', [
+      plain('ANSWER: '),
+      bu('Goethe'),
+      plain(' ("GUR-tuh") [accept '),
+      bu('other'),
+      plain(']'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.no-parenthetical-optional')).toBe(false);
+  });
+
+  it('passes single-character parenthesized content', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: vitamin (D) supplements [accept other]',
+      [
+        plain('ANSWER: '),
+        bu('vitamin (D) supplements'),
+        plain(' [accept '),
+        bu('other'),
+        plain(']'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.no-parenthetical-optional')).toBe(false);
+  });
+});

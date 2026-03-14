@@ -133,3 +133,78 @@ describe('tag.valid-category', () => {
     expect(d!.message).toContain('Fake');
   });
 });
+
+describe('tag.no-nested-brackets', () => {
+  it('flags tag with nested angle brackets', () => {
+    const t = tossupWithTag('<Author, <Sub>Category>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'tag.no-nested-brackets');
+    expect(d).toBeDefined();
+    expect(d!.severity).toBe('error');
+    expect(d!.message).toContain('nested angle brackets');
+  });
+
+  it('flags tag with double opening brackets', () => {
+    const t = tossupWithTag('<<Author, Biology>>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), 'tag.no-nested-brackets')).toBe(true);
+  });
+
+  it('passes well-formed tag without nesting', () => {
+    const t = tossupWithTag('<Author, Biology>');
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), 'tag.no-nested-brackets')).toBe(false);
+  });
+});
+
+describe('tag.consistent-categories', () => {
+  it('flags inconsistent category casing across questions', () => {
+    const t1 = tossupWithTag('<Author1, Biology>');
+    const t2 = makeQuestion('tossup', 2, 'For 10 points, name this.', 'ANSWER: foo', {
+      numberParagraphIndex: 10,
+      answerRuns: [plain('ANSWER: '), bu('foo')],
+      tag: '<Author2, biology>',
+    });
+    const packet = makePacket({
+      tossups: [t1, t2],
+      allParagraphs: [...t1.paragraphs, ...t2.paragraphs],
+    });
+    const diags = lint(packet);
+    const d = findDiag(diags, 'tag.consistent-categories');
+    expect(d).toBeDefined();
+    expect(d!.severity).toBe('warning');
+    expect(d!.message).toContain('Biology');
+    expect(d!.message).toContain('biology');
+  });
+
+  it('passes when all questions use identical category casing', () => {
+    const t1 = tossupWithTag('<Author1, Biology>');
+    const t2 = makeQuestion('tossup', 2, 'For 10 points, name this.', 'ANSWER: foo', {
+      numberParagraphIndex: 10,
+      answerRuns: [plain('ANSWER: '), bu('foo')],
+      tag: '<Author2, Biology>',
+    });
+    const packet = makePacket({
+      tossups: [t1, t2],
+      allParagraphs: [...t1.paragraphs, ...t2.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'tag.consistent-categories')).toBe(false);
+  });
+
+  it('does not flag different categories as inconsistent', () => {
+    const t1 = tossupWithTag('<Author1, Biology>');
+    const t2 = makeQuestion('tossup', 2, 'For 10 points, name this.', 'ANSWER: foo', {
+      numberParagraphIndex: 10,
+      answerRuns: [plain('ANSWER: '), bu('foo')],
+      tag: '<Author2, American History>',
+    });
+    const packet = makePacket({
+      tossups: [t1, t2],
+      allParagraphs: [...t1.paragraphs, ...t2.paragraphs],
+    });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'tag.consistent-categories')).toBe(false);
+  });
+});
