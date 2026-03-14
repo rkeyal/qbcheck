@@ -36,6 +36,13 @@ function checkContractions(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+const WEASEL_WORD_PATTERNS = new Map<string, RegExp>(
+  WEASEL_WORDS.map((word) => [
+    word,
+    new RegExp(`\\b${word.replace(/-/g, '[-\\s]?')}\\b`, 'gi'),
+  ])
+);
+
 function checkWeaselWords(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -43,7 +50,8 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
     const stripped = stripTitleText(para);
 
     for (const word of WEASEL_WORDS) {
-      const re = new RegExp(`\\b${word.replace(/-/g, '[-\\s]?')}\\b`, 'gi');
+      const re = WEASEL_WORD_PATTERNS.get(word)!;
+      re.lastIndex = 0;
       const m = stripped.match(re);
       if (m) {
         // Find offset in original text for correct highlighting
@@ -71,6 +79,13 @@ function checkWeaselWords(packet: Packet): LintDiagnostic[] {
 // Phrasal verbs where "upon" is idiomatic and "on" would be unnatural
 const UPON_PHRASAL_VERBS =
   /\b(called|stumbled|relied|based|bestow(?:ed)?|confer(?:red)?|impose[ds]?|inflict(?:ed)?|look(?:ed|ing)?|act(?:ed|ing)?|draw[ns]?|built?|expand(?:ed|ing)?|improv(?:e[ds]?|ing)|decided?|agree[ds]?|embark(?:ed|ing)?|depend(?:ed|s|ing)?|hit|come|came|happen(?:ed|s)?|chance[ds]?|settle[ds]?|insist(?:ed|s|ing)?|enter(?:ed)?|seize[ds]?|descend(?:ed)?|reflect(?:ed|ing)?|verge[ds]?)\s+upon\b/i;
+
+const WORD_REPLACEMENT_PATTERNS = new Map<string, RegExp>(
+  Object.keys(WORD_REPLACEMENTS).map((bad) => [
+    bad,
+    new RegExp(`\\b${bad}\\b`, 'gi'),
+  ])
+);
 
 function checkWordReplacements(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -101,7 +116,8 @@ function checkWordReplacements(packet: Packet): LintDiagnostic[] {
         if (/\bupon\s+[a-z]+ing\b/i.test(text)) continue;
       }
 
-      const re = new RegExp(`\\b${bad}\\b`, 'gi');
+      const re = WORD_REPLACEMENT_PATTERNS.get(bad)!;
+      re.lastIndex = 0;
       const matches = [...text.matchAll(re)];
       // Filter out capitalized matches that aren't at the start of a
       // sentence — a capitalized word mid-sentence is likely a proper noun.

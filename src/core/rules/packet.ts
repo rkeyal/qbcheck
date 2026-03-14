@@ -1,4 +1,5 @@
 import { Packet, LintDiagnostic, LintRule } from '../model.js';
+import { allQuestions } from './utils.js';
 
 function checkSectionHeaders(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -100,7 +101,7 @@ function checkQuestionNumbering(packet: Packet): LintDiagnostic[] {
 function checkBoldNumbers(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     const firstRun = q.numberParagraph.runs[0];
     if (firstRun && firstRun.bold && /^\s*\d+\.\s/.test(firstRun.text)) {
       diags.push({

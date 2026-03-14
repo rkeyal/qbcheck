@@ -42,3 +42,15 @@ export const TAG_WITH_AUTHOR = /^<([^,]+),\s*(.+)>$/;
  * Captures category in group 1
  */
 export const TAG_CATEGORY_ONLY = /^<([^,>]+)>$/;
+
+/**
+ * Matches "For 10 points each" or "FTPE" (case-insensitive).
+ * Used to identify bonus lead-ins in segmentation and rules.
+ */
+export const FTPE = /for\s+10\s+points?\s+each|FTPE/i;
+
+/**
+ * Matches "For 10 points" marker (case-insensitive).
+ * Used to identify FTP markers in tossup text.
+ */
+export const FTP_MARKER = /for\s+10\s+points/i;

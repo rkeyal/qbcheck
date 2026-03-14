@@ -1,6 +1,7 @@
 import {
   Paragraph,
   Packet,
+  Question,
   LintDiagnostic,
   Severity,
   Run,
@@ -74,6 +75,31 @@ export function stripTitleText(para: Paragraph): string {
 }
 
 /**
+ * Iterate over all questions (tossups then bonuses) in a packet.
+ */
+export function* allQuestions(packet: Packet): Generator<Question> {
+  yield* packet.tossups;
+  yield* packet.bonuses;
+}
+
+/**
+ * Collect all answer line paragraphs from tossups and bonus parts.
+ */
+export function getAnswerLines(packet: Packet): Paragraph[] {
+  const lines: Paragraph[] = [];
+  for (const q of packet.tossups) {
+    if (q.answerLine) lines.push(q.answerLine);
+  }
+  for (const q of packet.bonuses) {
+    if (q.answerLine) lines.push(q.answerLine);
+    for (const part of q.parts) {
+      if (part.answerLine) lines.push(part.answerLine);
+    }
+  }
+  return lines;
+}
+
+/**
  * Get paragraphs from all questions in the packet, with optional filtering.
  *
  * @param packet - The packet to extract paragraphs from
@@ -88,7 +114,7 @@ export function getQuestionParagraphs(
   filter?: 'all' | 'non-answer' | 'text-only'
 ): Paragraph[] {
   const paras: Paragraph[] = [];
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     for (const p of q.paragraphs) {
       const text = p.rawText.trim();
 

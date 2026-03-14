@@ -1,5 +1,5 @@
 import { Paragraph, Packet, Question, Run } from './model.js';
-import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from './patterns.js';
+import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART, FTPE } from './patterns.js';
 
 /**
  * Segment a flat list of paragraphs into a structured Packet.
@@ -143,7 +143,7 @@ function parseQuestions(
 // Flat-list fallback: infer questions from ANSWER: lines
 // ---------------------------------------------------------------------------
 
-const FTPE_RE = /for\s+10\s+points?\s+each|FTPE/i;
+const FTPE_RE = FTPE;
 
 function segmentFlatList(processed: Paragraph[]): Packet {
   const packet: Packet = {

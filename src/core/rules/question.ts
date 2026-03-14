@@ -1,6 +1,12 @@
 import { Packet, Paragraph, LintDiagnostic, LintRule } from '../model.js';
-import { QUESTION_NUMBER, ANSWER, TAG, BONUS_PART } from '../patterns.js';
-import { stripItalicOnly } from './utils.js';
+import {
+  QUESTION_NUMBER,
+  ANSWER,
+  TAG,
+  BONUS_PART,
+  FTP_MARKER,
+} from '../patterns.js';
+import { stripItalicOnly, allQuestions } from './utils.js';
 
 function checkFtpFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -151,7 +157,7 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
 function checkMissingAnswerLine(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (q.type === 'tossup' && !q.answerLine) {
       diags.push({
         rule: 'question.missing-answer',
@@ -297,19 +303,7 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
       text.match(/\u2013\s*for\s+10\s+points\s*\u2013/i);
     if (!ftpMatch) continue;
 
-    // Check whether this FTP is in the final sentence.
-    // Find the last sentence boundary (.!?) before the FTP position.
     const ftpIdx = ftpMatch.index!;
-    const beforeFtp = text.substring(0, ftpIdx);
-
-    // Find the last sentence-ending punctuation before FTP
-    // (look for ". " or "? " or "! " patterns, skipping abbreviations)
-    const sentenceEndRe = /[.!?]\s+(?=[A-Z])/g;
-    let _lastSentenceEnd = -1;
-    let m: RegExpExecArray | null;
-    while ((m = sentenceEndRe.exec(beforeFtp)) !== null) {
-      _lastSentenceEnd = m.index;
-    }
 
     // Check if there's a sentence-ending punctuation AFTER the FTP
     // (meaning more sentences follow — so FTP is truly mid-paragraph)
@@ -340,7 +334,7 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
 
   // Build a map of answer line paragraph indices → the question they belong to
   const answerParaIndices = new Set<number>();
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (q.answerLine) answerParaIndices.add(q.answerLine.index);
     for (const part of q.parts) {
       if (part.answerLine) answerParaIndices.add(part.answerLine.index);
@@ -402,7 +396,7 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
     /^(Names? acceptable\.?)/i,
   ];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     const text = q.numberParagraph.rawText;
 
     // Strip the question number prefix to check the actual question text
@@ -492,7 +486,7 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
 function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     // For tossups, check the main question paragraph
     // For bonuses, check each part's text paragraph
     const parasToCheck: Array<{ para: import('../model.js').Paragraph }> = [];
@@ -581,7 +575,7 @@ function checkSeparateNoteParagraph(packet: Packet): LintDiagnostic[] {
     /^Names? acceptable\.?$/i,
   ];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     const text = q.numberParagraph.rawText;
     const body = text.replace(/^\s*\d+\.\s*/, '').trim();
 
@@ -626,7 +620,7 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
     [/^(NTM:)/i, 'NTM:'],
   ];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     const parasToCheck = [q.numberParagraph];
     for (const part of q.parts) {
       parasToCheck.push(part.textParagraph);
@@ -684,7 +678,6 @@ const SINGLE_INITIAL =
 
 const CLUE_PRONOUN = /\b(?:this|these)\b/i;
 const FTP_PRONOUN = /\b(?:this|what|which|these)\b/i;
-const FTP_MARKER = /for\s+10\s+points/i;
 
 /**
  * Check whether a character range in a paragraph is entirely italic,

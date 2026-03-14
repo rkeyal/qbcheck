@@ -5,6 +5,7 @@ import {
   TAG_CATEGORY_ONLY,
   EDITORIAL_SUFFIX,
 } from '../patterns.js';
+import { allQuestions } from './utils.js';
 
 function stripEditorialSuffix(text: string): string {
   return text.replace(EDITORIAL_SUFFIX, '');
@@ -48,7 +49,7 @@ export function extractTagCategory(tagRawText: string): string | null {
 function checkTagExists(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (!q.tag) {
       diags.push({
         rule: 'tag.tag-present',
@@ -65,7 +66,7 @@ function checkTagExists(packet: Packet): LintDiagnostic[] {
 function checkTagFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (!q.tag) continue;
 
     const rawText = q.tag.rawText.trim();
@@ -86,7 +87,7 @@ function checkTagFormat(packet: Packet): LintDiagnostic[] {
 function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (!q.tag) continue;
 
     const rawText = q.tag.rawText.trim();
@@ -115,7 +116,7 @@ function checkNestedAngleBrackets(packet: Packet): LintDiagnostic[] {
 function checkValidCategory(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (!q.tag) continue;
 
     const category = extractTagCategory(q.tag.rawText);
@@ -140,7 +141,7 @@ function checkConsistentCategories(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
   const categoryVariants = new Map<string, string[]>();
 
-  for (const q of [...packet.tossups, ...packet.bonuses]) {
+  for (const q of allQuestions(packet)) {
     if (!q.tag) continue;
 
     const text = stripEditorialSuffix(q.tag.rawText.trim());
