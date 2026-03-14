@@ -143,11 +143,11 @@ Core types that flow through the pipeline:
 
 - **Run**: Formatted text segment (text + boolean flags for bold/italic/underline/super/subscript)
 - **Paragraph**: Container for runs with rawText and formatting metadata
-- **Question**: Tossup or bonus with number, paragraphs, answer line, tag, and bonus parts
+- **Question**: Tossup or bonus with number, paragraphs, answer line (null for bonuses—bonus answers live in `parts[].answerLine`), tag, and bonus parts
 - **Packet**: Complete document structure with headers, questions, and metadata
 - **AutoFix**: Text-level fix (oldText, newText, offset) for string replacement in rawText
 - **AutoFixFormat**: Run-level fix (ranges array of {offset, length}) for stripping formatting from specific characters
-- **LintDiagnostic**: Rule violation with severity, message, location, optional highlighting, and optional fix/formatFix data
+- **LintDiagnostic**: Rule violation with severity, message, location, optional highlighting, optional suggestion, and optional fix/formatFix data
 
 ### Rules Architecture
 
@@ -221,6 +221,7 @@ This dual-format support enables copy/paste from both Google Docs and Microsoft 
 
 - `makePacket()`: Construct test packets with minimal boilerplate
 - `makeQuestion()`: Build tossup or bonus questions with answers and tags
+- `makeBonusPart()`: Create a bonus part (marker, text, answer) for use in `makeQuestion`'s `parts` array
 - `makeParagraph()`: Create paragraphs with run-level formatting
 - `hasDiag()`: Check if a specific rule fired
 - `findDiag()`: Extract diagnostic by rule ID
@@ -229,9 +230,11 @@ Tests use Vitest with jsdom for DOM parsing. Each rule file has a corresponding 
 
 ## Chrome Extension Build
 
-Vite bundles `src/popup/popup.html` (entry point) into `dist/`, copying `manifest.json` as a build artifact. The extension has two main permissions:
+Vite bundles `src/popup/popup.html` (entry point) into `dist/`, copying `manifest.json` as a build artifact. The extension declares two permissions:
 - `storage`: Persist settings via `chrome.storage.local` and session state via `chrome.storage.session`
 - `clipboardRead`: Support paste-from-clipboard workflow
+
+Clipboard writing (for the "Copy fixed text" feature) uses the Manifest V3 Async Clipboard API (`navigator.clipboard.write()`/`writeText()`), which does not require a separate `clipboardWrite` permission.
 
 The popup is a single-page app that processes files entirely client-side—no network requests.
 
