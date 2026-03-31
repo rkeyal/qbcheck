@@ -90,13 +90,6 @@ h1 {
   padding: 2px 4px;
   line-height: 1;
   border-radius: 3px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.comfortable-label {
-  font-size: 10px;
 }
 #comfortable-toggle:hover {
   color: #333;
