@@ -151,6 +151,9 @@ function checkRequiredAnswerFormatting(packet: Packet): LintDiagnostic[] {
         severity: 'error',
         paragraph: para.index,
         message,
+        sourceText: para.rawText,
+        offset: answerStart,
+        length: answerEnd - answerStart,
       });
     }
   }
@@ -164,11 +167,21 @@ function checkBracketBalance(packet: Packet): LintDiagnostic[] {
   for (const para of getAnswerLines(packet)) {
     const text = para.rawText;
     let depth = 0;
+    let unmatchedPos = -1;
 
-    for (const ch of text) {
-      if (ch === '[') depth++;
-      if (ch === ']') depth--;
-      if (depth < 0) break;
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '[') {
+        if (depth === 0) unmatchedPos = i;
+        depth++;
+      }
+      if (text[i] === ']') {
+        depth--;
+        if (depth === 0) unmatchedPos = -1;
+      }
+      if (depth < 0) {
+        unmatchedPos = i;
+        break;
+      }
     }
 
     if (depth !== 0) {
@@ -177,6 +190,9 @@ function checkBracketBalance(packet: Packet): LintDiagnostic[] {
         severity: 'error',
         paragraph: para.index,
         message: 'Unbalanced brackets in answer line.',
+        sourceText: text,
+        offset: unmatchedPos !== -1 ? unmatchedPos : undefined,
+        length: unmatchedPos !== -1 ? 1 : undefined,
       });
     }
   }
@@ -219,6 +235,9 @@ function checkAcceptRejectFormat(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: `Possible typo in answer line directive: "[${match[1]}]".`,
+            sourceText: text,
+            offset: match.index!,
+            length: match[0].length,
           });
         }
       }
@@ -258,6 +277,9 @@ function checkAcceptFormatting(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: `Text in [${directive}] directive should have bold and underlined formatting: "${sub.contentText}".`,
+            sourceText: para.rawText,
+            offset: sub.fullStart,
+            length: sub.fullText.length,
           });
         }
       }
@@ -302,6 +324,9 @@ function checkPromptFormatting(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: `Text in [${directive}] directive should have underlined formatting: "${sub.contentText}".`,
+            sourceText: para.rawText,
+            offset: sub.fullStart,
+            length: sub.fullText.length,
           });
         }
       }
@@ -364,6 +389,9 @@ function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
             severity: 'warning',
             paragraph: para.index,
             message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
+            sourceText: para.rawText,
+            offset: sub.contentStart,
+            length: sub.contentText.length,
           });
         }
       }
@@ -394,11 +422,15 @@ function checkPromptQuestionQuotes(packet: Packet): LintDiagnostic[] {
         // Check if the asking content is wrapped in quotes
         const quotePattern = /^[\u201c\u201d"'].+[\u201c\u201d"']$/;
         if (!quotePattern.test(askingContent)) {
+          const askingOffset = sub.contentStart + byAskingMatch.index! + byAskingMatch[0].length - byAskingMatch[1].length;
           diags.push({
             rule: 'answerline.prompt-question-quotes',
             severity: 'warning',
             paragraph: para.index,
             message: `The "by asking" question should be wrapped in quotes: "${askingContent}".`,
+            sourceText: para.rawText,
+            offset: askingOffset,
+            length: askingContent.length,
           });
         }
       }
@@ -429,11 +461,15 @@ function checkPostNotes(packet: Packet): LintDiagnostic[] {
 
     // Check if the text is wrapped in parentheses
     if (!(trimmed.startsWith('(') && trimmed.endsWith(')'))) {
+      const noteOffset = text.indexOf(trimmed, lastBracket + 1);
       diags.push({
         rule: 'answerline.post-notes',
         severity: 'info',
         paragraph: para.index,
         message: `Text after the last bracket should be wrapped in parentheses: "${trimmed}".`,
+        sourceText: text,
+        offset: noteOffset !== -1 ? noteOffset : undefined,
+        length: noteOffset !== -1 ? trimmed.length : undefined,
       });
     }
   }
@@ -605,8 +641,8 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
       // Skip if it looks like a clause with conjunctions or punctuation (likely subtitle)
       if (/\b(or|and|also)\b/i.test(content)) continue;
       if (/[:,.]/.test(content)) continue; // Contains punctuation typical of subtitles
-      // Skip attributions: (by Author Name)
-      if (/^by\s/i.test(content)) continue;
+      // Skip attributions and provenance notes: (by Author), (from Work)
+      if (/^(by|from)\s/i.test(content)) continue;
       // Skip clarifying adjectives that appear before the core answer
       // (these are typically descriptive prefixes, not optional parts)
       const matchPos = m.index!;

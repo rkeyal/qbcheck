@@ -94,7 +94,8 @@ function checkBonusPartMarkers(packet: Packet): LintDiagnostic[] {
       });
     }
 
-    for (const part of q.parts) {
+    for (let i = 0; i < q.parts.length; i++) {
+      const part = q.parts[i];
       const text = part.textParagraph.rawText;
       // Check marker format
       if (!/^\s*\[(10[emh]?|[EMH])\]\s/i.test(text)) {
@@ -102,7 +103,7 @@ function checkBonusPartMarkers(packet: Packet): LintDiagnostic[] {
           rule: 'question.bonus-part-marker',
           severity: 'warning',
           paragraph: part.textParagraph.index,
-          message: `Bonus part marker "${part.marker}" has unexpected format.`,
+          message: `Bonus ${q.number}, part ${i + 1}: marker "${part.marker}" has unexpected format.`,
         });
       }
     }
@@ -279,11 +280,12 @@ function checkBonusDifficultySpread(packet: Packet): LintDiagnostic[] {
     if (!hasHard) missing.push('hard');
 
     if (missing.length > 0) {
+      const existing = q.parts.map((p) => `[${p.marker}]`).join(', ');
       diags.push({
         rule: 'question.bonus-difficulty-spread',
         severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message: `Bonus is missing ${missing.join(' and ')} difficulty marker${missing.length > 1 ? 's' : ''}. Each bonus should have [10e], [10m], and [10h] parts.`,
+        message: `Bonus is missing ${missing.join(' and ')} difficulty marker${missing.length > 1 ? 's' : ''} (has ${existing}). Each bonus should have [10e], [10m], and [10h] parts.`,
       });
     }
   }
@@ -456,7 +458,7 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
 
     // Walk the paragraphs in order and verify: part → answer → part → answer ...
     let expectingAnswer = false;
-    let _lastPartPara: import('../model.js').Paragraph | null = null;
+    let partCount = 0;
 
     for (const para of q.paragraphs) {
       const text = para.rawText.trim();
@@ -467,22 +469,20 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
 
       if (isPart && expectingAnswer) {
         // Found a new part before the previous part's answer
+        partCount++;
         diags.push({
           rule: 'question.bonus-part-order',
           severity: 'error',
           paragraph: para.index,
-          message: `Bonus part appears before previous part\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
+          message: `Bonus ${q.number}, part ${partCount}: appears before part ${partCount - 1}\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
           sourceText: para.rawText,
         });
-        // Reset — treat this as the new pending part
-        _lastPartPara = para;
         expectingAnswer = true;
       } else if (isPart) {
-        _lastPartPara = para;
+        partCount++;
         expectingAnswer = true;
       } else if (isAnswer && expectingAnswer) {
         expectingAnswer = false;
-        _lastPartPara = null;
       }
     }
   }
@@ -496,18 +496,18 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
   for (const q of allQuestions(packet)) {
     // For tossups, check the main question paragraph
     // For bonuses, check each part's text paragraph
-    const parasToCheck: Array<{ para: import('../model.js').Paragraph }> = [];
+    const parasToCheck: Array<{ para: import('../model.js').Paragraph; partLabel?: string }> = [];
 
     if (q.type === 'tossup') {
       parasToCheck.push({ para: q.numberParagraph });
     } else {
       // For bonuses, check each part
-      for (const part of q.parts) {
-        parasToCheck.push({ para: part.textParagraph });
+      for (let i = 0; i < q.parts.length; i++) {
+        parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
       }
     }
 
-    for (const { para } of parasToCheck) {
+    for (const { para, partLabel } of parasToCheck) {
       const text = para.rawText;
 
       // Look for parenthetical notes near the end of the paragraph
@@ -554,7 +554,8 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
         }
 
         if (issues.length > 0) {
-          const message = `Post-question note should be styled as a sentence: ${issues.join(' and ')}.`;
+          const prefix = partLabel ? `Bonus ${q.number}, ${partLabel}: ` : '';
+          const message = `${prefix}Post-question note should be styled as a sentence: ${issues.join(' and ')}.`;
           diags.push({
             rule: 'question.post-question-note-sentence',
             severity: 'warning',
@@ -628,12 +629,14 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
   ];
 
   for (const q of allQuestions(packet)) {
-    const parasToCheck = [q.numberParagraph];
-    for (const part of q.parts) {
-      parasToCheck.push(part.textParagraph);
+    const parasToCheck: Array<{ para: Paragraph; partLabel?: string }> = [
+      { para: q.numberParagraph },
+    ];
+    for (let i = 0; i < q.parts.length; i++) {
+      parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
     }
 
-    for (const para of parasToCheck) {
+    for (const { para, partLabel } of parasToCheck) {
       const text = para.rawText;
       const body = text.replace(/^\s*(\d+\.\s*|\[[^\]]*\]\s*)/, '');
 
@@ -645,9 +648,10 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
         if (noteStart === -1) continue;
 
         const isReader = label === 'Note to reader:';
+        const prefix = q.type === 'bonus' && partLabel ? `Bonus ${q.number}, ${partLabel}: ` : '';
         const message = isReader
-          ? `Use "Note to moderator:" instead of "${m[1]}" \u2014 the person reading the question is the moderator.`
-          : `Use "Note to moderator:" instead of "${m[1]}".`;
+          ? `${prefix}Use "Note to moderator:" instead of "${m[1]}" \u2014 the person reading the question is the moderator.`
+          : `${prefix}Use "Note to moderator:" instead of "${m[1]}".`;
 
         diags.push({
           rule: 'question.note-formatting',

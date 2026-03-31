@@ -58,6 +58,9 @@ function checkTrailingPunctuation(packet: Packet): LintDiagnostic[] {
           severity: 'info',
           paragraph: para.index,
           message: `Punctuation "${lastChar}" should come after the pronunciation guide, not inside it.`,
+          sourceText: text,
+          offset: match.index!,
+          length: match[0].length,
         });
       }
     }
