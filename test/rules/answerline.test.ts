@@ -843,40 +843,6 @@ describe('answerline.post-notes', () => {
   });
 });
 
-describe('answerline.post-note-no-quote-start', () => {
-  it('flags parenthesized post-note starting with a quotation mark', () => {
-    const t = tossupWithAnswer(
-      'ANSWER: thing [accept other] ("GUR-tuh")',
-      [
-        plain('ANSWER: '),
-        bu('thing'),
-        plain(' [accept '),
-        bu('other'),
-        plain('] ("GUR-tuh")'),
-      ]
-    );
-    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'answerline.post-note-no-quote-start')).toBe(true);
-  });
-
-  it('passes parenthesized post-note not starting with a quotation mark', () => {
-    const t = tossupWithAnswer(
-      'ANSWER: thing [accept other] (accept after the clue)',
-      [
-        plain('ANSWER: '),
-        bu('thing'),
-        plain(' [accept '),
-        bu('other'),
-        plain('] (accept after the clue)'),
-      ]
-    );
-    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'answerline.post-note-no-quote-start')).toBe(false);
-  });
-});
-
 describe('answerline.no-parenthetical-optional', () => {
   it('flags short parenthesized optional parts in the answer text', () => {
     const t = tossupWithAnswer(

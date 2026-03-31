@@ -104,9 +104,9 @@ export const RULE_REGISTRY: RuleMeta[] = [
     defaultSeverity: 'warning',
   },
   {
-    id: 'question.pre-question-note-italics',
+    id: 'question.note-formatting',
     category: 'question',
-    description: 'Pre-question notes should be italicized',
+    description: 'Pre-question and moderator note formatting',
     defaultSeverity: 'info',
   },
   {
@@ -132,12 +132,6 @@ export const RULE_REGISTRY: RuleMeta[] = [
     category: 'question',
     description: 'Pre-question notes inline with question text',
     defaultSeverity: 'warning',
-  },
-  {
-    id: 'question.note-to-moderator-format',
-    category: 'question',
-    description: 'Note to moderator format',
-    defaultSeverity: 'info',
   },
   {
     id: 'question.missing-pronoun',
@@ -221,12 +215,6 @@ export const RULE_REGISTRY: RuleMeta[] = [
     autoFixable: true,
   },
   {
-    id: 'answerline.post-note-no-quote-start',
-    category: 'answerline',
-    description: 'Post-note quote formatting',
-    defaultSeverity: 'warning',
-  },
-  {
     id: 'answerline.no-parenthetical-optional',
     category: 'answerline',
     description: 'No parenthetical optional text',
@@ -291,7 +279,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'formatting.smart-quotes',
     category: 'formatting',
     description: 'Use smart (curly) quotes',
-    defaultSeverity: 'warning',
+    defaultSeverity: 'info',
   },
   {
     id: 'formatting.no-em-dash',

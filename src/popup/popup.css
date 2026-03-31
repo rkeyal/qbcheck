@@ -90,6 +90,13 @@ h1 {
   padding: 2px 4px;
   line-height: 1;
   border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.comfortable-label {
+  font-size: 10px;
 }
 #comfortable-toggle:hover {
   color: #333;
@@ -208,13 +215,13 @@ h1 {
 
 .paste-target {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 16px;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
   background: #fff;
-  border: 2px dashed #4a6cf7;
-  border-radius: 6px;
+  border: 1px dashed #4a6cf7;
+  border-radius: 4px;
   cursor: pointer;
   transition:
     background 0.15s,
@@ -234,13 +241,13 @@ h1 {
 }
 
 .paste-target-label {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   color: #4a6cf7;
 }
 
 .paste-target-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: #999;
 }
 
@@ -387,22 +394,6 @@ h1 {
 .stat:not(.active) {
   background: #f0f0f0;
   color: #aaa;
-}
-
-/* Filters */
-#filters {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-#filters select {
-  flex: 1;
-  padding: 4px 6px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 11px;
-  background: #fff;
 }
 
 /* Diagnostics list */
@@ -740,27 +731,15 @@ h1 {
   flex: 1;
 }
 
-.rule-autofix {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
+.rule-autofix-badge {
+  font-size: 9px;
   color: #2e7d32;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  padding: 1px 4px;
-  border-radius: 3px;
   background: #e8f5e9;
-}
-
-.rule-autofix.disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.rule-autofix input[type='checkbox'] {
-  margin: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  vertical-align: middle;
+  margin-left: 4px;
 }
 
 .rule-item-id {
@@ -1311,13 +1290,6 @@ body.dark .stat-ignored.active {
   border-color: #666;
 }
 
-/* Filters */
-body.dark #filters select {
-  background: #2a2a3e;
-  border-color: #3a3a4e;
-  color: #e0e0e0;
-}
-
 /* Diagnostics */
 body.dark .diagnostic {
   background: #2a2a3e;
@@ -1501,7 +1473,7 @@ body.dark .autofix-master {
   color: #66bb6a;
 }
 
-body.dark .rule-autofix {
+body.dark .rule-autofix-badge {
   background: #1a2e1a;
   color: #66bb6a;
 }
@@ -1772,9 +1744,6 @@ body.comfortable .diag-snippet { font-size: 12px; padding: 6px 8px; margin-top: 
 /* Stats bar / filters */
 body.comfortable #stats-bar { gap: 10px; margin-bottom: 10px; }
 body.comfortable .stat { font-size: 13px; padding: 4px 10px; }
-body.comfortable #filters { margin-bottom: 12px; }
-body.comfortable #filters select { padding: 5px 8px; font-size: 12px; }
-
 /* File info / banners */
 body.comfortable #file-info { padding: 8px 12px; margin-bottom: 10px; }
 body.comfortable #file-name { font-size: 13px; }
@@ -1801,9 +1770,8 @@ body.comfortable .autofix-label { font-size: 13px; }
 body.comfortable .autofix-item { padding: 6px 8px; font-size: 12px; }
 
 /* Upload area */
-body.comfortable .paste-target { padding: 18px 20px; gap: 6px; }
-body.comfortable .paste-target-label { font-size: 14px; }
-body.comfortable .paste-target-hint { font-size: 12px; }
+body.comfortable .paste-target { padding: 10px 20px; }
+body.comfortable .paste-target-label { font-size: 13px; }
 body.comfortable .paste-divider { margin: 16px 0; }
 body.comfortable #drop-zone { padding: 32px 20px; }
 

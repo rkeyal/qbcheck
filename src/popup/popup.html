@@ -18,6 +18,7 @@
                 <rect class="spacing-line-mid" x="2" y="6.25" width="10" height="1.5" rx="0.75" fill="currentColor"/>
                 <rect class="spacing-line-bot" x="2" width="10" height="1.5" rx="0.75" fill="currentColor"/>
               </svg>
+              <span class="comfortable-label">Spacing</span>
             </button>
             <button
               id="dark-mode-toggle"
@@ -60,9 +61,6 @@
         <div id="paste-target" class="paste-target" tabindex="0">
           <span class="paste-target-label"
             >&#x1F4CB; Paste here (Ctrl+V / &#x2318;V)</span
-          >
-          <span class="paste-target-hint"
-            >Copy questions in Docs/Word, then paste here to check</span
           >
         </div>
         <div id="drop-error" class="drop-error" hidden></div>
@@ -130,19 +128,6 @@
           <button class="stat stat-ignored" data-severity="ignored" hidden>
             <span id="count-ignored">0</span> ignored
           </button>
-        </div>
-
-        <div id="filters">
-          <select id="filter-category">
-            <option value="all">All categories</option>
-            <option value="packet">Packet structure</option>
-            <option value="question">Question text</option>
-            <option value="answerline">Answer lines</option>
-            <option value="pronunciation">Pronunciation</option>
-            <option value="formatting">Formatting</option>
-            <option value="tag">Tags</option>
-            <option value="writing">Writing style</option>
-          </select>
         </div>
 
         <div id="diagnostics-list"></div>

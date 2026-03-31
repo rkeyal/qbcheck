@@ -573,39 +573,6 @@ function checkDeprecatedDirectives(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
-function checkPostNoteQuotationMark(packet: Packet): LintDiagnostic[] {
-  const diags: LintDiagnostic[] = [];
-
-  for (const para of getAnswerLines(packet)) {
-    const text = para.rawText;
-
-    // Find the last ']' in the text
-    const lastBracket = text.lastIndexOf(']');
-    if (lastBracket === -1) continue;
-
-    const afterBracket = text.slice(lastBracket + 1).trim();
-    if (!afterBracket) continue;
-
-    // Check if the text after brackets starts with parenthesized content
-    // that begins with a quotation mark
-    const parenMatch = afterBracket.match(/^\((.)/);
-    if (parenMatch) {
-      const firstChar = parenMatch[1];
-      if (/["\u201c\u201d]/.test(firstChar)) {
-        diags.push({
-          rule: 'answerline.post-note-no-quote-start',
-          severity: 'info',
-          paragraph: para.index,
-          message:
-            'Post-question notes should not begin with a quotation mark to reduce confusion with pronunciation guides.',
-        });
-      }
-    }
-  }
-
-  return diags;
-}
-
 function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -932,7 +899,6 @@ export const answerlineRules: LintRule[] = [
   checkPromptPartialAnswers,
   checkPostNotes,
   checkDeprecatedDirectives,
-  checkPostNoteQuotationMark,
   checkParentheticalOptional,
   checkDirectiveSeparator,
   checkRejectAlone,

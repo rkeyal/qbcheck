@@ -50,9 +50,6 @@ export function getElements(): PopupElements {
     countInfo: document.getElementById('count-info')!,
     countIgnored: document.getElementById('count-ignored')!,
     statsBar: document.getElementById('stats-bar')!,
-    filterCategory: document.getElementById(
-      'filter-category'
-    ) as HTMLSelectElement,
     diagnosticsList: document.getElementById('diagnostics-list')!,
     noIssues: document.getElementById('no-issues')!,
     packetNav: document.getElementById('packet-nav')!,

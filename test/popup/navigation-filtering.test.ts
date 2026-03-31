@@ -157,60 +157,6 @@ describe('Multi-Packet Navigation + Severity Filtering', () => {
     });
   });
 
-  // Scenario 10
-  describe('Category filter + severity filter interaction', () => {
-    beforeEach(async () => {
-      controller = await createTestController({
-        session: {
-          packetResults: [
-            {
-              filename: 'test.docx',
-              diagnostics: [
-                makeDiagnostic({
-                  rule: 'formatting.no-em-dash',
-                  severity: 'error',
-                  paragraph: 0,
-                  message: 'Formatting error',
-                }),
-                makeDiagnostic({
-                  rule: 'formatting.smart-quotes',
-                  severity: 'info',
-                  paragraph: 1,
-                  message: 'Formatting info',
-                }),
-                makeDiagnostic({
-                  rule: 'answerline.answer-prefix',
-                  severity: 'warning',
-                  paragraph: 2,
-                  message: 'Answerline warning',
-                }),
-              ],
-            },
-          ],
-          currentIndex: 0,
-          scrollPosition: 0,
-          mode: 'file',
-        },
-      });
-    });
-
-    it('shows only error+warning from formatting when info is off and category is formatting', () => {
-      const el = getElements();
-      el.filterCategory.value = 'formatting';
-
-      controller.toggleSeverity('info');
-      controller.updateCounts();
-      controller.renderDiagnostics();
-
-      // Only formatting.no-em-dash (error) visible — info is toggled off
-      expect(countVisibleDiagnostics()).toBe(1);
-      // Counts always show totals per severity (independent of toggle)
-      expect(el.countError.textContent).toBe('1');
-      expect(el.countWarning.textContent).toBe('0');
-      expect(el.countInfo.textContent).toBe('1');
-    });
-  });
-
   // Scenario 11
   describe('Packet navigation resets scroll to 0', () => {
     beforeEach(async () => {

@@ -290,7 +290,7 @@ describe('Auto-Fix + Copy Workflow', () => {
       expect(el.autofixMasterToggle.indeterminate).toBe(false);
     });
 
-    it('syncAutofixMaster sets indeterminate when some rules disabled', async () => {
+    it('syncAutofixMaster sets unchecked when some rules disabled', async () => {
       controller = await createTestController({
         settings: { autoFixDisabled: ['question.ftp-format'] },
       });
@@ -299,7 +299,7 @@ describe('Auto-Fix + Copy Workflow', () => {
       controller.syncAutofixMaster();
 
       const el = getElements();
-      expect(el.autofixMasterToggle.indeterminate).toBe(true);
+      expect(el.autofixMasterToggle.checked).toBe(false);
     });
   });
 });

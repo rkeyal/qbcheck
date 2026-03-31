@@ -52,19 +52,6 @@ describe('Popup Rendering', () => {
       expect(nextBtn).toBeTruthy();
     });
 
-    it('has filter category dropdown', () => {
-      const { filterCategory } = getElements();
-
-      expect(filterCategory).toBeTruthy();
-      expect(filterCategory.tagName).toBe('SELECT');
-
-      // Should have "All" option and category options
-      const options = Array.from(filterCategory.options).map(
-        (opt) => opt.value
-      );
-      expect(options).toContain('all');
-    });
-
     it('has banners for unstructured mode and autofix', () => {
       const { unstructuredBanner, autofixBanner } = getElements();
 

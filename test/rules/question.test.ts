@@ -354,7 +354,7 @@ describe('question.separate-note-paragraph', () => {
   });
 });
 
-describe('question.note-to-moderator-format', () => {
+describe('question.note-formatting', () => {
   it('flags "Note to reader:" as nonstandard', () => {
     const t = makeQuestion(
       'tossup',
@@ -364,11 +364,10 @@ describe('question.note-to-moderator-format', () => {
       { numberParagraphIndex: 1 }
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(true);
-    const d = findDiag(diags, 'question.note-to-moderator-format');
-    expect(d?.message).toContain('Note to moderator:');
-    expect(d?.message).toContain('moderator');
+    const diags = lint(packet).filter((d) => d.rule === 'question.note-formatting');
+    expect(diags.length).toBeGreaterThanOrEqual(1);
+    const moderatorDiag = diags.find((d) => d.message.includes('Use "Note to moderator:"'));
+    expect(moderatorDiag).toBeDefined();
   });
 
   it('flags "Moderator note:" as nonstandard', () => {
@@ -380,11 +379,13 @@ describe('question.note-to-moderator-format', () => {
       { numberParagraphIndex: 1 }
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(true);
+    const diags = lint(packet).filter((d) => d.rule === 'question.note-formatting');
+    expect(diags.length).toBeGreaterThanOrEqual(1);
+    const moderatorDiag = diags.find((d) => d.message.includes('Use "Note to moderator:"'));
+    expect(moderatorDiag).toBeDefined();
   });
 
-  it('passes "Note to moderator:" (correct format)', () => {
+  it('no moderator-format issue for "Note to moderator:" (correct format)', () => {
     const t = makeQuestion(
       'tossup',
       1,
@@ -393,8 +394,10 @@ describe('question.note-to-moderator-format', () => {
       { numberParagraphIndex: 1 }
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
-    const diags = lint(packet);
-    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(false);
+    const diags = lint(packet).filter((d) => d.rule === 'question.note-formatting');
+    // Should not flag the moderator format (correct), but may still flag italics
+    const moderatorDiag = diags.find((d) => d.message.includes('Use "Note to moderator:"'));
+    expect(moderatorDiag).toBeUndefined();
   });
 
   it('passes normal question without notes', () => {
@@ -407,7 +410,7 @@ describe('question.note-to-moderator-format', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.note-to-moderator-format')).toBe(false);
+    expect(hasDiag(diags, 'question.note-formatting')).toBe(false);
   });
 });
 
@@ -1147,7 +1150,7 @@ describe('question.multiline-answer', () => {
   });
 });
 
-describe('question.pre-question-note-italics', () => {
+describe('question.note-formatting', () => {
   it('flags non-italic "Description acceptable."', () => {
     const t = makeQuestion(
       'tossup',
@@ -1158,7 +1161,7 @@ describe('question.pre-question-note-italics', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(true);
+    expect(hasDiag(diags, 'question.note-formatting')).toBe(true);
   });
 
   it('passes italic "Description acceptable."', () => {
@@ -1194,7 +1197,7 @@ describe('question.pre-question-note-italics', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(false);
+    expect(hasDiag(diags, 'question.note-formatting')).toBe(false);
   });
 
   it('flags non-italic "Two answers required."', () => {
@@ -1207,7 +1210,7 @@ describe('question.pre-question-note-italics', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'question.pre-question-note-italics')).toBe(true);
+    expect(hasDiag(diags, 'question.note-formatting')).toBe(true);
   });
 });
 

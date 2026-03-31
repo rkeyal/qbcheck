@@ -385,6 +385,13 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+function checkNoteFormatting(packet: Packet): LintDiagnostic[] {
+  return [
+    ...checkPreQuestionNoteItalics(packet),
+    ...checkNoteToModeratorFormat(packet),
+  ];
+}
+
 function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -425,7 +432,7 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
 
       if (!isItalic) {
         diags.push({
-          rule: 'question.pre-question-note-italics',
+          rule: 'question.note-formatting',
           severity: 'info',
           paragraph: q.numberParagraph.index,
           message: `Pre-question notes like "${noteText}" should be italicized.`,
@@ -643,7 +650,7 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
           : `Use "Note to moderator:" instead of "${m[1]}".`;
 
         diags.push({
-          rule: 'question.note-to-moderator-format',
+          rule: 'question.note-formatting',
           severity: 'info',
           paragraph: para.index,
           message,
@@ -872,10 +879,9 @@ export const questionRules: LintRule[] = [
   checkBonusLeadinPunctuation,
   checkBonusDifficultySpread,
   checkFtpMidSentence,
-  checkPreQuestionNoteItalics,
+  checkNoteFormatting,
   checkBonusPartOrder,
   checkPostQuestionNote,
   checkSeparateNoteParagraph,
-  checkNoteToModeratorFormat,
   checkMissingPronoun,
 ];

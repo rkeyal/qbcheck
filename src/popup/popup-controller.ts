@@ -33,7 +33,6 @@ export interface PopupElements {
   countInfo: HTMLElement;
   countIgnored: HTMLElement;
   statsBar: HTMLElement;
-  filterCategory: HTMLSelectElement;
   diagnosticsList: HTMLElement;
   noIssues: HTMLElement;
   packetNav: HTMLElement;
@@ -327,21 +326,8 @@ export class PopupController {
   }
 
   syncAutofixMaster(): void {
-    const allIds = getAutoFixableRuleIds();
-    const disabledCount = allIds.filter((id) =>
-      this.settings.autoFixDisabled.includes(id)
-    ).length;
-
-    if (disabledCount === 0) {
-      this.el.autofixMasterToggle.checked = true;
-      this.el.autofixMasterToggle.indeterminate = false;
-    } else if (disabledCount === allIds.length) {
-      this.el.autofixMasterToggle.checked = false;
-      this.el.autofixMasterToggle.indeterminate = false;
-    } else {
-      this.el.autofixMasterToggle.checked = false;
-      this.el.autofixMasterToggle.indeterminate = true;
-    }
+    this.el.autofixMasterToggle.checked =
+      this.settings.autoFixDisabled.length === 0;
   }
 
   // --- UI transitions ---
@@ -761,7 +747,6 @@ export class PopupController {
 
   updateCounts(): void {
     const diags = this.getCurrentDiagnostics();
-    const catFilter = this.el.filterCategory.value;
     const ignoredFps = new Set(this.settings.ignoredDiagnostics);
 
     let errors = 0,
@@ -769,7 +754,6 @@ export class PopupController {
       infos = 0,
       ignoredCount = 0;
     for (const d of diags) {
-      if (catFilter !== 'all' && !d.rule.startsWith(catFilter + '.')) continue;
       if (ignoredFps.has(diagnosticFingerprint(d))) {
         ignoredCount++;
       } else {
@@ -864,23 +848,13 @@ export class PopupController {
           .map((r) => {
             const checked = !this.settings.disabledRules.includes(r.id);
             const shortId = r.id.split('.')[1];
-            const autoFixChecked =
-              r.autoFixable &&
-              !this.settings.autoFixDisabled.includes(r.id);
-            const autoFixHtml = r.autoFixable
-              ? `<label class="rule-autofix${!checked ? ' disabled' : ''}" title="Auto-fix this rule when pasting">
-                   <input type="checkbox" data-autofix-id="${r.id}" ${autoFixChecked ? 'checked' : ''} ${!checked ? 'disabled' : ''}>
-                   Auto
-                 </label>`
-              : '';
             return `
             <div class="rule-item">
               <input type="checkbox" data-rule-id="${r.id}" ${checked ? 'checked' : ''}>
               <div class="rule-item-text">
-                <div class="rule-item-id">${shortId}</div>
+                <div class="rule-item-id">${shortId}${r.autoFixable ? ' <span class="rule-autofix-badge">auto-fix</span>' : ''}</div>
                 <div class="rule-item-desc">${escapeHtml(r.description)}</div>
               </div>
-              ${autoFixHtml}
             </div>`;
           })
           .join('')}
@@ -911,46 +885,15 @@ export class PopupController {
           this.filterOutRule(ruleId);
         }
         await this.saveSettings(this.settings);
-
-        // Update auto-fix checkbox state
-        const ruleItem = input.closest('.rule-item');
-        const autoFixLabel = ruleItem?.querySelector('.rule-autofix');
-        if (autoFixLabel) {
-          const autoFixInput = autoFixLabel.querySelector(
-            'input'
-          ) as HTMLInputElement;
-          autoFixLabel.classList.toggle('disabled', !input.checked);
-          autoFixInput.disabled = !input.checked;
-        }
-      });
-    }
-
-    // Bind auto-fix toggle handlers
-    for (const cb of Array.from(
-      this.el.settingsRules.querySelectorAll('input[data-autofix-id]')
-    )) {
-      cb.addEventListener('change', async (e) => {
-        const input = e.target as HTMLInputElement;
-        const ruleId = input.dataset.autofixId!;
-        if (input.checked) {
-          this.settings.autoFixDisabled =
-            this.settings.autoFixDisabled.filter((r) => r !== ruleId);
-        } else {
-          if (!this.settings.autoFixDisabled.includes(ruleId)) {
-            this.settings.autoFixDisabled.push(ruleId);
-          }
-        }
-        await this.saveSettings(this.settings);
-        this.syncAutofixMaster();
       });
     }
 
     // Sync master auto-fix checkbox state
-    this.syncAutofixMaster();
+    this.el.autofixMasterToggle.checked =
+      this.settings.autoFixDisabled.length === 0;
   }
 
   renderDiagnostics(): void {
-    const catFilter = this.el.filterCategory.value;
     const allDiags = this.getCurrentDiagnostics();
 
     // Close any open menus
@@ -962,7 +905,6 @@ export class PopupController {
 
     for (const d of allDiags) {
       if (!this.activeSeverities.has(d.severity)) continue;
-      if (catFilter !== 'all' && !d.rule.startsWith(catFilter + '.')) continue;
 
       if (
         this.settings.ignoredDiagnostics.includes(diagnosticFingerprint(d))
@@ -984,9 +926,7 @@ export class PopupController {
       this.el.noIssues.hidden = hasParseError;
       if (!hasParseError) {
         this.el.noIssues.querySelector('p')!.textContent =
-          catFilter !== 'all' ||
-          this.activeSeverities.size < 3 ||
-          allDiags.length > 0
+          this.activeSeverities.size < 3 || allDiags.length > 0
             ? 'No issues match current filters.'
             : 'No issues found.';
       }
@@ -1173,35 +1113,16 @@ export class PopupController {
 
   async toggleAllAutoFixes(): Promise<void> {
     const allIds = getAutoFixableRuleIds();
-    const allEnabled = allIds.every(
-      (id) => !this.settings.autoFixDisabled.includes(id)
-    );
 
-    if (allEnabled) {
-      for (const id of allIds) {
-        if (!this.settings.autoFixDisabled.includes(id)) {
-          this.settings.autoFixDisabled.push(id);
-        }
-      }
+    if (this.el.autofixMasterToggle.checked) {
+      // Turning on: clear all disabled
+      this.settings.autoFixDisabled = [];
     } else {
-      this.settings.autoFixDisabled = this.settings.autoFixDisabled.filter(
-        (id) => !allIds.includes(id)
-      );
+      // Turning off: disable all
+      this.settings.autoFixDisabled = [...allIds];
     }
 
     await this.saveSettings(this.settings);
-
-    // Update all per-rule Auto checkboxes in the DOM
-    for (const cb of Array.from(
-      this.el.settingsRules.querySelectorAll(
-        'input[data-autofix-id]'
-      ) as NodeListOf<HTMLInputElement>
-    )) {
-      const ruleId = cb.dataset.autofixId!;
-      cb.checked = !this.settings.autoFixDisabled.includes(ruleId);
-    }
-
-    this.syncAutofixMaster();
   }
 
   // --- Navigation ---
