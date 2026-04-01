@@ -27,6 +27,7 @@ export interface PopupElements {
   folderInput: HTMLInputElement;
   dropZone: HTMLElement;
   fileNameEl: HTMLElement;
+  exportBtn: HTMLElement;
   clearBtn: HTMLElement;
   countError: HTMLElement;
   countWarning: HTMLElement;
@@ -1021,6 +1022,60 @@ export class PopupController {
         this.renderDiagnostics();
       });
     }
+  }
+
+  // --- Export ---
+
+  exportReport(): void {
+    if (this.packetResults.length === 0) return;
+
+    const lines: string[] = [];
+
+    for (const result of this.packetResults) {
+      lines.push(`## ${result.filename}`);
+      lines.push('');
+
+      if (result.parseError) {
+        lines.push(`**Parse error:** ${result.parseError}`);
+        lines.push('');
+        continue;
+      }
+
+      if (result.diagnostics.length === 0) {
+        lines.push('No issues found.');
+        lines.push('');
+        continue;
+      }
+
+      // Group diagnostics by question label
+      const groups = new Map<string, LintDiagnostic[]>();
+      for (const d of result.diagnostics) {
+        const key = d.questionLabel || `Paragraph ${d.paragraph + 1}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(d);
+      }
+
+      for (const [label, diags] of groups) {
+        const firstWithAnswer = diags.find((d) => d.answerPreview);
+        const header = firstWithAnswer
+          ? `### ${label} — ${firstWithAnswer.answerPreview}`
+          : `### ${label}`;
+        lines.push(header);
+        for (const d of diags) {
+          lines.push(`- [${d.severity}] ${d.rule}: ${d.message}`);
+        }
+        lines.push('');
+      }
+    }
+
+    const text = lines.join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'qbcheck-report.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // --- Clipboard copy ---

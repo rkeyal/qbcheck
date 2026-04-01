@@ -15,9 +15,39 @@ export async function parseDocx(buffer: ArrayBuffer): Promise<Paragraph[]> {
   return parseParagraphs(xml);
 }
 
+/**
+ * Accept all tracked changes (revisions) in the Word XML.
+ * - <w:del>: deleted text — remove entirely (accepting the deletion)
+ * - <w:ins>: inserted text — unwrap tags, keep content (accepting the insertion)
+ * - <w:moveFrom>: moved text source — remove entirely
+ * - <w:moveTo>: moved text destination — unwrap tags, keep content
+ * - <w:rPrChange>: formatting changes — remove (current formatting is already accepted)
+ * - <w:pPrChange>: paragraph property changes — remove
+ * - <w:sectPrChange>: section property changes — remove
+ */
+export function acceptRevisions(xml: string): string {
+  // Remove deleted text and move sources (accept deletion = discard old text)
+  let result = xml.replace(/<w:del\b[^>]*>[\s\S]*?<\/w:del>/g, '');
+  result = result.replace(/<w:moveFrom\b[^>]*>[\s\S]*?<\/w:moveFrom>/g, '');
+
+  // Unwrap insertions and move destinations (accept = keep content, remove wrapper)
+  result = result.replace(/<w:ins\b[^>]*>([\s\S]*?)<\/w:ins>/g, '$1');
+  result = result.replace(/<w:moveTo\b[^>]*>([\s\S]*?)<\/w:moveTo>/g, '$1');
+
+  // Remove property-change metadata (current properties are already correct)
+  result = result.replace(/<w:rPrChange\b[^>]*>[\s\S]*?<\/w:rPrChange>/g, '');
+  result = result.replace(/<w:pPrChange\b[^>]*>[\s\S]*?<\/w:pPrChange>/g, '');
+  result = result.replace(/<w:sectPrChange\b[^>]*>[\s\S]*?<\/w:sectPrChange>/g, '');
+
+  return result;
+}
+
 function parseParagraphs(xml: string): Paragraph[] {
+  // Accept all tracked changes before parsing
+  const cleanXml = acceptRevisions(xml);
+
   // Split on closing </w:p> tags to get each paragraph's XML
-  const paraChunks = xml.split(/<\/w:p>/);
+  const paraChunks = cleanXml.split(/<\/w:p>/);
   const paragraphs: Paragraph[] = [];
 
   for (let i = 0; i < paraChunks.length; i++) {

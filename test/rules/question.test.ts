@@ -484,6 +484,19 @@ describe('question.missing-pronoun', () => {
     expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
   });
 
+  it('accepts "give" in FTP sentence', () => {
+    const t = makeQuestion(
+      'tossup',
+      1,
+      'This composer wrote nine symphonies. For 10 points, give the last name of this German composer.',
+      'ANSWER: Ludwig van Beethoven',
+      { numberParagraphIndex: 1 }
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'question.missing-pronoun')).toBe(false);
+  });
+
   it('strips title text so "this" inside a title does not count', () => {
     const italicRun = {
       text: 'This Side of Paradise',

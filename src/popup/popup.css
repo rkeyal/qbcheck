@@ -282,6 +282,7 @@ h1 {
   white-space: nowrap;
 }
 
+#export-btn,
 #clear-btn {
   background: none;
   border: none;
@@ -291,6 +292,7 @@ h1 {
   padding: 2px 4px;
 }
 
+#export-btn:hover,
 #clear-btn:hover {
   color: #333;
 }
@@ -1213,10 +1215,12 @@ body.dark #file-info {
   background: #2a2a3e;
 }
 
+body.dark #export-btn,
 body.dark #clear-btn {
   color: #aaa;
 }
 
+body.dark #export-btn:hover,
 body.dark #clear-btn:hover {
   color: #e0e0e0;
 }

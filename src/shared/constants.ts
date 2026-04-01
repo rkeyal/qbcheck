@@ -49,6 +49,7 @@ export const VALID_CATEGORIES = new Set([
   'Dance',
   'Auditory Fine Arts',
   'Visual Fine Arts',
+  'Visual Arts',
   // RMPSS
   'Religion',
   'Mythology',

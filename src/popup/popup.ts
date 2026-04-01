@@ -10,6 +10,7 @@ const elements: PopupElements = {
   folderInput: document.getElementById('folder-input') as HTMLInputElement,
   dropZone: document.getElementById('drop-zone')!,
   fileNameEl: document.getElementById('file-name')!,
+  exportBtn: document.getElementById('export-btn')!,
   clearBtn: document.getElementById('clear-btn')!,
   countError: document.getElementById('count-error')!,
   countWarning: document.getElementById('count-warning')!,
@@ -167,6 +168,9 @@ elements.darkModeToggle.addEventListener('click', () =>
 elements.comfortableToggle.addEventListener('click', () =>
   controller.toggleComfortableMode()
 );
+
+// Export button
+elements.exportBtn.addEventListener('click', () => controller.exportReport());
 
 // Clear button
 elements.clearBtn.addEventListener('click', () => controller.clear());

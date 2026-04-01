@@ -688,7 +688,7 @@ const SINGLE_INITIAL =
   /(?:[A-Z][a-z]+\s+|[A-Z]\.\s*|(?:^|[\s,(]))[A-Z]\.\s+$|(?:^|\s)v\.\s+$/;
 
 const CLUE_PRONOUN = /\b(?:this|these)\b/i;
-const FTP_PRONOUN = /\b(?:this|what|which|these)\b/i;
+const FTP_PRONOUN = /\b(?:this|what|which|these|give)\b/i;
 
 /**
  * Check whether a character range in a paragraph is entirely italic,
