@@ -1063,6 +1063,22 @@ export class PopupController {
         lines.push(header);
         for (const d of diags) {
           lines.push(`- [${d.severity}] ${d.rule}: ${d.message}`);
+          if (d.sourceText != null && d.offset != null && d.length != null) {
+            const CONTEXT = 40;
+            const start = Math.max(0, d.offset - CONTEXT);
+            const end = Math.min(
+              d.sourceText.length,
+              d.offset + d.length + CONTEXT
+            );
+            const before = d.sourceText.substring(start, d.offset);
+            const match = d.sourceText.substring(d.offset, d.offset + d.length);
+            const after = d.sourceText.substring(d.offset + d.length, end);
+            const prefix = start > 0 ? '...' : '';
+            const suffix = end < d.sourceText.length ? '...' : '';
+            lines.push(
+              `  ${prefix}${before}>>>${match}<<<${after}${suffix}`
+            );
+          }
         }
         lines.push('');
       }
