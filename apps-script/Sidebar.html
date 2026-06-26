@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          sans-serif;
+        font-size: 13px;
+        color: #1a1a1a;
+        padding: 12px;
+        line-height: 1.4;
+      }
+      h1 {
+        font-size: 16px;
+        margin-bottom: 4px;
+      }
+      .subtitle {
+        color: #666;
+        font-size: 11px;
+        margin-bottom: 12px;
+      }
+
+      /* Controls */
+      .controls {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .btn {
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .btn:hover {
+        background: #f5f5f5;
+      }
+      .btn-primary {
+        background: #1a73e8;
+        color: #fff;
+        border-color: #1a73e8;
+      }
+      .btn-primary:hover {
+        background: #1557b0;
+      }
+      .btn-primary:disabled {
+        background: #93c5fd;
+        border-color: #93c5fd;
+        cursor: not-allowed;
+      }
+
+      /* Stats bar */
+      .stats-bar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+      .stat {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        opacity: 1;
+        transition: opacity 0.15s;
+      }
+      .stat.inactive {
+        opacity: 0.35;
+      }
+      .stat-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .stat-warning {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .stat-info {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+
+      /* Diagnostics */
+      .diag-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .diag-item {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px 10px;
+        position: relative;
+      }
+      .diag-item[data-severity='error'] {
+        border-left: 3px solid #dc2626;
+      }
+      .diag-item[data-severity='warning'] {
+        border-left: 3px solid #d97706;
+      }
+      .diag-item[data-severity='info'] {
+        border-left: 3px solid #2563eb;
+      }
+      .diag-item.hidden {
+        display: none;
+      }
+      .diag-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+      .diag-label {
+        font-weight: 700;
+        font-size: 11px;
+        color: #555;
+      }
+      .diag-rule {
+        font-size: 10px;
+        color: #888;
+        font-family: monospace;
+      }
+      .diag-message {
+        margin-bottom: 4px;
+      }
+      .diag-context {
+        font-family: monospace;
+        font-size: 11px;
+        background: #f9fafb;
+        padding: 4px 6px;
+        border-radius: 3px;
+        overflow-x: auto;
+        white-space: pre;
+        margin-bottom: 6px;
+      }
+      .diag-context .highlight {
+        background: #fde68a;
+        font-weight: 700;
+      }
+      .diag-suggestion {
+        font-size: 11px;
+        color: #065f46;
+        background: #ecfdf5;
+        padding: 4px 6px;
+        border-radius: 3px;
+        margin-bottom: 4px;
+      }
+      .diag-check {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+      }
+
+      /* States */
+      .loading,
+      .empty,
+      .error-msg {
+        text-align: center;
+        padding: 24px 12px;
+        color: #666;
+      }
+      .error-msg {
+        color: #dc2626;
+      }
+
+      /* Settings */
+      .settings-toggle {
+        font-size: 11px;
+        color: #1a73e8;
+        cursor: pointer;
+        margin-bottom: 8px;
+        display: inline-block;
+      }
+      .settings-panel {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+      }
+      .settings-panel.open {
+        display: block;
+      }
+      .rule-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 0;
+        font-size: 11px;
+      }
+      .rule-toggle input {
+        margin: 0;
+      }
+
+      /* Comment action bar */
+      .action-bar {
+        position: sticky;
+        bottom: 0;
+        background: #fff;
+        border-top: 1px solid #e5e7eb;
+        padding: 8px 0;
+        margin-top: 12px;
+        display: none;
+      }
+      .action-bar.visible {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .selected-count {
+        font-size: 11px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>qbcheck</h1>
+    <p class="subtitle">Quizbowl Packet Style Checker</p>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="lint-btn" onclick="runLint()">
+        Lint Document
+      </button>
+      <button class="btn" id="settings-btn" onclick="toggleSettings()">
+        Settings
+      </button>
+    </div>
+
+    <div id="settings-panel" class="settings-panel"></div>
+
+    <div id="loading" class="loading" style="display: none">Linting...</div>
+    <div id="error" class="error-msg" style="display: none"></div>
+    <div id="empty" class="empty" style="display: none">
+      No issues found. The packet looks good!
+    </div>
+
+    <div id="stats-bar" class="stats-bar" style="display: none"></div>
+    <div id="diag-list" class="diag-list"></div>
+
+    <div id="action-bar" class="action-bar">
+      <span class="selected-count" id="selected-count">0 selected</span>
+      <button class="btn btn-primary" id="comment-btn" onclick="insertComments()">
+        Insert Comments
+      </button>
+    </div>
+
+    <script>
+      var diagnostics = [];
+      var rulesMeta = [];
+      var disabledRules = [];
+      var visibleSeverities = { error: true, warning: true, info: true };
+
+      function runLint() {
+        var loadingEl = document.getElementById('loading');
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = 'Linting...';
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('empty').style.display = 'none';
+        document.getElementById('stats-bar').style.display = 'none';
+        document.getElementById('diag-list').innerHTML = '';
+        document.getElementById('action-bar').className = 'action-bar';
+
+        google.script.run
+          .withSuccessHandler(onLintSuccess)
+          .withFailureHandler(onLintError)
+          .runLint();
+      }
+
+      function onLintSuccess(result) {
+        document.getElementById('loading').style.display = 'none';
+        diagnostics = result.diagnostics;
+        rulesMeta = result.rulesMeta;
+
+        if (diagnostics.length === 0) {
+          document.getElementById('empty').style.display = 'block';
+          return;
+        }
+
+        renderStats();
+        renderDiagnostics();
+        updateActionBar();
+      }
+
+      function onLintError(err) {
+        document.getElementById('loading').style.display = 'none';
+        var el = document.getElementById('error');
+        el.textContent = 'Error: ' + (err.message || err);
+        el.style.display = 'block';
+      }
+
+      function renderStats() {
+        var counts = { error: 0, warning: 0, info: 0 };
+        diagnostics.forEach(function (d) {
+          counts[d.severity]++;
+        });
+
+        var bar = document.getElementById('stats-bar');
+        bar.style.display = 'flex';
+        bar.innerHTML =
+          '<button class="stat stat-error' + (visibleSeverities.error ? '' : ' inactive') + '" onclick="toggleSeverity(\'error\')">' +
+            counts.error + ' errors</button>' +
+          '<button class="stat stat-warning' + (visibleSeverities.warning ? '' : ' inactive') + '" onclick="toggleSeverity(\'warning\')">' +
+            counts.warning + ' warnings</button>' +
+          '<button class="stat stat-info' + (visibleSeverities.info ? '' : ' inactive') + '" onclick="toggleSeverity(\'info\')">' +
+            counts.info + ' info</button>';
+      }
+
+      function toggleSeverity(sev) {
+        visibleSeverities[sev] = !visibleSeverities[sev];
+        renderStats();
+        var items = document.querySelectorAll('.diag-item');
+        items.forEach(function (item) {
+          var s = item.getAttribute('data-severity');
+          item.className = 'diag-item' + (visibleSeverities[s] ? '' : ' hidden');
+        });
+      }
+
+      function renderDiagnostics() {
+        var list = document.getElementById('diag-list');
+        var html = '';
+
+        diagnostics.forEach(function (d, i) {
+          var contextHtml = '';
+          if (d.sourceText && d.offset != null && d.length != null) {
+            var CONTEXT = 40;
+            var start = Math.max(0, d.offset - CONTEXT);
+            var end = Math.min(d.sourceText.length, d.offset + d.length + CONTEXT);
+            var before = escapeHtml(d.sourceText.substring(start, d.offset));
+            var match = escapeHtml(d.sourceText.substring(d.offset, d.offset + d.length));
+            var after = escapeHtml(d.sourceText.substring(d.offset + d.length, end));
+            var prefix = start > 0 ? '...' : '';
+            var suffix = end < d.sourceText.length ? '...' : '';
+            contextHtml = '<div class="diag-context">' + prefix + before +
+              '<span class="highlight">' + match + '</span>' + after + suffix + '</div>';
+          }
+
+          var suggestionHtml = '';
+          if (d.suggestion) {
+            suggestionHtml = '<div class="diag-suggestion">Suggestion: ' + escapeHtml(d.suggestion) + '</div>';
+          } else if (d.fix) {
+            suggestionHtml = '<div class="diag-suggestion">Fix: replace "' +
+              escapeHtml(d.fix.oldText) + '" with "' + escapeHtml(d.fix.newText) + '"</div>';
+          }
+
+          var label = d.questionLabel || '';
+
+          html += '<div class="diag-item' + (visibleSeverities[d.severity] ? '' : ' hidden') +
+            '" data-severity="' + d.severity + '" data-index="' + i + '">' +
+            '<input type="checkbox" class="diag-check" onchange="updateActionBar()" />' +
+            '<div class="diag-header">' +
+              (label ? '<span class="diag-label">' + label + '</span>' : '') +
+              '<span class="diag-rule">' + d.rule + '</span>' +
+            '</div>' +
+            '<div class="diag-message">' + escapeHtml(d.message) + '</div>' +
+            contextHtml +
+            suggestionHtml +
+          '</div>';
+        });
+
+        list.innerHTML = html;
+      }
+
+      function updateActionBar() {
+        var checked = document.querySelectorAll('.diag-check:checked');
+        var bar = document.getElementById('action-bar');
+        var count = document.getElementById('selected-count');
+        if (checked.length > 0) {
+          bar.className = 'action-bar visible';
+          count.textContent = checked.length + ' selected';
+        } else {
+          bar.className = 'action-bar';
+        }
+      }
+
+      function insertComments() {
+        var checked = document.querySelectorAll('.diag-check:checked');
+        var selected = [];
+        checked.forEach(function (cb) {
+          var item = cb.closest('.diag-item');
+          var idx = parseInt(item.getAttribute('data-index'), 10);
+          selected.push(diagnostics[idx]);
+        });
+
+        if (selected.length === 0) return;
+
+        document.getElementById('comment-btn').disabled = true;
+        document.getElementById('comment-btn').textContent = 'Inserting...';
+
+        google.script.run
+          .withSuccessHandler(function (count) {
+            document.getElementById('comment-btn').disabled = false;
+            document.getElementById('comment-btn').textContent = 'Insert Comments';
+            // Uncheck inserted items
+            checked.forEach(function (cb) { cb.checked = false; });
+            updateActionBar();
+            alert(count + ' comment(s) inserted.');
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById('comment-btn').disabled = false;
+            document.getElementById('comment-btn').textContent = 'Insert Comments';
+            alert('Error inserting comments: ' + (err.message || err));
+          })
+          .insertComments(selected);
+      }
+
+      function toggleSettings() {
+        var panel = document.getElementById('settings-panel');
+        if (panel.className.indexOf('open') >= 0) {
+          panel.className = 'settings-panel';
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function (saved) {
+            disabledRules = saved || [];
+            renderSettings();
+            panel.className = 'settings-panel open';
+          })
+          .getDisabledRules();
+      }
+
+      function renderSettings() {
+        var panel = document.getElementById('settings-panel');
+        var html = '';
+        rulesMeta.forEach(function (r) {
+          var checked = disabledRules.indexOf(r.id) === -1;
+          html += '<label class="rule-toggle">' +
+            '<input type="checkbox" ' + (checked ? 'checked' : '') +
+            ' onchange="onRuleToggle(\'' + r.id + '\', this.checked)" />' +
+            '<span>' + r.id + '</span></label>';
+        });
+        panel.innerHTML = html;
+      }
+
+      function onRuleToggle(ruleId, enabled) {
+        if (enabled) {
+          disabledRules = disabledRules.filter(function (r) { return r !== ruleId; });
+        } else {
+          disabledRules.push(ruleId);
+        }
+        google.script.run.saveDisabledRules(disabledRules);
+      }
+
+      function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
