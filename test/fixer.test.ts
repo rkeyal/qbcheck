@@ -666,22 +666,18 @@ describe('paragraphsToHtml', () => {
     );
   });
 
-  it('renders superscript with vertical-align and font-size', () => {
+  it('renders superscript with <sup> tag', () => {
     const run: Run = { ...plain('2'), superscript: true };
     const paras = [makePara('2', 0, [run])];
     const html = paragraphsToHtml(paras);
-    expect(html).toBe(
-      '<span style="vertical-align:super;font-size:smaller">2</span>'
-    );
+    expect(html).toBe('<sup>2</sup>');
   });
 
-  it('renders subscript with vertical-align and font-size', () => {
+  it('renders subscript with <sub> tag', () => {
     const run: Run = { ...plain('2'), subscript: true };
     const paras = [makePara('2', 0, [run])];
     const html = paragraphsToHtml(paras);
-    expect(html).toBe(
-      '<span style="vertical-align:sub;font-size:smaller">2</span>'
-    );
+    expect(html).toBe('<sub>2</sub>');
   });
 
   it('renders mixed runs preserving formatting', () => {
@@ -697,7 +693,7 @@ describe('paragraphsToHtml', () => {
   it('wraps all but last paragraph in <p> tags', () => {
     const paras = [makePara('first', 0), makePara('second', 1)];
     const html = paragraphsToHtml(paras);
-    expect(html).toBe('<p style="margin:0">first</p>\nsecond');
+    expect(html).toBe('<p style="margin:0;page-break-inside:avoid;orphans:2;widows:2">first</p>\nsecond');
   });
 
   it('preserves empty paragraphs between content with \u00A0', () => {
@@ -708,7 +704,7 @@ describe('paragraphsToHtml', () => {
     ];
     const html = paragraphsToHtml(paras);
     expect(html).toBe(
-      '<p style="margin:0">first</p>\n<p style="margin:0">\u00A0</p>\nsecond'
+      '<p style="margin:0;page-break-inside:avoid;orphans:2;widows:2">first</p>\n<p style="margin:0;page-break-inside:avoid;orphans:2;widows:2">\u00A0</p>\nsecond'
     );
   });
 
