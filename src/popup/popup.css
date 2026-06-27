@@ -267,7 +267,7 @@ h1 {
 #file-info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 6px 10px;
   background: #f5f5f5;
   border-radius: 4px;
@@ -275,11 +275,20 @@ h1 {
 }
 
 #file-name {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-info-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 #export-btn,

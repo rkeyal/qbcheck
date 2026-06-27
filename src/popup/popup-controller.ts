@@ -398,6 +398,7 @@ export class PopupController {
                 <li>When you <strong>paste</strong> questions, some issues are auto-fixed. Click <strong>Copy</strong> to get the corrected text.</li>
                 <li>Click <strong>&#x2026;</strong> on any issue to ignore it or disable that rule.</li>
                 <li>Click an issue to expand it and see the surrounding text.</li>
+                <li>Click <strong>&#x2913;</strong> to export a plain-text report of all diagnostics.</li>
               </ul>
             </div>
           </div>
