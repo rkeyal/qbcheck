@@ -80,13 +80,17 @@ Toggle dark mode with the button in the top-right corner of the header. The pref
 | `?` | Show keyboard shortcut help |
 | `Esc` | Close settings or help |
 
+### Export report
+
+Click the ⇓ button in the file-info bar to download a plain-text report of all diagnostics. The report includes source context for each issue and a summary of rule counts. Useful for sharing results with editors or tracking issues outside the extension.
+
 ### Session persistence
 
 Results, scroll position, and current packet index persist across popup open/close cycles within a browser session, so you don't lose your place when switching tabs.
 
 ## What it checks
 
-qbcheck runs 66 rules across 7 categories.
+qbcheck runs 68 rules across 7 categories.
 
 ### Packet structure
 Validates that the packet is organized correctly for downstream parsing.
@@ -99,7 +103,7 @@ Validates that the packet is organized correctly for downstream parsing.
 | `numbering-sequence` | Question numbers must strictly increase (non-increasing numbers break YAPP) |
 | `expected-count` | Expects 20 tossups and 20 bonuses |
 | `no-bold-numbers` | Question numbers should not be bold |
-| `blank-paragraphs` | No groups of consecutive blank lines in question sections |
+| `blank-paragraphs` | No groups of consecutive blank lines in question sections *(disabled by default)* |
 
 ### Question text
 Checks the structure and markers within question text.
@@ -116,6 +120,8 @@ Checks the structure and markers within question text.
 | `missing-answer` | Every tossup and bonus part has an `ANSWER:` line |
 | `multiline-answer` | Answer lines are a single paragraph (multi-line answers break YAPP) |
 | `no-ftp-midsentence` | "For 10 points" appears in the final sentence, not mid-paragraph |
+| `missing-pronoun` | Clue sentence or FTP references the answer with a pronoun |
+| `note-formatting` | Pre-question and moderator note formatting |
 | `pre-question-note-italics` | Pre-question notes like "Description acceptable." should be italicized |
 | `post-question-note-sentence` | Post-question notes should be capitalized and end with a period |
 | `separate-note-paragraph` | Pre-question notes should be inline with question text, not separate paragraphs |
@@ -159,7 +165,7 @@ Enforces typography and text conventions.
 
 | Rule | Description |
 |------|-------------|
-| `smart-quotes` | Use curly quotes, not straight quotes |
+| `smart-quotes` | Use curly quotes, not straight quotes *(disabled by default)* |
 | `no-em-dash` | Use spaced en dashes for parenthetical breaks |
 | `spell-out-small-numbers` | Spell out numbers 2 through 10 |
 | `no-ampersand` | Write "and" instead of "&" |
@@ -170,7 +176,7 @@ Enforces typography and text conventions.
 | `bce-ce-system` | Use BCE/CE, not BC/AD |
 | `no-latin-abbrev` | Write out Latin abbreviations (e.g., i.e., etc.) |
 | `punctuation-inside-quotes` | Punctuation goes inside closing quotation marks |
-| `no-format-bleeding` | Bold/italic formatting should not include leading/trailing spaces |
+| `no-format-bleeding` | Bold/italic formatting should not include leading/trailing spaces *(disabled by default)* |
 | `no-format-bleeding-underline` | Underline formatting should not include leading/trailing spaces |
 
 ### Tags
@@ -190,8 +196,8 @@ Flags common style issues in question prose.
 | Rule | Description |
 |------|-------------|
 | `no-contractions` | Spell out contractions |
-| `no-weasel-words` | Avoid vague qualifiers (some, various, many) |
-| `word-replacements` | Preferred word choices (e.g., "on" instead of "upon") |
+| `no-weasel-words` | Avoid vague qualifiers (some, various, many) *(disabled by default)* |
+| `word-replacements` | Preferred word choices (e.g., "on" instead of "upon") *(disabled by default)* |
 | `absolute-time` | Use absolute dates, not "recently" or "currently" |
 | `answer-some-questions` | Use "answer the following" not "answer some questions" |
 | `would-go-on-to` | Use simple past tense instead of "would go on to" |
