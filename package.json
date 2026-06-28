@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint-packets": "npx tsx scripts/lint-packets.ts"
+    "lint-packets": "npx tsx scripts/lint-packets.ts",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "jszip": "^3.10.1"

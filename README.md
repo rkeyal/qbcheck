@@ -4,20 +4,28 @@ A Chrome extension that checks quizbowl question packets for style and formattin
 
 ## Installation
 
-qbcheck is distributed as an unpacked Chrome extension.
+### From a release (recommended)
 
-1. Download or clone this repository
+1. Download `qbcheck-v<version>.zip` from the [Releases](../../releases) page
+2. Extract the zip to a folder on your computer
+3. Open Chrome and go to `chrome://extensions`
+4. Enable **Developer mode** (toggle in the top-right corner)
+5. Click **Load unpacked** and select the extracted folder
+6. qbcheck will appear in your extensions toolbar
+
+To update, download the latest release, extract it to the same folder (overwriting the old files), and click the reload button on the extension card in `chrome://extensions`.
+
+### From source (for contributors)
+
+1. Clone this repository
 2. Install dependencies and build:
    ```
    npm install
    npm run build
    ```
-3. Open Chrome and go to `chrome://extensions`
-4. Enable **Developer mode** (toggle in the top-right corner)
-5. Click **Load unpacked** and select the `dist/` folder
-6. qbcheck will appear in your extensions toolbar
+3. Load the `dist/` folder as an unpacked extension (steps 3–6 above)
 
-To update, pull the latest changes, run `npm run build` again, and click the reload button on the extension card in `chrome://extensions`.
+To update, pull the latest changes, run `npm run build` again, and reload the extension.
 
 ## Usage
 
