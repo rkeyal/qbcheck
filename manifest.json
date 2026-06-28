@@ -3,7 +3,10 @@
   "name": "qbcheck",
   "version": "0.1.0",
   "description": "Lint quizbowl question packets for QMOS style violations",
-  "permissions": ["storage", "clipboardRead"],
+  "permissions": [
+    "storage",
+    "clipboardRead"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "qbcheck"
