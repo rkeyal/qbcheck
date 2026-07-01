@@ -3,25 +3,33 @@ function parseGoogleDoc() {
   const doc = DocumentApp.getActiveDocument();
   Logger.log("parseGoogleDoc: doc name = " + doc.getName());
   const body = doc.getBody();
+  Logger.log("parseGoogleDoc: body has " + body.getNumChildren() + " children");
+  return parseGoogleDocRange(body, 0, Infinity);
+}
+function parseGoogleDocRange(body, startPara, endPara) {
   const numChildren = body.getNumChildren();
-  Logger.log("parseGoogleDoc: body has " + numChildren + " children");
   const paragraphs = [];
+  let paraIndex = 0;
   for (let i = 0; i < numChildren; i++) {
     const child = body.getChild(i);
     if (child.getType() !== DocumentApp.ElementType.PARAGRAPH && child.getType() !== DocumentApp.ElementType.LIST_ITEM) {
       continue;
     }
-    const para = child.asParagraph();
-    const text = para.editAsText();
-    const rawText = text.getText();
-    const hasPageBreak = detectPageBreak(para);
-    const runs = extractRuns(text, rawText);
-    paragraphs.push({
-      index: paragraphs.length,
-      runs,
-      rawText,
-      hasPageBreak
-    });
+    if (paraIndex >= endPara) break;
+    if (paraIndex >= startPara) {
+      const para = child.asParagraph();
+      const text = para.editAsText();
+      const rawText = text.getText();
+      const hasPageBreak = detectPageBreak(para);
+      const runs = extractRuns(text, rawText);
+      paragraphs.push({
+        index: paragraphs.length,
+        runs,
+        rawText,
+        hasPageBreak
+      });
+    }
+    paraIndex++;
   }
   return paragraphs;
 }
@@ -3575,31 +3583,49 @@ const RULE_REGISTRY = [
 ];
 function insertCommentsForDiagnostics(diagnostics) {
   const doc = DocumentApp.getActiveDocument();
+  const docId = doc.getId();
   const body = doc.getBody();
   const numChildren = body.getNumChildren();
   const parIndexToElement = buildParagraphMap(body, numChildren);
   let inserted = 0;
+  const errors = [];
   for (const d of diagnostics) {
     const element = parIndexToElement.get(d.paragraph);
-    if (!element) continue;
-    const commentText = formatCommentBody(d);
-    const text = element.editAsText();
-    const anchor = findAnchorPosition(text, d);
-    try {
-      const rangeBuilder = doc.newRange();
-      if (anchor.offset >= 0 && anchor.length > 0) {
-        rangeBuilder.addElement(
-          text,
-          anchor.offset,
-          Math.min(anchor.offset + anchor.length - 1, text.getText().length - 1)
-        );
-      } else {
-        rangeBuilder.addElement(element);
-      }
-      insertDriveComment(doc.getId(), commentText, element, anchor);
-      inserted++;
-    } catch {
+    if (!element) {
+      errors.push(`Paragraph ${d.paragraph} not found`);
+      continue;
     }
+    const commentText = formatCommentBody(d);
+    const rawText = element.editAsText().getText();
+    const anchor = findAnchorPosition(d, rawText);
+    try {
+      const quotedContent = rawText.substring(
+        anchor.offset,
+        anchor.offset + Math.min(anchor.length, 200)
+      );
+      if (!quotedContent.trim()) {
+        errors.push(`Empty anchor text for ${d.rule} at paragraph ${d.paragraph}`);
+        continue;
+      }
+      Drive.Comments.create(
+        {
+          content: commentText,
+          quotedFileContent: {
+            value: quotedContent,
+            mimeType: "text/html"
+          }
+        },
+        docId,
+        { fields: "id" }
+      );
+      inserted++;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`Failed to insert comment for ${d.rule}: ${msg}`);
+    }
+  }
+  if (errors.length > 0) {
+    Logger.log("Comment insertion errors: " + errors.join("; "));
   }
   return inserted;
 }
@@ -3628,21 +3654,144 @@ Suggested fix: replace "${d.fix.oldText}" with "${d.fix.newText}"`;
   }
   return body;
 }
-function findAnchorPosition(text, d) {
+function findAnchorPosition(d, rawText) {
   if (d.offset != null && d.length != null && d.length > 0) {
     return { offset: d.offset, length: d.length };
   }
-  return { offset: 0, length: text.getText().length };
+  return { offset: 0, length: rawText.length };
 }
-function insertDriveComment(docId, commentText, _element, anchor) {
-  const quotedContent = _element.editAsText().getText().substring(anchor.offset, anchor.offset + Math.min(anchor.length, 100));
-  const resource = {
-    content: commentText,
-    quotedFileContent: {
-      value: quotedContent
+const NUMBERED_RE = /^\d+\.\s/;
+const ANSWER_RE = /^ANSWER:/i;
+const HEADER_RE = /^(Tossups?|Bonuses?)\s*$/i;
+const TAG_RE = /^<[^>]+,\s*[^>]+>\s*$/;
+function detectCurrentQuestion() {
+  const doc = DocumentApp.getActiveDocument();
+  const cursor = doc.getCursor();
+  if (!cursor) {
+    return null;
+  }
+  const cursorElement = cursor.getElement();
+  const body = doc.getBody();
+  const rawTexts = getRawTexts(body);
+  const cursorParaIndex = findCursorParagraphIndex(body, cursorElement);
+  if (cursorParaIndex === -1 || cursorParaIndex >= rawTexts.length) {
+    return null;
+  }
+  const cursorText = rawTexts[cursorParaIndex];
+  if (HEADER_RE.test(cursorText) || cursorText.trim() === "") {
+    return null;
+  }
+  let startIdx = cursorParaIndex;
+  let endIdx = cursorParaIndex;
+  for (let i = cursorParaIndex - 1; i >= 0; i--) {
+    const text = rawTexts[i];
+    if (HEADER_RE.test(text)) {
+      break;
     }
-  };
-  Drive.Comments.create(resource, docId, { fields: "id" });
+    if (TAG_RE.test(text)) {
+      break;
+    }
+    if (text.trim() === "") {
+      break;
+    }
+    if (NUMBERED_RE.test(text)) {
+      startIdx = i;
+      break;
+    }
+    startIdx = i;
+  }
+  for (let i = cursorParaIndex + 1; i < rawTexts.length; i++) {
+    const text = rawTexts[i];
+    if (HEADER_RE.test(text)) {
+      break;
+    }
+    if (NUMBERED_RE.test(text) && !isBonusPartContinuation(rawTexts, startIdx, i)) {
+      break;
+    }
+    if (text.trim() === "") {
+      break;
+    }
+    endIdx = i;
+    if (TAG_RE.test(text)) {
+      break;
+    }
+  }
+  if (startIdx === endIdx && rawTexts[startIdx].trim() === "") {
+    return null;
+  }
+  const paragraphs = parseGoogleDocRange(body, startIdx, endIdx + 1);
+  const label = inferLabel(rawTexts, startIdx);
+  return { paragraphs, label };
+}
+function getRawTexts(body) {
+  const texts = [];
+  const numChildren = body.getNumChildren();
+  for (let i = 0; i < numChildren; i++) {
+    const child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH || child.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      texts.push(child.asParagraph().editAsText().getText());
+    }
+  }
+  return texts;
+}
+function findCursorParagraphIndex(body, element) {
+  let el = element;
+  while (el && el.getType() !== DocumentApp.ElementType.PARAGRAPH && el.getType() !== DocumentApp.ElementType.LIST_ITEM) {
+    el = el.getParent();
+  }
+  if (!el) return -1;
+  const numChildren = body.getNumChildren();
+  let paraCount = 0;
+  for (let i = 0; i < numChildren; i++) {
+    const child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH || child.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (body.getChildIndex(el) === i) {
+        return paraCount;
+      }
+      paraCount++;
+    }
+  }
+  return -1;
+}
+function isBonusPartContinuation(texts, questionStart, candidateIdx) {
+  for (let i = questionStart; i < candidateIdx; i++) {
+    if (/\[10[emh]\]/i.test(texts[i]) || /for 10 points each/i.test(texts[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+function inferLabel(rawTexts, startIdx) {
+  const firstText = rawTexts[startIdx];
+  const numMatch = firstText.match(/^(\d+)\.\s/);
+  const number = numMatch ? numMatch[1] : null;
+  let type = null;
+  for (let i = startIdx - 1; i >= 0; i--) {
+    if (/^Tossups?\s*$/i.test(rawTexts[i])) {
+      type = "Tossup";
+      break;
+    }
+    if (/^Bonuses?\s*$/i.test(rawTexts[i])) {
+      type = "Bonus";
+      break;
+    }
+  }
+  if (!type) {
+    for (let i = startIdx; i < rawTexts.length; i++) {
+      if (/\[10[emh]\]/i.test(rawTexts[i]) || /for 10 points each/i.test(rawTexts[i])) {
+        type = "Bonus";
+        break;
+      }
+      if (ANSWER_RE.test(rawTexts[i])) {
+        type = "Tossup";
+        break;
+      }
+    }
+  }
+  if (type && number) return `${type} ${number}`;
+  if (type) return type;
+  if (number) return `Question ${number}`;
+  return null;
 }
 const CROSS_PACKET_RULES = /* @__PURE__ */ new Set(["tag.consistent-categories"]);
 function onOpen() {
@@ -3678,6 +3827,32 @@ function runLint() {
     (r) => !CROSS_PACKET_RULES.has(r.id)
   ).map((r) => ({ id: r.id, description: r.description }));
   return { diagnostics, rulesMeta };
+}
+function lintCurrentQuestion() {
+  Logger.log("lintCurrentQuestion: starting");
+  const detected = detectCurrentQuestion();
+  if (!detected) {
+    return { error: "Place your cursor inside a question to lint it." };
+  }
+  Logger.log(
+    "lintCurrentQuestion: detected " + detected.paragraphs.length + " paragraphs, label=" + detected.label
+  );
+  const packet = segmentPacket(detected.paragraphs);
+  const disabledRules = /* @__PURE__ */ new Set();
+  for (const rule of CROSS_PACKET_RULES) {
+    disabledRules.add(rule);
+  }
+  const savedDisabled = PropertiesService.getUserProperties().getProperty(
+    "disabledRules"
+  );
+  if (savedDisabled) {
+    for (const rule of JSON.parse(savedDisabled)) {
+      disabledRules.add(rule);
+    }
+  }
+  const diagnostics = lint(packet, disabledRules);
+  Logger.log("lintCurrentQuestion: found " + diagnostics.length + " diagnostics");
+  return { diagnostics, label: detected.label };
 }
 function insertComments(selected) {
   return insertCommentsForDiagnostics(selected);

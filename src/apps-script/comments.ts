@@ -4,40 +4,59 @@ export function insertCommentsForDiagnostics(
   diagnostics: LintDiagnostic[]
 ): number {
   const doc = DocumentApp.getActiveDocument();
+  const docId = doc.getId();
   const body = doc.getBody();
   const numChildren = body.getNumChildren();
 
   const parIndexToElement = buildParagraphMap(body, numChildren);
 
   let inserted = 0;
+  const errors: string[] = [];
+
   for (const d of diagnostics) {
     const element = parIndexToElement.get(d.paragraph);
-    if (!element) continue;
+    if (!element) {
+      errors.push(`Paragraph ${d.paragraph} not found`);
+      continue;
+    }
 
     const commentText = formatCommentBody(d);
-    const text = element.editAsText();
-    const anchor = findAnchorPosition(text, d);
+    const rawText = element.editAsText().getText();
+    const anchor = findAnchorPosition(d, rawText);
 
     try {
-      // Use the cursor position API to place a comment at the diagnostic location
-      const rangeBuilder = doc.newRange();
-      if (anchor.offset >= 0 && anchor.length > 0) {
-        rangeBuilder.addElement(
-          text,
-          anchor.offset,
-          Math.min(anchor.offset + anchor.length - 1, text.getText().length - 1)
-        );
-      } else {
-        rangeBuilder.addElement(element);
+      const quotedContent = rawText.substring(
+        anchor.offset,
+        anchor.offset + Math.min(anchor.length, 200)
+      );
+
+      if (!quotedContent.trim()) {
+        errors.push(`Empty anchor text for ${d.rule} at paragraph ${d.paragraph}`);
+        continue;
       }
 
-      // Note: DocumentApp doesn't have a direct comment API.
-      // We use the Drive Advanced Service to insert comments.
-      insertDriveComment(doc.getId(), commentText, element, anchor);
+      // Drive Advanced Service v3
+      // @ts-expect-error Drive is an Apps Script Advanced Service
+      Drive.Comments.create(
+        {
+          content: commentText,
+          quotedFileContent: {
+            value: quotedContent,
+            mimeType: 'text/html',
+          },
+        },
+        docId,
+        { fields: 'id' }
+      );
       inserted++;
-    } catch {
-      // If comment insertion fails for a single diagnostic, continue with the rest
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`Failed to insert comment for ${d.rule}: ${msg}`);
     }
+  }
+
+  if (errors.length > 0) {
+    Logger.log('Comment insertion errors: ' + errors.join('; '));
   }
 
   return inserted;
@@ -77,34 +96,12 @@ function formatCommentBody(d: LintDiagnostic): string {
 }
 
 function findAnchorPosition(
-  text: GoogleAppsScript.Document.Text,
-  d: LintDiagnostic
+  d: LintDiagnostic,
+  rawText: string
 ): { offset: number; length: number } {
   if (d.offset != null && d.length != null && d.length > 0) {
     return { offset: d.offset, length: d.length };
   }
-  // Default to the full paragraph
-  return { offset: 0, length: text.getText().length };
-}
-
-function insertDriveComment(
-  docId: string,
-  commentText: string,
-  _element: GoogleAppsScript.Document.Paragraph,
-  anchor: { offset: number; length: number }
-): void {
-  const quotedContent = _element
-    .editAsText()
-    .getText()
-    .substring(anchor.offset, anchor.offset + Math.min(anchor.length, 100));
-
-  const resource = {
-    content: commentText,
-    quotedFileContent: {
-      value: quotedContent,
-    },
-  };
-
-  // @ts-expect-error Drive is an Apps Script Advanced Service
-  Drive.Comments.create(resource, docId, { fields: 'id' });
+  // Default to the full paragraph text
+  return { offset: 0, length: rawText.length };
 }

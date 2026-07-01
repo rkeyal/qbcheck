@@ -4,6 +4,7 @@ import { lint } from '../core/engine.js';
 import { LintDiagnostic } from '../core/model.js';
 import { RULE_REGISTRY } from '../core/rule-registry.js';
 import { insertCommentsForDiagnostics } from './comments.js';
+import { detectCurrentQuestion } from './question-detect.js';
 
 const CROSS_PACKET_RULES = new Set(['tag.consistent-categories']);
 
@@ -56,6 +57,46 @@ export function runLint(): {
   ).map((r) => ({ id: r.id, description: r.description }));
 
   return { diagnostics, rulesMeta };
+}
+
+export function lintCurrentQuestion(): {
+  diagnostics: LintDiagnostic[];
+  label: string | null;
+} | { error: string } {
+  Logger.log('lintCurrentQuestion: starting');
+  const detected = detectCurrentQuestion();
+
+  if (!detected) {
+    return { error: 'Place your cursor inside a question to lint it.' };
+  }
+
+  Logger.log(
+    'lintCurrentQuestion: detected ' +
+      detected.paragraphs.length +
+      ' paragraphs, label=' +
+      detected.label
+  );
+
+  const packet = segmentPacket(detected.paragraphs);
+
+  const disabledRules = new Set<string>();
+  for (const rule of CROSS_PACKET_RULES) {
+    disabledRules.add(rule);
+  }
+
+  const savedDisabled = PropertiesService.getUserProperties().getProperty(
+    'disabledRules'
+  );
+  if (savedDisabled) {
+    for (const rule of JSON.parse(savedDisabled)) {
+      disabledRules.add(rule);
+    }
+  }
+
+  const diagnostics = lint(packet, disabledRules);
+  Logger.log('lintCurrentQuestion: found ' + diagnostics.length + ' diagnostics');
+
+  return { diagnostics, label: detected.label };
 }
 
 export function insertComments(selected: LintDiagnostic[]): number {

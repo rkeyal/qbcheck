@@ -5,9 +5,18 @@ export function parseGoogleDoc(): Paragraph[] {
   const doc = DocumentApp.getActiveDocument();
   Logger.log('parseGoogleDoc: doc name = ' + doc.getName());
   const body = doc.getBody();
+  Logger.log('parseGoogleDoc: body has ' + body.getNumChildren() + ' children');
+  return parseGoogleDocRange(body, 0, Infinity);
+}
+
+export function parseGoogleDocRange(
+  body: GoogleAppsScript.Document.Body,
+  startPara: number,
+  endPara: number
+): Paragraph[] {
   const numChildren = body.getNumChildren();
-  Logger.log('parseGoogleDoc: body has ' + numChildren + ' children');
   const paragraphs: Paragraph[] = [];
+  let paraIndex = 0;
 
   for (let i = 0; i < numChildren; i++) {
     const child = body.getChild(i);
@@ -18,19 +27,25 @@ export function parseGoogleDoc(): Paragraph[] {
       continue;
     }
 
-    const para = child.asParagraph();
-    const text = para.editAsText();
-    const rawText = text.getText();
+    if (paraIndex >= endPara) break;
 
-    const hasPageBreak = detectPageBreak(para);
-    const runs = extractRuns(text, rawText);
+    if (paraIndex >= startPara) {
+      const para = child.asParagraph();
+      const text = para.editAsText();
+      const rawText = text.getText();
 
-    paragraphs.push({
-      index: paragraphs.length,
-      runs,
-      rawText,
-      hasPageBreak,
-    });
+      const hasPageBreak = detectPageBreak(para);
+      const runs = extractRuns(text, rawText);
+
+      paragraphs.push({
+        index: paragraphs.length,
+        runs,
+        rawText,
+        hasPageBreak,
+      });
+    }
+
+    paraIndex++;
   }
 
   return paragraphs;

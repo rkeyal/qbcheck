@@ -204,6 +204,16 @@
         margin: 0;
       }
 
+      /* Mode label */
+      .mode-label {
+        font-size: 11px;
+        color: #555;
+        margin-bottom: 8px;
+        padding: 4px 8px;
+        background: #f0f4f8;
+        border-radius: 4px;
+      }
+
       /* Comment action bar */
       .action-bar {
         position: sticky;
@@ -230,13 +240,17 @@
     <p class="subtitle">Quizbowl Packet Style Checker</p>
 
     <div class="controls">
-      <button class="btn btn-primary" id="lint-btn" onclick="runLint()">
-        Lint Document
+      <button class="btn btn-primary" id="lint-question-btn" onclick="lintQuestion()">
+        Lint This Question
+      </button>
+      <button class="btn" id="lint-doc-btn" onclick="runLint()">
+        Lint Entire Packet
       </button>
       <button class="btn" id="settings-btn" onclick="toggleSettings()">
-        Settings
+        &#x2699;
       </button>
     </div>
+    <div id="mode-label" class="mode-label" style="display: none"></div>
 
     <div id="settings-panel" class="settings-panel"></div>
 
@@ -262,15 +276,63 @@
       var disabledRules = [];
       var visibleSeverities = { error: true, warning: true, info: true };
 
-      function runLint() {
-        var loadingEl = document.getElementById('loading');
-        loadingEl.style.display = 'block';
-        loadingEl.textContent = 'Linting...';
+      function clearResults() {
         document.getElementById('error').style.display = 'none';
         document.getElementById('empty').style.display = 'none';
         document.getElementById('stats-bar').style.display = 'none';
         document.getElementById('diag-list').innerHTML = '';
         document.getElementById('action-bar').className = 'action-bar';
+        document.getElementById('mode-label').style.display = 'none';
+      }
+
+      function showLoading(message) {
+        var loadingEl = document.getElementById('loading');
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = message || 'Linting...';
+      }
+
+      function lintQuestion() {
+        clearResults();
+        showLoading('Checking current question...');
+
+        google.script.run
+          .withSuccessHandler(onLintQuestionSuccess)
+          .withFailureHandler(onLintError)
+          .lintCurrentQuestion();
+      }
+
+      function onLintQuestionSuccess(result) {
+        document.getElementById('loading').style.display = 'none';
+
+        if (result.error) {
+          var el = document.getElementById('error');
+          el.textContent = result.error;
+          el.style.display = 'block';
+          return;
+        }
+
+        diagnostics = result.diagnostics;
+        var modeLabel = document.getElementById('mode-label');
+        modeLabel.textContent = 'Checking: ' + (result.label || 'Current question');
+        modeLabel.style.display = 'block';
+
+        if (diagnostics.length === 0) {
+          document.getElementById('empty').style.display = 'block';
+          return;
+        }
+
+        renderStats();
+        renderDiagnostics();
+        updateActionBar();
+      }
+
+      function runLint() {
+        clearResults();
+        showLoading('Linting entire packet...');
+
+        var modeLabel = document.getElementById('mode-label');
+        modeLabel.textContent = 'Checking: Full packet';
+        modeLabel.style.display = 'block';
 
         google.script.run
           .withSuccessHandler(onLintSuccess)
