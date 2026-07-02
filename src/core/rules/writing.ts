@@ -203,7 +203,7 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
 
       diags.push({
         rule: 'writing.absolute-time',
-        severity: 'warning',
+        severity: 'info',
         paragraph: para.index,
         message: `Use absolute dates instead of "${match[1]}".`,
         sourceText: para.rawText,

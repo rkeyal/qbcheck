@@ -794,7 +794,7 @@ function checkPromptPartialAnswers(packet: Packet): LintDiagnostic[] {
           const partialOffset = sub.contentStart + partialMatch.index!;
           diags.push({
             rule: 'answerline.prompt-partial-answers',
-            severity: 'info',
+            severity: 'warning',
             paragraph: para.index,
             message:
               'Avoid "prompt on partial answers". Spell out what exactly is promptable.',

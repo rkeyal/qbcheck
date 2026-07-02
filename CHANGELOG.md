@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Lower absolute-time from warning to info severity
+- Raise prompt-partial-answers from info to warning severity
+- Lower no-double-spaces to info severity (matching its registry default)
+
 ### Fixed
 
 - Relax the reject-quotes rule to accept multiple quoted alternatives, pronunciations, "or equivalents" qualifiers, and descriptive class rejects (e.g. `reject synonyms`, `reject answers mentioning "X"`) while still flagging a quoted answer glued to explanatory prose

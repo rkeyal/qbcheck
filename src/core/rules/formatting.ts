@@ -261,7 +261,7 @@ function checkDoubleSpaces(packet: Packet): LintDiagnostic[] {
     if (idx !== -1) {
       diags.push({
         rule: 'formatting.no-double-spaces',
-        severity: 'warning',
+        severity: 'info',
         paragraph: para.index,
         message: 'Do not use two spaces after a period, or anywhere else.',
         sourceText: text,

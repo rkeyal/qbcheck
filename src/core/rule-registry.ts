@@ -199,7 +199,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'answerline.prompt-partial-answers',
     category: 'answerline',
     description: "Avoid 'prompt on partial answers'",
-    defaultSeverity: 'info',
+    defaultSeverity: 'warning',
   },
   {
     id: 'answerline.post-notes',
@@ -413,7 +413,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'writing.absolute-time',
     category: 'writing',
     description: 'No absolute time references (currently)',
-    defaultSeverity: 'warning',
+    defaultSeverity: 'info',
   },
   {
     id: 'writing.answer-some-questions',
