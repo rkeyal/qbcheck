@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Relax the reject-quotes rule to accept multiple quoted alternatives, pronunciations, "or equivalents" qualifiers, and descriptive class rejects (e.g. `reject synonyms`, `reject answers mentioning "X"`) while still flagging a quoted answer glued to explanatory prose
+- Relax the prompt-question-quotes rule to accept directed-prompt questions that open with a quote, ignoring trailing punctuation, follow-up directives, or explanations
+- Report an unbalanced or unclosed quote distinctly from other issues in the reject-quotes and prompt-question-quotes diagnostics
+
 ## [0.2.0] - 2026-07-01
 
 ### Added

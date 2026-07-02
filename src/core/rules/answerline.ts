@@ -336,6 +336,58 @@ function checkPromptFormatting(packet: Packet): LintDiagnostic[] {
   return diags;
 }
 
+// Words allowed to appear outside the quotes in a [reject] list without
+// counting as explanatory prose. Kept deliberately small: just connectors and
+// standard list qualifiers. Any content word (a reason, condition, or
+// apposition) falls outside this set and causes the directive to be flagged.
+// Descriptive class-level framing (e.g. "answers mentioning …", "types such
+// as …") is handled separately, before this check.
+const REJECT_LIST_ALLOWED_WORDS = new Set([
+  'or',
+  'and',
+  'nor',
+  'etc',
+  'equivalent',
+  'equivalents',
+  'word',
+  'words',
+  'form',
+  'forms',
+  'similar',
+  'answer',
+  'answers',
+  'synonym',
+  'synonyms',
+  'other',
+  'any',
+  'alone',
+]);
+
+/**
+ * Returns the text left after removing parenthetical notes (pronunciations) and
+ * matched quote pairs. A leftover quote character therefore signals an
+ * unbalanced / unclosed quote rather than extra prose.
+ */
+function textOutsideQuotes(content: string): string {
+  return content
+    .replace(/\([^)]*\)/g, ' ') // pronunciations / parentheticals
+    .replace(/["“”][^"“”]*["“”]/g, ' '); // matched quoted answer spans
+}
+
+/**
+ * True when the content is composed only of quoted answer strings joined by
+ * allowed connectors / qualifiers — e.g. "A" or "B", "X" ("pronunciation"),
+ * "Y" or equivalents — with no other text outside the quotes.
+ */
+function isQuotedAnswerList(content: string): boolean {
+  const leftover = textOutsideQuotes(content)
+    .replace(/[.,;/]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return leftover.every((w) => REJECT_LIST_ALLOWED_WORDS.has(w.toLowerCase()));
+}
+
 function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
@@ -350,50 +402,65 @@ function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
         const content = sub.contentText.trim();
         if (!content) continue;
 
-        // Skip descriptive reject instructions (not a literal answer string)
+        const directive =
+          sub.type === 'do not accept' ? 'do not accept' : 'reject';
         const lower = content.toLowerCase();
+
+        // Class-level / descriptive rejects name a category of answers rather
+        // than a literal string, so they need no quotes even when they cite a
+        // quoted example. These are checked first, regardless of quotes.
+        if (isMetaInstruction(content)) continue;
+        // Lead-ins that introduce a class: "answers mentioning \u2026",
+        // "descriptions like \u2026", "specific X other than \u2026", "other X",
+        // "the specific phrases \u2026".
         if (
-          /^answers?\s+(like|that|describing|mentioning|involving|such\s+as)\b/.test(
+          /^(the\s+|a\s+|an\s+)?(answers?|descriptions?|synonyms?|specific|other|phrases?)\b/.test(
             lower
           )
         )
           continue;
-        // Skip if the content already contains internal quotes (compound reject)
-        if (
-          /[\u201c\u201d"'].*[\u201c\u201d"']/.test(content) &&
-          !/^[\u201c\u201d"']/.test(content)
-        )
-          continue;
-        // Skip if content starts with quotes and has trailing meta-text after closing quote
-        // e.g., "answer" alone, "answer" without indication
-        if (
-          /^[\u201c\u201d"'][^"'\u201c\u201d]+[\u201c\u201d"']\s+(alone|without)\b/.test(
-            content
-          )
-        )
-          continue;
-        // Skip if it contains "or other" / "or any" (describing a class)
-        if (/\bor\s+(other|any)\b/.test(lower)) continue;
-        // Skip conditional instructions (e.g. "X" until "Y" is read and accept afterwards)
+        // "<class> such as \u2026" cites examples of a category.
+        if (/\bsuch\s+as\b/.test(lower)) continue;
+        // Conditional instructions (e.g. X until Y is read and accept afterwards).
         if (/\buntil\b.*\bread\b/.test(lower)) continue;
-        // Skip meta-instructions (e.g. "partial answers")
-        if (/^partial\s+answers?\b/.test(lower)) continue;
 
-        // Check if the content is wrapped in quotes (straight or curly)
-        const quotePattern = /^[\u201c\u201d"'].+[\u201c\u201d"']$/;
-        if (!quotePattern.test(content)) {
-          const directive =
-            sub.type === 'do not accept' ? 'do not accept' : 'reject';
+        if (/["\u201c\u201d]/.test(content)) {
+          // The literal answer is quoted. Accept a single answer or a list of
+          // quoted alternatives (with pronunciations or an "or equivalents"
+          // qualifier), e.g. "A" or "B" or "X" ("pronunciation"). A quoted
+          // answer glued to explanatory prose (a reason, condition, or
+          // apposition: "X", the opposite / "X" as \u2026) is still flagged. The
+          // word "alone" after a quoted phrase is handled by checkRejectAlone.
+          if (isQuotedAnswerList(content)) continue;
+
+          // Name the actual problem: a leftover quote character means a quote
+          // was never closed; otherwise there is non-answer text in the
+          // directive that belongs outside it.
+          const message = /["“”]/.test(textOutsideQuotes(content))
+            ? `Unbalanced quotes in the [${directive}] directive; make sure each quoted answer is closed: "${content}".`
+            : `A [${directive}] directive should contain only the quoted answer(s) (joined by connectors like "or"); move any other text outside it: "${content}".`;
           diags.push({
             rule: 'answerline.reject-quotes',
             severity: 'warning',
             paragraph: para.index,
-            message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
+            message,
             sourceText: para.rawText,
             offset: sub.contentStart,
             length: sub.contentText.length,
           });
+          continue;
         }
+
+        // A bare literal reject with no quotes.
+        diags.push({
+          rule: 'answerline.reject-quotes',
+          severity: 'warning',
+          paragraph: para.index,
+          message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
+          sourceText: para.rawText,
+          offset: sub.contentStart,
+          length: sub.contentText.length,
+        });
       }
     }
   }
@@ -419,15 +486,23 @@ function checkPromptQuestionQuotes(packet: Packet): LintDiagnostic[] {
         const askingContent = byAskingMatch[1].trim();
         if (!askingContent) continue;
 
-        // Check if the asking content is wrapped in quotes
-        const quotePattern = /^[\u201c\u201d"'].+[\u201c\u201d"']$/;
-        if (!quotePattern.test(askingContent)) {
+        // Accept as long as the question opens with a quote (optionally after a
+        // leading comma). The question is then quoted; trailing punctuation
+        // ("Q"?), follow-up directives ("Q?" prompt on \u2026), or explanatory prose
+        // ("Q?" since \u2026) after the closing quote are fine.
+        if (!/^[,\s]*[\u201c\u201d"']/.test(askingContent)) {
           const askingOffset = sub.contentStart + byAskingMatch.index! + byAskingMatch[0].length - byAskingMatch[1].length;
+          // A double-quote character that isn't at the start signals a
+          // partially quoted question (e.g. a missing opening quote), which is
+          // a different problem from a question with no quotes at all.
+          const message = /["\u201c\u201d]/.test(askingContent)
+            ? `The "by asking" question has an unbalanced quote; open and close the quoted question: "${askingContent}".`
+            : `The "by asking" question should be wrapped in quotes: "${askingContent}".`;
           diags.push({
             rule: 'answerline.prompt-question-quotes',
             severity: 'warning',
             paragraph: para.index,
-            message: `The "by asking" question should be wrapped in quotes: "${askingContent}".`,
+            message,
             sourceText: para.rawText,
             offset: askingOffset,
             length: askingContent.length,

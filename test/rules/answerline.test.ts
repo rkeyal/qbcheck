@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { lint } from '../../src/core/engine.js';
-import { makePacket, makeQuestion, hasDiag } from '../helpers.js';
+import { makePacket, makeQuestion, hasDiag, findDiag } from '../helpers.js';
 import { Run } from '../../src/core/model.js';
 
 function bu(text: string): Run {
@@ -687,6 +687,112 @@ describe('answerline.reject-quotes', () => {
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
   });
+
+  it('passes multiple quoted rejected answers joined by "or"', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "A" or "B"]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "A" or "B"]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+  });
+
+  it('flags a quoted reject followed by explanatory prose', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [reject "disproportionation", the opposite]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [reject "disproportionation", the opposite]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(true);
+  });
+
+  it('passes quoted alternatives with pronunciations or qualifiers', () => {
+    for (const directive of [
+      'reject "alkenes" ("al-keens")',
+      'reject "gut microbiome" or equivalents',
+      'reject "little g" or "lowercase g" or equivalents',
+    ]) {
+      const t = tossupWithAnswer(`ANSWER: thing [${directive}]`, [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(` [${directive}]`),
+      ]);
+      const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+      const diags = lint(packet);
+      expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+    }
+  });
+
+  it('skips class-level rejects (synonyms, specific X, other X)', () => {
+    for (const directive of [
+      'reject synonyms',
+      'reject specific metals other than iron',
+      'reject other problems of consciousness',
+    ]) {
+      const t = tossupWithAnswer(`ANSWER: thing [${directive}]`, [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(` [${directive}]`),
+      ]);
+      const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+      const diags = lint(packet);
+      expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+    }
+  });
+
+  it('skips descriptive class rejects that cite a quoted example', () => {
+    for (const directive of [
+      'reject answers mentioning "gulags"',
+      'reject descriptions like "founding of Manhattan"',
+      'reject other allotropes such as "nanotubes"',
+      'reject the specific phrases "no-slip" or "no-slip condition"',
+    ]) {
+      const t = tossupWithAnswer(`ANSWER: thing [${directive}]`, [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(` [${directive}]`),
+      ]);
+      const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+      const diags = lint(packet);
+      expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(false);
+    }
+  });
+
+  it('flags a quoted reject glued to a reason or condition clause', () => {
+    for (const directive of [
+      'reject "Helmholtz free energy" as temperature is not held constant',
+      'reject "gyroscopes" after "bubble" is read',
+    ]) {
+      const t = tossupWithAnswer(`ANSWER: thing [${directive}]`, [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(` [${directive}]`),
+      ]);
+      const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+      const diags = lint(packet);
+      expect(hasDiag(diags, 'answerline.reject-quotes')).toBe(true);
+    }
+  });
+
+  it('reports an unclosed quote as unbalanced, not as extra prose', () => {
+    const t = tossupWithAnswer('ANSWER: thing [reject "unclosed answer]', [
+      plain('ANSWER: '),
+      bu('thing'),
+      plain(' [reject "unclosed answer]'),
+    ]);
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const diag = findDiag(diags, 'answerline.reject-quotes');
+    expect(diag).toBeTruthy();
+    expect(diag!.message).toContain('Unbalanced quotes');
+  });
 });
 
 describe('answerline.prompt-question-quotes', () => {
@@ -703,7 +809,27 @@ describe('answerline.prompt-question-quotes', () => {
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
-    expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(true);
+    const diag = findDiag(diags, 'answerline.prompt-question-quotes');
+    expect(diag).toBeTruthy();
+    expect(diag!.message).toContain('should be wrapped in quotes');
+  });
+
+  it('reports a partially quoted question as unbalanced, not unquoted', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [prompt on partial by asking for what kind?"]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(' by asking for what kind?"]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    const diag = findDiag(diags, 'answerline.prompt-question-quotes');
+    expect(diag).toBeTruthy();
+    expect(diag!.message).toContain('unbalanced quote');
   });
 
   it('passes "by asking" question text wrapped in quotes', () => {
@@ -733,6 +859,25 @@ describe('answerline.prompt-question-quotes', () => {
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(false);
+  });
+
+  it('passes a quoted question with trailing punctuation or prose', () => {
+    for (const asking of [
+      'by asking "what kind"?',
+      'by asking "what kind?" prompt on the general form',
+      'by asking, "what kind?"',
+    ]) {
+      const t = tossupWithAnswer(`ANSWER: thing [prompt on partial ${asking}]`, [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [prompt on '),
+        ul('partial'),
+        plain(` ${asking}]`),
+      ]);
+      const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+      const diags = lint(packet);
+      expect(hasDiag(diags, 'answerline.prompt-question-quotes')).toBe(false);
+    }
   });
 });
 
