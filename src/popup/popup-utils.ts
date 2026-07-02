@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: QBLintSettings = {
   disabledRules: [
     'formatting.smart-quotes',
     'formatting.no-format-bleeding',
+    'formatting.bce-ce-system',
     'writing.word-replacements',
     'writing.no-weasel-words',
     'packet.blank-paragraphs',

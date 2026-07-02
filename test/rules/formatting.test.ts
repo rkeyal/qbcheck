@@ -729,26 +729,58 @@ describe('formatting.no-ampersand', () => {
 describe('formatting.poetry-slash', () => {
   const RULE = 'formatting.poetry-slash';
 
-  it('flags unspaced slashes in text with multiple slashes', () => {
+  it('flags unspaced slashes inside quoted text', () => {
     const t = tossupWith(
-      'This poem begins "Shall I compare thee/to a summer\u2019s day?/Thou art more lovely." For 10 points, name it.'
+      'This poem begins \u201cShall I compare thee/to a summer\u2019s day?/Thou art more lovely.\u201d For 10 points, name it.'
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     expect(hasDiag(lint(packet), RULE)).toBe(true);
   });
 
-  it('passes properly spaced slashes', () => {
+  it('passes properly spaced slashes in quotes', () => {
     const t = tossupWith(
-      'This poem begins "Shall I compare thee / to a summer\u2019s day? / Thou art more lovely." For 10 points, name it.'
+      'This poem begins \u201cShall I compare thee / to a summer\u2019s day? / Thou art more lovely.\u201d For 10 points, name it.'
     );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     expect(hasDiag(lint(packet), RULE)).toBe(false);
   });
 
-  it('does not flag text with fewer than two slashes', () => {
-    const t = tossupWith('For 10 points, name this and/or thing.');
+  it('does not flag slashes outside quotes', () => {
+    const t = tossupWith(
+      'This author/poet wrote several works/novels. For 10 points, name them.'
+    );
     const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
     expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('does not flag text with fewer than two slashes in quotes', () => {
+    const t = tossupWith(
+      'One speaker says "yes/no" in this play. For 10 points, name it.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('does not flag answer lines', () => {
+    const q = makeQuestion({
+      number: 1,
+      body: 'This poet wrote \u201cline one / line two / line three.\u201d For 10 points, name them.',
+      answer: 'ANSWER: some/author/name',
+    });
+    const packet = makePacket({ tossups: [q], allParagraphs: q.paragraphs });
+    expect(hasDiag(lint(packet), RULE)).toBe(false);
+  });
+
+  it('does not flag tag lines', () => {
+    const q = makeQuestion({
+      number: 1,
+      body: 'This poet wrote \u201cline one / line two / line three.\u201d For 10 points, name them.',
+      answer: 'ANSWER: Author Name',
+      tag: '<Author/Editor, Poetry>',
+    });
+    const packet = makePacket({ tossups: [q], allParagraphs: q.paragraphs });
+    const diags = lint(packet).filter((d) => d.rule === RULE);
+    expect(diags.length).toBe(0);
   });
 });
 

@@ -678,8 +678,10 @@ function checkPromptWithNotByAsking(packet: Packet): LintDiagnostic[] {
         if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
 
         // Look for "with" followed by a quoted question
-        const withMatch = sub.contentText.match(/\s+with\s+[\u201c\u201d"']/i);
+        const withMatch = sub.contentText.match(/\s+(with)\s+[\u201c\u201d"']/i);
         if (withMatch) {
+          const withOffset =
+            sub.contentStart + withMatch.index! + withMatch[0].indexOf(withMatch[1]);
           diags.push({
             rule: 'answerline.prompt-with-not-by-asking',
             severity: 'info',
@@ -687,6 +689,8 @@ function checkPromptWithNotByAsking(packet: Packet): LintDiagnostic[] {
             message:
               'Directed prompts should use "by asking" instead of "with".',
             sourceText: para.rawText,
+            offset: withOffset,
+            length: withMatch[1].length,
           });
         }
       }

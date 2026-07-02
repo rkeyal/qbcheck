@@ -4,6 +4,7 @@ import {
   stripItalicOnly,
   getQuestionParagraphs,
   createDiagnostic,
+  findOffsetInRawText,
 } from './utils.js';
 
 function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
@@ -208,35 +209,43 @@ function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
 function checkPoetrySlash(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
+  for (const para of getQuestionParagraphs(packet, 'text-only')) {
     const text = para.rawText;
-    // Only strip italic text (titles), not quoted text — poetry slashes
-    // appear inside quoted passages
     const stripped = stripItalicOnly(para);
 
-    // Look for slashes between text that look like poetry line breaks
-    // but aren't spaced properly (e.g., "foo/bar" instead of "foo / bar")
-    // This is too noisy for general text — only flag if the question is about poetry
-    // or contains multiple slashes suggesting poetry quotation
-    const slashCount = (stripped.match(/\//g) || []).length;
-    if (slashCount >= 2) {
-      // Skip slashes that are fractions/ratios (digit/digit) or single-char/single-char
-      const unspaced = [...stripped.matchAll(/(\S)\/(\S)/g)].filter(
+    // Extract quoted passages (curly or straight quotes)
+    const quotes = [...stripped.matchAll(/[“"](.*?)[”"]/g)];
+    if (quotes.length === 0) continue;
+
+    for (const quote of quotes) {
+      const passage = quote[1];
+      const slashCount = (passage.match(/\//g) || []).length;
+      if (slashCount < 2) continue;
+
+      const unspaced = [...passage.matchAll(/(\S)\/(\S)/g)].filter(
         (m) => !/^\d\/\d/.test(m[0])
       );
-      for (const match of unspaced) {
-        diags.push({
-          rule: 'formatting.poetry-slash',
-          severity: 'info',
-          paragraph: para.index,
-          message:
-            'Poetry line breaks should use spaced slashes: " / " not "/".',
-          sourceText: text,
-          offset: match.index!,
-          length: match[0].length,
-        });
-        break; // One diagnostic per paragraph
-      }
+      if (unspaced.length === 0) continue;
+
+      const match = unspaced[0];
+      const offsetInStripped = quote.index! + 1 + match.index!;
+      const offsetInRaw = findOffsetInRawText(
+        text,
+        match[0],
+        offsetInStripped
+      );
+
+      diags.push({
+        rule: 'formatting.poetry-slash',
+        severity: 'info',
+        paragraph: para.index,
+        message:
+          'Poetry line breaks should use spaced slashes: " / " not "/".',
+        sourceText: text,
+        offset: offsetInRaw !== -1 ? offsetInRaw : offsetInStripped,
+        length: match[0].length,
+      });
+      break;
     }
   }
 
