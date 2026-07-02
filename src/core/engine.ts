@@ -98,8 +98,11 @@ function enrichDiagnostics(
     { label: string; answers: string[] }
   >();
 
+  const singleTossup = packet.tossups.length === 1;
+  const singleBonus = packet.bonuses.length === 1;
+
   for (const q of packet.tossups) {
-    const label = `T${q.number}`;
+    const label = singleTossup ? 'Tossup' : `T${q.number}`;
     const answers = extractAnswerText(q);
     for (const p of q.paragraphs) {
       paraToQuestion.set(p.index, { label, answers });
@@ -107,7 +110,7 @@ function enrichDiagnostics(
   }
 
   for (const q of packet.bonuses) {
-    const label = `B${q.number}`;
+    const label = singleBonus ? 'Bonus' : `B${q.number}`;
     const answers = extractAnswerText(q);
     for (const p of q.paragraphs) {
       paraToQuestion.set(p.index, { label, answers });
