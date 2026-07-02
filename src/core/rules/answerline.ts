@@ -4,6 +4,8 @@ import {
   hasBoldUnderline,
   hasUnderline,
   getAnswerLines,
+  iterateSubDirectives,
+  DOUBLE_QUOTE_CHARS,
 } from './utils.js';
 import {
   findBracketSpans,
@@ -252,37 +254,30 @@ function checkAcceptRejectFormat(packet: Packet): LintDiagnostic[] {
 function checkAcceptFormatting(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'accept' && sub.type !== 'or') continue;
+    if (isMetaInstruction(sub.contentText)) continue;
+
+    // Check that the content has some bold+underlined text
     const fmtMap = buildFormattingMap(para.runs);
-    const brackets = findBracketSpans(para.rawText);
+    const foundBoldUnderline = hasBoldUnderline(
+      fmtMap,
+      sub.contentStart,
+      sub.contentEnd,
+      para.rawText
+    );
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'accept' && sub.type !== 'or') continue;
-        if (isMetaInstruction(sub.contentText)) continue;
-
-        // Check that the content has some bold+underlined text
-        const foundBoldUnderline = hasBoldUnderline(
-          fmtMap,
-          sub.contentStart,
-          sub.contentEnd,
-          para.rawText
-        );
-
-        if (!foundBoldUnderline) {
-          const directive = sub.type === 'or' ? 'or' : 'accept';
-          diags.push({
-            rule: 'answerline.accept-formatting',
-            severity: 'warning',
-            paragraph: para.index,
-            message: `Text in [${directive}] directive should have bold and underlined formatting: "${sub.contentText}".`,
-            sourceText: para.rawText,
-            offset: sub.fullStart,
-            length: sub.fullText.length,
-          });
-        }
-      }
+    if (!foundBoldUnderline) {
+      const directive = sub.type === 'or' ? 'or' : 'accept';
+      diags.push({
+        rule: 'answerline.accept-formatting',
+        severity: 'warning',
+        paragraph: para.index,
+        message: `Text in [${directive}] directive should have bold and underlined formatting: "${sub.contentText}".`,
+        sourceText: para.rawText,
+        offset: sub.fullStart,
+        length: sub.fullText.length,
+      });
     }
   }
 
@@ -292,44 +287,36 @@ function checkAcceptFormatting(packet: Packet): LintDiagnostic[] {
 function checkPromptFormatting(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
+    if (isMetaInstruction(sub.contentText)) continue;
+
+    // The content may contain "by asking ..." — only check the part before that
+    const byAskingMatch = sub.contentText.match(/\s+by\s+asking\s+/i);
+    const checkEnd = byAskingMatch
+      ? sub.contentStart + byAskingMatch.index!
+      : sub.contentEnd;
+
+    // Check that the content has some underlined text
     const fmtMap = buildFormattingMap(para.runs);
-    const brackets = findBracketSpans(para.rawText);
+    const foundUnderline = hasUnderline(
+      fmtMap,
+      sub.contentStart,
+      checkEnd,
+      para.rawText
+    );
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
-        if (isMetaInstruction(sub.contentText)) continue;
-
-        // The content may contain "by asking ..." — only check the part before that
-        const byAskingMatch = sub.contentText.match(/\s+by\s+asking\s+/i);
-        const checkEnd = byAskingMatch
-          ? sub.contentStart + byAskingMatch.index!
-          : sub.contentEnd;
-
-        // Check that the content has some underlined text
-        const foundUnderline = hasUnderline(
-          fmtMap,
-          sub.contentStart,
-          checkEnd,
-          para.rawText
-        );
-
-        if (!foundUnderline) {
-          const directive =
-            sub.type === 'anti-prompt' ? 'anti-prompt' : 'prompt';
-          diags.push({
-            rule: 'answerline.prompt-formatting',
-            severity: 'warning',
-            paragraph: para.index,
-            message: `Text in [${directive}] directive should have underlined formatting: "${sub.contentText}".`,
-            sourceText: para.rawText,
-            offset: sub.fullStart,
-            length: sub.fullText.length,
-          });
-        }
-      }
+    if (!foundUnderline) {
+      const directive = sub.type === 'anti-prompt' ? 'anti-prompt' : 'prompt';
+      diags.push({
+        rule: 'answerline.prompt-formatting',
+        severity: 'warning',
+        paragraph: para.index,
+        message: `Text in [${directive}] directive should have underlined formatting: "${sub.contentText}".`,
+        sourceText: para.rawText,
+        offset: sub.fullStart,
+        length: sub.fullText.length,
+      });
     }
   }
 
@@ -368,10 +355,18 @@ const REJECT_LIST_ALLOWED_WORDS = new Set([
  * matched quote pairs. A leftover quote character therefore signals an
  * unbalanced / unclosed quote rather than extra prose.
  */
+/** Matches a single double-quote character (straight or curly). */
+const DOUBLE_QUOTE_RE = new RegExp(`[${DOUBLE_QUOTE_CHARS}]`);
+/** Matches a matched double-quote span, e.g. "…" or “…”. */
+const DOUBLE_QUOTE_SPAN_RE = new RegExp(
+  `[${DOUBLE_QUOTE_CHARS}][^${DOUBLE_QUOTE_CHARS}]*[${DOUBLE_QUOTE_CHARS}]`,
+  'g'
+);
+
 function textOutsideQuotes(content: string): string {
   return content
     .replace(/\([^)]*\)/g, ' ') // pronunciations / parentheticals
-    .replace(/["“”][^"“”]*["“”]/g, ' '); // matched quoted answer spans
+    .replace(DOUBLE_QUOTE_SPAN_RE, ' '); // matched quoted answer spans
 }
 
 /**
@@ -391,78 +386,70 @@ function isQuotedAnswerList(content: string): boolean {
 function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'reject' && sub.type !== 'do not accept') continue;
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'reject' && sub.type !== 'do not accept') continue;
+    const content = sub.contentText.trim();
+    if (!content) continue;
 
-        const content = sub.contentText.trim();
-        if (!content) continue;
+    const directive = sub.type === 'do not accept' ? 'do not accept' : 'reject';
+    const lower = content.toLowerCase();
 
-        const directive =
-          sub.type === 'do not accept' ? 'do not accept' : 'reject';
-        const lower = content.toLowerCase();
+    // Class-level / descriptive rejects name a category of answers rather
+    // than a literal string, so they need no quotes even when they cite a
+    // quoted example. These are checked first, regardless of quotes.
+    if (isMetaInstruction(content)) continue;
+    // Lead-ins that introduce a class: "answers mentioning \u2026",
+    // "descriptions like \u2026", "specific X other than \u2026", "other X",
+    // "the specific phrases \u2026".
+    if (
+      /^(the\s+|a\s+|an\s+)?(answers?|descriptions?|synonyms?|specific|other|phrases?)\b/.test(
+        lower
+      )
+    )
+      continue;
+    // "<class> such as \u2026" cites examples of a category.
+    if (/\bsuch\s+as\b/.test(lower)) continue;
+    // Conditional instructions (e.g. X until Y is read and accept afterwards).
+    if (/\buntil\b.*\bread\b/.test(lower)) continue;
 
-        // Class-level / descriptive rejects name a category of answers rather
-        // than a literal string, so they need no quotes even when they cite a
-        // quoted example. These are checked first, regardless of quotes.
-        if (isMetaInstruction(content)) continue;
-        // Lead-ins that introduce a class: "answers mentioning \u2026",
-        // "descriptions like \u2026", "specific X other than \u2026", "other X",
-        // "the specific phrases \u2026".
-        if (
-          /^(the\s+|a\s+|an\s+)?(answers?|descriptions?|synonyms?|specific|other|phrases?)\b/.test(
-            lower
-          )
-        )
-          continue;
-        // "<class> such as \u2026" cites examples of a category.
-        if (/\bsuch\s+as\b/.test(lower)) continue;
-        // Conditional instructions (e.g. X until Y is read and accept afterwards).
-        if (/\buntil\b.*\bread\b/.test(lower)) continue;
+    if (DOUBLE_QUOTE_RE.test(content)) {
+      // The literal answer is quoted. Accept a single answer or a list of
+      // quoted alternatives (with pronunciations or an "or equivalents"
+      // qualifier), e.g. "A" or "B" or "X" ("pronunciation"). A quoted
+      // answer glued to explanatory prose (a reason, condition, or
+      // apposition: "X", the opposite / "X" as \u2026) is still flagged. The
+      // word "alone" after a quoted phrase is handled by checkRejectAlone.
+      if (isQuotedAnswerList(content)) continue;
 
-        if (/["\u201c\u201d]/.test(content)) {
-          // The literal answer is quoted. Accept a single answer or a list of
-          // quoted alternatives (with pronunciations or an "or equivalents"
-          // qualifier), e.g. "A" or "B" or "X" ("pronunciation"). A quoted
-          // answer glued to explanatory prose (a reason, condition, or
-          // apposition: "X", the opposite / "X" as \u2026) is still flagged. The
-          // word "alone" after a quoted phrase is handled by checkRejectAlone.
-          if (isQuotedAnswerList(content)) continue;
-
-          // Name the actual problem: a leftover quote character means a quote
-          // was never closed; otherwise there is non-answer text in the
-          // directive that belongs outside it.
-          const message = /["“”]/.test(textOutsideQuotes(content))
-            ? `Unbalanced quotes in the [${directive}] directive; make sure each quoted answer is closed: "${content}".`
-            : `A [${directive}] directive should contain only the quoted answer(s) (joined by connectors like "or"); move any other text outside it: "${content}".`;
-          diags.push({
-            rule: 'answerline.reject-quotes',
-            severity: 'warning',
-            paragraph: para.index,
-            message,
-            sourceText: para.rawText,
-            offset: sub.contentStart,
-            length: sub.contentText.length,
-          });
-          continue;
-        }
-
-        // A bare literal reject with no quotes.
-        diags.push({
-          rule: 'answerline.reject-quotes',
-          severity: 'warning',
-          paragraph: para.index,
-          message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
-          sourceText: para.rawText,
-          offset: sub.contentStart,
-          length: sub.contentText.length,
-        });
-      }
+      // Name the actual problem: a leftover quote character means a quote
+      // was never closed; otherwise there is non-answer text in the
+      // directive that belongs outside it.
+      const message = DOUBLE_QUOTE_RE.test(textOutsideQuotes(content))
+        ? `Unbalanced quotes in the [${directive}] directive; make sure each quoted answer is closed: "${content}".`
+        : `A [${directive}] directive should contain only the quoted answer(s) (joined by connectors like "or"); move any other text outside it: "${content}".`;
+      diags.push({
+        rule: 'answerline.reject-quotes',
+        severity: 'warning',
+        paragraph: para.index,
+        message,
+        sourceText: para.rawText,
+        offset: sub.contentStart,
+        length: sub.contentText.length,
+      });
+      continue;
     }
+
+    // A bare literal reject with no quotes.
+    diags.push({
+      rule: 'answerline.reject-quotes',
+      severity: 'warning',
+      paragraph: para.index,
+      message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
+      sourceText: para.rawText,
+      offset: sub.contentStart,
+      length: sub.contentText.length,
+    });
   }
 
   return diags;
@@ -471,44 +458,41 @@ function checkRejectQuotes(packet: Packet): LintDiagnostic[] {
 function checkPromptQuestionQuotes(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
+    // Look for "by asking X" in the content
+    const byAskingMatch = sub.contentText.match(/by\s+asking\s+(.*)/i);
+    if (!byAskingMatch) continue;
 
-        // Look for "by asking X" in the content
-        const byAskingMatch = sub.contentText.match(/by\s+asking\s+(.*)/i);
-        if (!byAskingMatch) continue;
+    const askingContent = byAskingMatch[1].trim();
+    if (!askingContent) continue;
 
-        const askingContent = byAskingMatch[1].trim();
-        if (!askingContent) continue;
-
-        // Accept as long as the question opens with a quote (optionally after a
-        // leading comma). The question is then quoted; trailing punctuation
-        // ("Q"?), follow-up directives ("Q?" prompt on \u2026), or explanatory prose
-        // ("Q?" since \u2026) after the closing quote are fine.
-        if (!/^[,\s]*[\u201c\u201d"']/.test(askingContent)) {
-          const askingOffset = sub.contentStart + byAskingMatch.index! + byAskingMatch[0].length - byAskingMatch[1].length;
-          // A double-quote character that isn't at the start signals a
-          // partially quoted question (e.g. a missing opening quote), which is
-          // a different problem from a question with no quotes at all.
-          const message = /["\u201c\u201d]/.test(askingContent)
-            ? `The "by asking" question has an unbalanced quote; open and close the quoted question: "${askingContent}".`
-            : `The "by asking" question should be wrapped in quotes: "${askingContent}".`;
-          diags.push({
-            rule: 'answerline.prompt-question-quotes',
-            severity: 'warning',
-            paragraph: para.index,
-            message,
-            sourceText: para.rawText,
-            offset: askingOffset,
-            length: askingContent.length,
-          });
-        }
-      }
+    // Accept as long as the question opens with a quote (optionally after a
+    // leading comma). The question is then quoted; trailing punctuation
+    // ("Q"?), follow-up directives ("Q?" prompt on \u2026), or explanatory prose
+    // ("Q?" since \u2026) after the closing quote are fine.
+    if (!/^[,\s]*[\u201c\u201d"']/.test(askingContent)) {
+      const askingOffset =
+        sub.contentStart +
+        byAskingMatch.index! +
+        byAskingMatch[0].length -
+        byAskingMatch[1].length;
+      // A double-quote character that isn't at the start signals a
+      // partially quoted question (e.g. a missing opening quote), which is
+      // a different problem from a question with no quotes at all.
+      const message = DOUBLE_QUOTE_RE.test(askingContent)
+        ? `The "by asking" question has an unbalanced quote; open and close the quoted question: "${askingContent}".`
+        : `The "by asking" question should be wrapped in quotes: "${askingContent}".`;
+      diags.push({
+        rule: 'answerline.prompt-question-quotes',
+        severity: 'warning',
+        paragraph: para.index,
+        message,
+        sourceText: para.rawText,
+        offset: askingOffset,
+        length: askingContent.length,
+      });
     }
   }
 
@@ -744,31 +728,25 @@ function checkParentheticalOptional(packet: Packet): LintDiagnostic[] {
 function checkPromptWithNotByAsking(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
-
-        // Look for "with" followed by a quoted question
-        const withMatch = sub.contentText.match(/\s+(with)\s+[\u201c\u201d"']/i);
-        if (withMatch) {
-          const withOffset =
-            sub.contentStart + withMatch.index! + withMatch[0].indexOf(withMatch[1]);
-          diags.push({
-            rule: 'answerline.prompt-with-not-by-asking',
-            severity: 'info',
-            paragraph: para.index,
-            message:
-              'Directed prompts should use "by asking" instead of "with".',
-            sourceText: para.rawText,
-            offset: withOffset,
-            length: withMatch[1].length,
-          });
-        }
-      }
+    // Look for "with" followed by a quoted question
+    const withMatch = sub.contentText.match(/\s+(with)\s+[\u201c\u201d"']/i);
+    if (withMatch) {
+      const withOffset =
+        sub.contentStart +
+        withMatch.index! +
+        withMatch[0].indexOf(withMatch[1]);
+      diags.push({
+        rule: 'answerline.prompt-with-not-by-asking',
+        severity: 'info',
+        paragraph: para.index,
+        message: 'Directed prompts should use "by asking" instead of "with".',
+        sourceText: para.rawText,
+        offset: withOffset,
+        length: withMatch[1].length,
+      });
     }
   }
 
@@ -778,32 +756,23 @@ function checkPromptWithNotByAsking(packet: Packet): LintDiagnostic[] {
 function checkPromptPartialAnswers(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
-
-        // Look for "partial answer(s)" in prompt directives
-        const partialMatch = sub.contentText.match(
-          /\b(partial\s+answers?)\b/i
-        );
-        if (partialMatch) {
-          const partialOffset = sub.contentStart + partialMatch.index!;
-          diags.push({
-            rule: 'answerline.prompt-partial-answers',
-            severity: 'warning',
-            paragraph: para.index,
-            message:
-              'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
-            sourceText: para.rawText,
-            offset: partialOffset,
-            length: partialMatch[1].length,
-          });
-        }
-      }
+    // Look for "partial answer(s)" in prompt directives
+    const partialMatch = sub.contentText.match(/\b(partial\s+answers?)\b/i);
+    if (partialMatch) {
+      const partialOffset = sub.contentStart + partialMatch.index!;
+      diags.push({
+        rule: 'answerline.prompt-partial-answers',
+        severity: 'warning',
+        paragraph: para.index,
+        message:
+          'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
+        sourceText: para.rawText,
+        offset: partialOffset,
+        length: partialMatch[1].length,
+      });
     }
   }
 
@@ -890,7 +859,8 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
 
         // Extract the token: a word (including straight or curly apostrophes
         // for "don't" / "don’t") or a single punctuation character
-        const isWordChar = (c: string) => /\w/.test(c) || c === "'" || c === '’';
+        const isWordChar = (c: string) =>
+          /\w/.test(c) || c === "'" || c === '’';
         let tokenBefore = '';
         if (isWordChar(content[j])) {
           while (j >= 0 && isWordChar(content[j])) {
@@ -930,41 +900,34 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
 function checkRejectAlone(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== 'reject' && sub.type !== 'do not accept') continue;
 
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== 'reject' && sub.type !== 'do not accept') continue;
+    const content = sub.contentText.trim();
+    if (!content) continue;
 
-        const content = sub.contentText.trim();
-        if (!content) continue;
-
-        // Check if content has quotes followed by " alone"
-        const aloneMatch = content.match(
-          /^[\u201c\u201d"']([^"'\u201c\u201d]+)[\u201c\u201d"']\s+alone$/i
-        );
-        if (aloneMatch) {
-          const directive =
-            sub.type === 'do not accept' ? 'do not accept' : 'reject';
-          const fixedContent = content.replace(/\s+alone$/i, '');
-          diags.push({
-            rule: 'answerline.reject-no-alone',
-            severity: 'warning',
-            paragraph: para.index,
-            message: `The word "alone" should not appear after a quoted phrase in [${directive}] directive. Remove "alone".`,
-            sourceText: para.rawText,
-            offset: sub.contentStart,
-            length: content.length,
-            fix: {
-              oldText: content,
-              newText: fixedContent,
-              offset: sub.contentStart,
-            },
-          });
-        }
-      }
+    // Check if content has quotes followed by " alone"
+    const aloneMatch = content.match(
+      /^[\u201c\u201d"']([^"'\u201c\u201d]+)[\u201c\u201d"']\s+alone$/i
+    );
+    if (aloneMatch) {
+      const directive =
+        sub.type === 'do not accept' ? 'do not accept' : 'reject';
+      const fixedContent = content.replace(/\s+alone$/i, '');
+      diags.push({
+        rule: 'answerline.reject-no-alone',
+        severity: 'warning',
+        paragraph: para.index,
+        message: `The word "alone" should not appear after a quoted phrase in [${directive}] directive. Remove "alone".`,
+        sourceText: para.rawText,
+        offset: sub.contentStart,
+        length: content.length,
+        fix: {
+          oldText: content,
+          newText: fixedContent,
+          offset: sub.contentStart,
+        },
+      });
     }
   }
 

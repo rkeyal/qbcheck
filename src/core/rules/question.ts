@@ -6,7 +6,7 @@ import {
   BONUS_PART,
   FTP_MARKER,
 } from '../patterns.js';
-import { stripItalicOnly, allQuestions } from './utils.js';
+import { stripItalicOnly, allQuestions, createDiagnostic } from './utils.js';
 
 function checkFtpFormat(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -21,39 +21,41 @@ function checkFtpFormat(packet: Packet): LintDiagnostic[] {
       const orig = ftenMatch[0];
       const fixNew =
         orig[0] === orig[0].toUpperCase() ? 'For 10 points' : 'for 10 points';
-      diags.push({
-        rule: 'question.ftp-format',
-        severity: 'error',
-        paragraph: q.numberParagraph.index,
-        message: 'Use "For 10 points" with numerals, not "For ten points".',
-        sourceText: text,
-        offset: ftenMatch.index!,
-        length: ftenMatch[0].length,
-        fix: { oldText: orig, newText: fixNew, offset: ftenMatch.index! },
-      });
+      diags.push(
+        createDiagnostic(
+          'question.ftp-format',
+          q.numberParagraph,
+          'Use "For 10 points" with numerals, not "For ten points".',
+          {
+            severity: 'error',
+            offset: ftenMatch.index!,
+            length: ftenMatch[0].length,
+            fix: { oldText: orig, newText: fixNew, offset: ftenMatch.index! },
+          }
+        )
+      );
     } else if (!/for 10 points/i.test(text)) {
       // Check FTP exists (only when "ten" variant wasn't already flagged with a fix)
-      diags.push({
-        rule: 'question.ftp-format',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message: 'Tossup is missing "For 10 points" marker.',
-        sourceText: text,
-      });
+      diags.push(
+        createDiagnostic(
+          'question.ftp-format',
+          q.numberParagraph,
+          'Tossup is missing "For 10 points" marker.'
+        )
+      );
     }
 
     // Check FTP is followed by a comma
     const ftpMatch = text.match(/For 10 points([^,])/i);
     if (ftpMatch && ftpMatch[1] !== ',') {
-      diags.push({
-        rule: 'question.ftp-format',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message: '"For 10 points" should be followed by a comma.',
-        sourceText: text,
-        offset: ftpMatch.index!,
-        length: ftpMatch[0].length,
-      });
+      diags.push(
+        createDiagnostic(
+          'question.ftp-format',
+          q.numberParagraph,
+          '"For 10 points" should be followed by a comma.',
+          { offset: ftpMatch.index!, length: ftpMatch[0].length }
+        )
+      );
     }
   }
 
@@ -68,13 +70,13 @@ function checkFtpePlacement(packet: Packet): LintDiagnostic[] {
     const text = q.numberParagraph.rawText;
 
     if (!/for 10 points each/i.test(text)) {
-      diags.push({
-        rule: 'question.ftpe-format',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message: 'Bonus lead-in should contain "For 10 points each".',
-        sourceText: text,
-      });
+      diags.push(
+        createDiagnostic(
+          'question.ftpe-format',
+          q.numberParagraph,
+          'Bonus lead-in should contain "For 10 points each".'
+        )
+      );
     }
   }
 
@@ -126,29 +128,32 @@ function checkPowerMark(packet: Packet): LintDiagnostic[] {
 
     if (powerIdx === -1) {
       if (packetUsesPower) {
-        diags.push({
-          rule: 'question.power-mark',
-          severity: 'info',
-          paragraph: q.numberParagraph.index,
-          message: 'Tossup has no power mark (*).',
-          sourceText: text,
-        });
+        diags.push(
+          createDiagnostic(
+            'question.power-mark',
+            q.numberParagraph,
+            'Tossup has no power mark (*).',
+            { severity: 'info' }
+          )
+        );
       }
       continue;
     }
 
     // Check that (*) is not in the middle of a word
     if (powerIdx > 0 && text[powerIdx - 1] !== ' ') {
-      diags.push({
-        rule: 'question.power-mark',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message: 'Power mark (*) should be preceded by a space.',
-        sourceText: text,
-        offset: powerIdx,
-        length: 3,
-        fix: { oldText: '(*)', newText: ' (*)', offset: powerIdx },
-      });
+      diags.push(
+        createDiagnostic(
+          'question.power-mark',
+          q.numberParagraph,
+          'Power mark (*) should be preceded by a space.',
+          {
+            offset: powerIdx,
+            length: 3,
+            fix: { oldText: '(*)', newText: ' (*)', offset: powerIdx },
+          }
+        )
+      );
     }
   }
 
@@ -315,16 +320,14 @@ function checkFtpMidSentence(packet: Packet): LintDiagnostic[] {
     // Only flag if the FTP is NOT in the final sentence
     // (i.e., there are full sentences after it)
     if (hasSentenceAfter) {
-      diags.push({
-        rule: 'question.no-ftp-midsentence',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message:
+      diags.push(
+        createDiagnostic(
+          'question.no-ftp-midsentence',
+          q.numberParagraph,
           'Do not interject "for 10 points" in the middle of the tossup. It should appear in the final sentence.',
-        sourceText: text,
-        offset: ftpIdx,
-        length: ftpMatch[0].length,
-      });
+          { offset: ftpIdx, length: ftpMatch[0].length }
+        )
+      );
     }
   }
 
@@ -373,14 +376,14 @@ function checkMultilineAnswer(packet: Packet): LintDiagnostic[] {
       /^(accept|or|prompt|reject)\b/i.test(nextText);
 
     if (looksLikeContinuation) {
-      diags.push({
-        rule: 'question.multiline-answer',
-        severity: 'error',
-        paragraph: next.index,
-        message:
+      diags.push(
+        createDiagnostic(
+          'question.multiline-answer',
+          next,
           'This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.',
-        sourceText: next.rawText,
-      });
+          { severity: 'error' }
+        )
+      );
     }
   }
 
@@ -433,15 +436,14 @@ function checkPreQuestionNoteItalics(packet: Packet): LintDiagnostic[] {
       }
 
       if (!isItalic) {
-        diags.push({
-          rule: 'question.note-formatting',
-          severity: 'info',
-          paragraph: q.numberParagraph.index,
-          message: `Pre-question notes like "${noteText}" should be italicized.`,
-          sourceText: text,
-          offset: noteStart,
-          length: noteText.length,
-        });
+        diags.push(
+          createDiagnostic(
+            'question.note-formatting',
+            q.numberParagraph,
+            `Pre-question notes like "${noteText}" should be italicized.`,
+            { severity: 'info', offset: noteStart, length: noteText.length }
+          )
+        );
         break; // One diagnostic per question
       }
     }
@@ -470,13 +472,14 @@ function checkBonusPartOrder(packet: Packet): LintDiagnostic[] {
       if (isPart && expectingAnswer) {
         // Found a new part before the previous part's answer
         partCount++;
-        diags.push({
-          rule: 'question.bonus-part-order',
-          severity: 'error',
-          paragraph: para.index,
-          message: `Bonus ${q.number}, part ${partCount}: appears before part ${partCount - 1}\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
-          sourceText: para.rawText,
-        });
+        diags.push(
+          createDiagnostic(
+            'question.bonus-part-order',
+            para,
+            `Bonus ${q.number}, part ${partCount}: appears before part ${partCount - 1}\u2019s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
+            { severity: 'error' }
+          )
+        );
         expectingAnswer = true;
       } else if (isPart) {
         partCount++;
@@ -496,14 +499,20 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
   for (const q of allQuestions(packet)) {
     // For tossups, check the main question paragraph
     // For bonuses, check each part's text paragraph
-    const parasToCheck: Array<{ para: import('../model.js').Paragraph; partLabel?: string }> = [];
+    const parasToCheck: Array<{
+      para: import('../model.js').Paragraph;
+      partLabel?: string;
+    }> = [];
 
     if (q.type === 'tossup') {
       parasToCheck.push({ para: q.numberParagraph });
     } else {
       // For bonuses, check each part
       for (let i = 0; i < q.parts.length; i++) {
-        parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
+        parasToCheck.push({
+          para: q.parts[i].textParagraph,
+          partLabel: `part ${i + 1}`,
+        });
       }
     }
 
@@ -556,15 +565,14 @@ function checkPostQuestionNote(packet: Packet): LintDiagnostic[] {
         if (issues.length > 0) {
           const prefix = partLabel ? `Bonus ${q.number}, ${partLabel}: ` : '';
           const message = `${prefix}Post-question note should be styled as a sentence: ${issues.join(' and ')}.`;
-          diags.push({
-            rule: 'question.post-question-note-sentence',
-            severity: 'warning',
-            paragraph: para.index,
-            message,
-            sourceText: text,
-            offset: match.index!,
-            length: fullMatch.length,
-          });
+          diags.push(
+            createDiagnostic(
+              'question.post-question-note-sentence',
+              para,
+              message,
+              { offset: match.index!, length: fullMatch.length }
+            )
+          );
         }
       }
     }
@@ -602,14 +610,13 @@ function checkSeparateNoteParagraph(packet: Packet): LintDiagnostic[] {
 
     const hasExtraBody = q.paragraphs.some((p) => !specialParas.has(p.index));
     if (hasExtraBody) {
-      diags.push({
-        rule: 'question.separate-note-paragraph',
-        severity: 'warning',
-        paragraph: q.numberParagraph.index,
-        message:
-          'Pre-question note should be on the same line as the question text, not a separate paragraph.',
-        sourceText: text,
-      });
+      diags.push(
+        createDiagnostic(
+          'question.separate-note-paragraph',
+          q.numberParagraph,
+          'Pre-question note should be on the same line as the question text, not a separate paragraph.'
+        )
+      );
     }
   }
 
@@ -633,7 +640,10 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
       { para: q.numberParagraph },
     ];
     for (let i = 0; i < q.parts.length; i++) {
-      parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
+      parasToCheck.push({
+        para: q.parts[i].textParagraph,
+        partLabel: `part ${i + 1}`,
+      });
     }
 
     for (const { para, partLabel } of parasToCheck) {
@@ -648,20 +658,21 @@ function checkNoteToModeratorFormat(packet: Packet): LintDiagnostic[] {
         if (noteStart === -1) continue;
 
         const isReader = label === 'Note to reader:';
-        const prefix = q.type === 'bonus' && partLabel ? `Bonus ${q.number}, ${partLabel}: ` : '';
+        const prefix =
+          q.type === 'bonus' && partLabel
+            ? `Bonus ${q.number}, ${partLabel}: `
+            : '';
         const message = isReader
           ? `${prefix}Use "Note to moderator:" instead of "${m[1]}" \u2014 the person reading the question is the moderator.`
           : `${prefix}Use "Note to moderator:" instead of "${m[1]}".`;
 
-        diags.push({
-          rule: 'question.note-formatting',
-          severity: 'info',
-          paragraph: para.index,
-          message,
-          sourceText: text,
-          offset: noteStart,
-          length: m[1].length,
-        });
+        diags.push(
+          createDiagnostic('question.note-formatting', para, message, {
+            severity: 'info',
+            offset: noteStart,
+            length: m[1].length,
+          })
+        );
         break;
       }
     }
@@ -695,7 +706,11 @@ const FTP_PRONOUN = /\b(?:this|what|which|these|give)\b/i;
  * ignoring trailing punctuation/whitespace (which may fall in a separate
  * non-italic run, e.g. the ". " after an italic instruction note).
  */
-function isRangeItalic(para: Paragraph, start: number, length: number): boolean {
+function isRangeItalic(
+  para: Paragraph,
+  start: number,
+  length: number
+): boolean {
   const raw = para.rawText.substring(start, start + length);
   const trimmed = raw.replace(/[\s.!?,;:]+$/, '');
   if (trimmed.length === 0) return false;
@@ -798,7 +813,10 @@ function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
     for (const sent of sentences) {
       const absOffset = numPrefixLen + sent.offset;
       const trimmed = sent.text.trim();
-      if (trimmed.length > 0 && isRangeItalic(q.numberParagraph, absOffset, trimmed.length)) {
+      if (
+        trimmed.length > 0 &&
+        isRangeItalic(q.numberParagraph, absOffset, trimmed.length)
+      ) {
         firstContentIdx++;
       } else {
         break;
@@ -824,17 +842,16 @@ function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
 
       if (!pronounRe.test(strippedSent)) {
         const absOffset = numPrefixLen + sent.offset;
-        diags.push({
-          rule: 'question.missing-pronoun',
-          severity: 'warning',
-          paragraph: q.numberParagraph.index,
-          message: isFtp
-            ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.'
-            : 'Clue sentence lacks a pronoun ("this"/"these") referring to the answer.',
-          sourceText: rawText,
-          offset: absOffset,
-          length: sent.text.trimEnd().length,
-        });
+        diags.push(
+          createDiagnostic(
+            'question.missing-pronoun',
+            q.numberParagraph,
+            isFtp
+              ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.'
+              : 'Clue sentence lacks a pronoun ("this"/"these") referring to the answer.',
+            { offset: absOffset, length: sent.text.trimEnd().length }
+          )
+        );
       }
     }
   }
@@ -856,16 +873,14 @@ function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
       const strippedBody = stripped.substring(markerLen);
 
       if (!FTP_PRONOUN.test(strippedBody)) {
-        diags.push({
-          rule: 'question.missing-pronoun',
-          severity: 'warning',
-          paragraph: part.textParagraph.index,
-          message:
+        diags.push(
+          createDiagnostic(
+            'question.missing-pronoun',
+            part.textParagraph,
             'Bonus part lacks a pronoun ("this"/"what") referring to the answer.',
-          sourceText: rawText,
-          offset: markerLen,
-          length: body.trimEnd().length,
-        });
+            { offset: markerLen, length: body.trimEnd().length }
+          )
+        );
       }
     }
   }

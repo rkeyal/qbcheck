@@ -8,6 +8,12 @@ import {
   AutoFix,
 } from '../model.js';
 import { ANSWER } from '../patterns.js';
+import {
+  findBracketSpans,
+  parseSubDirectives,
+  type SubDirective,
+  type BracketSpan,
+} from './answerline-parsing.js';
 
 /**
  * Character formatting info extracted from runs.
@@ -16,6 +22,15 @@ export interface CharFormat {
   bold: boolean;
   underline: boolean;
 }
+
+/**
+ * Double-quote characters recognized as answer delimiters: straight (`"`) and
+ * curly open/close (`“` `”`). Single source of truth for regex character
+ * classes that need to match a double quote (e.g. `[${DOUBLE_QUOTE_CHARS}]`).
+ * Apostrophes / single quotes are intentionally excluded to avoid matching
+ * possessives.
+ */
+export const DOUBLE_QUOTE_CHARS = '"“”';
 
 /**
  * Replace all quoted regions with spaces (preserving string length).
@@ -97,6 +112,25 @@ export function getAnswerLines(packet: Packet): Paragraph[] {
     }
   }
   return lines;
+}
+
+/**
+ * Iterate every parsed sub-directive across all answer lines in the packet.
+ *
+ * Composes {@link getAnswerLines} with `findBracketSpans` / `parseSubDirectives`
+ * so answer-line rules can loop directly over `{ para, bracket, sub }` instead of
+ * hand-rolling the answer-line → bracket → sub-directive nesting.
+ */
+export function* iterateSubDirectives(
+  packet: Packet
+): Generator<{ para: Paragraph; bracket: BracketSpan; sub: SubDirective }> {
+  for (const para of getAnswerLines(packet)) {
+    for (const bracket of findBracketSpans(para.rawText)) {
+      for (const sub of parseSubDirectives(bracket, para.rawText)) {
+        yield { para, bracket, sub };
+      }
+    }
+  }
 }
 
 /**
@@ -201,13 +235,19 @@ export function createDiagnostic(
  * @param runs - The text runs from a paragraph
  * @returns An array mapping each character position to its formatting
  */
+const formattingMapCache = new WeakMap<Run[], CharFormat[]>();
+
 export function buildFormattingMap(runs: Run[]): CharFormat[] {
+  const cached = formattingMapCache.get(runs);
+  if (cached) return cached;
+
   const map: CharFormat[] = [];
   for (const run of runs) {
     for (let i = 0; i < run.text.length; i++) {
       map.push({ bold: run.bold, underline: run.underline });
     }
   }
+  formattingMapCache.set(runs, map);
   return map;
 }
 
