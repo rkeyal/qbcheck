@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "qbcheck",
   "version": "0.2.0",
-  "description": "Lint quizbowl question packets for QMOS style violations",
+  "description": "Check quizbowl packets for formatting and style issues",
   "permissions": [
     "storage",
     "clipboardRead"
