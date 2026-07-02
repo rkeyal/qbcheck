@@ -137,7 +137,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'question.missing-pronoun',
     category: 'question',
     description: 'Clue sentence or FTP references the answer with a pronoun',
-    defaultSeverity: 'info',
+    defaultSeverity: 'warning',
   },
   // answerline (16 rules)
   {

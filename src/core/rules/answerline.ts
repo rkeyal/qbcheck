@@ -712,7 +712,11 @@ function checkPromptPartialAnswers(packet: Packet): LintDiagnostic[] {
         if (sub.type !== 'prompt' && sub.type !== 'anti-prompt') continue;
 
         // Look for "partial answer(s)" in prompt directives
-        if (/\bpartial\s+answers?\b/i.test(sub.contentText)) {
+        const partialMatch = sub.contentText.match(
+          /\b(partial\s+answers?)\b/i
+        );
+        if (partialMatch) {
+          const partialOffset = sub.contentStart + partialMatch.index!;
           diags.push({
             rule: 'answerline.prompt-partial-answers',
             severity: 'info',
@@ -720,6 +724,8 @@ function checkPromptPartialAnswers(packet: Packet): LintDiagnostic[] {
             message:
               'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
             sourceText: para.rawText,
+            offset: partialOffset,
+            length: partialMatch[1].length,
           });
         }
       }

@@ -826,7 +826,7 @@ function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
         const absOffset = numPrefixLen + sent.offset;
         diags.push({
           rule: 'question.missing-pronoun',
-          severity: 'info',
+          severity: 'warning',
           paragraph: q.numberParagraph.index,
           message: isFtp
             ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.'
@@ -858,7 +858,7 @@ function checkMissingPronoun(packet: Packet): LintDiagnostic[] {
       if (!FTP_PRONOUN.test(strippedBody)) {
         diags.push({
           rule: 'question.missing-pronoun',
-          severity: 'info',
+          severity: 'warning',
           paragraph: part.textParagraph.index,
           message:
             'Bonus part lacks a pronoun ("this"/"what") referring to the answer.',
