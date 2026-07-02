@@ -1005,6 +1005,13 @@ h1 {
   color: #666;
 }
 
+.shortcut-hint {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #999;
+  font-style: italic;
+}
+
 /* Help modal tabs */
 .help-tabs {
   display: flex;

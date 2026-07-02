@@ -80,6 +80,7 @@ Toggle dark mode with the button in the top-right corner of the header. The pref
 
 | Key | Action |
 |-----|--------|
+| `Ctrl+Shift+Q` (Mac) / `Alt+Shift+Q` (Win/Linux) | Open qbcheck and lint clipboard |
 | `E` | Toggle error severity filter |
 | `W` | Toggle warning severity filter |
 | `I` | Toggle info severity filter |
@@ -87,6 +88,8 @@ Toggle dark mode with the button in the top-right corner of the header. The pref
 | `1`-`9` | Jump to packet number |
 | `?` | Show keyboard shortcut help |
 | `Esc` | Close settings or help |
+
+The open shortcut is remappable at `chrome://extensions/shortcuts`.
 
 ### Export report
 
