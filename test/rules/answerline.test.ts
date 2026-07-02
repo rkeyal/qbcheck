@@ -403,6 +403,38 @@ describe('answerline.directive-separator', () => {
     const diags = lint(packet);
     expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
   });
+
+  it('does not flag "don’t accept" with a curly apostrophe', () => {
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept just X, but if they say Y don’t accept the answer]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(' [accept just X, but if they say Y don’t accept the answer]'),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(false);
+  });
+
+  it('flags a semicolon misplaced inside a closing quote', () => {
+    // The separator belongs outside the quotes, so this is not correctly
+    // separated: "…“chlorine;” accept…".
+    const t = tossupWithAnswer(
+      'ANSWER: thing [accept Cl in place of “chlorine;” accept Br in place of “bromine”]',
+      [
+        plain('ANSWER: '),
+        bu('thing'),
+        plain(
+          ' [accept Cl in place of “chlorine;” accept Br in place of “bromine”]'
+        ),
+      ]
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'answerline.directive-separator')).toBe(true);
+  });
 });
 
 describe('answerline.reject-no-alone', () => {

@@ -880,17 +880,20 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
         let j = matchPos - 1;
         while (j >= 0 && content[j] === ' ') j--;
 
-        // If preceded by semicolon, this directive is properly separated
+        // If preceded by semicolon, this directive is properly separated. A
+        // semicolon tucked inside a closing quote does not count — the
+        // separator belongs outside the quotes.
         if (j >= 0 && content[j] === ';') continue;
 
         // Nothing before — skip (first in content)
         if (j < 0) continue;
 
-        // Extract the token: a word (including apostrophes for "don't")
-        // or a single punctuation character
+        // Extract the token: a word (including straight or curly apostrophes
+        // for "don't" / "don’t") or a single punctuation character
+        const isWordChar = (c: string) => /\w/.test(c) || c === "'" || c === '’';
         let tokenBefore = '';
-        if (/\w/.test(content[j]) || content[j] === "'") {
-          while (j >= 0 && (/\w/.test(content[j]) || content[j] === "'")) {
+        if (isWordChar(content[j])) {
+          while (j >= 0 && isWordChar(content[j])) {
             tokenBefore = content[j] + tokenBefore;
             j--;
           }
@@ -900,8 +903,10 @@ function checkDirectiveSeparator(packet: Packet): LintDiagnostic[] {
 
         // Skip conjunctions — these connect clauses rather than separate
         // directives (e.g. "read and prompt on it afterwards",
-        // "but reject X", "or reject X", "don't accept the answer")
-        if (DIRECTIVE_SKIP_WORDS.has(tokenBefore.toLowerCase())) continue;
+        // "but reject X", "or reject X", "don't accept the answer"). Normalize
+        // a curly apostrophe so "don’t" matches "don't".
+        const normalizedToken = tokenBefore.toLowerCase().replace(/’/g, "'");
+        if (DIRECTIVE_SKIP_WORDS.has(normalizedToken)) continue;
 
         // Flag — not preceded by semicolon
         const absPos = bracket.start + 1 + matchPos; // +1 for opening '['
