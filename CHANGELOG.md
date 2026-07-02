@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-01
+
 ### Added
 
 - Add keyboard shortcut (Ctrl+Shift+Q / Alt+Shift+Q) to open extension and auto-lint clipboard contents
@@ -15,13 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Show "Tossup" / "Bonus" label instead of "T1" / "B1" when only one question is pasted
+- Promote missing-pronoun rule from info to warning severity
 - Disable bce-ce-system rule by default
 - Split README into focused documentation files
 
 ### Fixed
 
+- Fix absolute-time false positive on "this year" when question asks about a year
 - Scope poetry-slash rule to only flag unspaced slashes inside quoted text
-- Highlight the "with" keyword in prompt-with-not-by-asking instead of the full answer line
+- Highlight the relevant phrase in prompt-with-not-by-asking and prompt-partial-answers diagnostics
+- Fix trailing punctuation in post-notes diagnostic message
 
 ## [0.1.0] - 2026-06-28
 

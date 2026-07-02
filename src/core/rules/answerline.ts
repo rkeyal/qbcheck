@@ -466,7 +466,7 @@ function checkPostNotes(packet: Packet): LintDiagnostic[] {
         rule: 'answerline.post-notes',
         severity: 'info',
         paragraph: para.index,
-        message: `Text after the last bracket should be wrapped in parentheses: "${trimmed}".`,
+        message: `Text after the last bracket should be wrapped in parentheses: "${trimmed}"`,
         sourceText: text,
         offset: noteOffset !== -1 ? noteOffset : undefined,
         length: noteOffset !== -1 ? trimmed.length : undefined,
