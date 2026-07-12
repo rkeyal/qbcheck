@@ -8,6 +8,20 @@ export interface RuleMeta {
   autoFixable?: boolean;
 }
 
+/**
+ * Rules disabled by default in a fresh install. Both the Chrome extension and
+ * the Apps Script add-on start with these off so their out-of-the-box behavior
+ * matches. Cross-packet rules (e.g. tag.consistent-categories) are handled
+ * separately by the engine / add-on and are not listed here.
+ */
+export const DEFAULT_DISABLED_RULES: string[] = [
+  'formatting.smart-quotes',
+  'formatting.no-format-bleeding',
+  'writing.word-replacements',
+  'writing.no-weasel-words',
+  'packet.blank-paragraphs',
+];
+
 export const RULE_REGISTRY: RuleMeta[] = [
   // packet (8 rules)
   {

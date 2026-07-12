@@ -45,6 +45,38 @@ See the [Usage Guide](docs/usage.md) for the full feature walkthrough and a list
 - [Contributing](docs/contributing.md) -- development setup, adding rules, running tests
 - [Changelog](CHANGELOG.md) -- release history
 
+## Google Docs add-on (Apps Script)
+
+The same linter runs inside Google Docs as a sidebar add-on. The core pipeline
+is shared with the Chrome extension; a thin glue layer in `src/apps-script/`
+adapts it to the Apps Script `DocumentApp` API, applies fixes to the live
+document, and lets you click a finding to scroll its question to the top of the
+doc.
+
+The add-on is built with Vite, bundling `src/apps-script/main.ts` into a single
+`apps-script/Code.js`.
+
+```
+npm run typecheck:apps-script   # type-check the Apps Script sources + shared core
+npm run build:apps-script       # type-check, then bundle into apps-script/Code.js + Sidebar.html
+```
+
+The glue layer has integration tests under `test/apps-script/` that run the real
+shipping code against a fake `DocumentApp` runtime (`fake-gas.ts`) — no Google
+account or deployment needed. They run as part of `npm test`.
+
+### Deploying
+
+After `npm run build:apps-script`, copy the build outputs into an Apps Script
+project bound to your Google Doc (**Extensions → Apps Script** from the doc):
+
+- Paste `apps-script/Code.js` into the script editor's `Code.gs`.
+- Add an HTML file named `Sidebar` and paste in `apps-script/Sidebar.html`.
+- Copy `apps-script/appsscript.json` into the project manifest (enable
+  **Show "appsscript.json" manifest file** under Project Settings first).
+
+Then reload the doc and open the add-on from the **qbcheck** menu.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) for details.

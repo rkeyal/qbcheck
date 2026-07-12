@@ -82,10 +82,28 @@ function truncateAnswer(raw: string): string {
   if (bracketIdx !== -1) {
     text = text.substring(0, bracketIdx).trim();
   }
+  // Remove pronunciation guides, e.g. ("guh-doo-NAWF"), ('TOY-bin'), (“foo-BAR”)
+  text = text
+    .replace(/\s*\((?:"[^"]*"|'[^']*'|“[^”]*”)\)/g, '')
+    .trim();
   if (text.length > ANSWER_PREVIEW_MAX) {
     text = text.substring(0, ANSWER_PREVIEW_MAX) + '\u2026';
   }
   return text;
+}
+
+/**
+ * Short label (e.g. "T7", "B12") and a joined answer preview for a question.
+ * Shared so hosts can describe a question even when it has no diagnostics.
+ */
+export function describeQuestion(q: Question): {
+  label: string;
+  answerPreview: string;
+} {
+  return {
+    label: `${q.type === 'tossup' ? 'T' : 'B'}${q.number}`,
+    answerPreview: extractAnswerText(q).join(' / '),
+  };
 }
 
 function enrichDiagnostics(

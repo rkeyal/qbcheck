@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { lint, inferCrossPacketCategories } from '../src/core/engine.js';
+import {
+  lint,
+  inferCrossPacketCategories,
+  describeQuestion,
+} from '../src/core/engine.js';
 import { makePacket, makeQuestion, makeBonusPart, hasDiag } from './helpers.js';
 
 function makeValidTossup(n: number, tag?: string) {
@@ -81,6 +85,33 @@ describe('lint()', () => {
     const withLabel = diags.filter((d) => d.questionLabel);
     expect(withLabel.length).toBeGreaterThan(0);
     expect(withLabel[0].questionLabel).toBe('Tossup');
+  });
+});
+
+describe('describeQuestion()', () => {
+  function tossupWithAnswer(answer: string) {
+    return makeQuestion('tossup', 1, 'For 10 points, name it.', answer, {
+      numberParagraphIndex: 1,
+    });
+  }
+
+  it('drops a parenthetical pronunciation guide from the preview', () => {
+    const q = tossupWithAnswer('ANSWER: Boris Godunov ("guh-doo-NAWF")');
+    expect(describeQuestion(q).answerPreview).toBe('Boris Godunov');
+  });
+
+  it('drops a pronunciation guide that precedes bracketed instructions', () => {
+    const q = tossupWithAnswer(
+      'ANSWER: Colm Toibin ("TOY-bin") [accept Tóibín]'
+    );
+    expect(describeQuestion(q).answerPreview).toBe('Colm Toibin');
+  });
+
+  it('leaves non-pronunciation parentheticals intact', () => {
+    const q = tossupWithAnswer('ANSWER: the Battle of Hastings (1066)');
+    expect(describeQuestion(q).answerPreview).toBe(
+      'the Battle of Hastings (1066)'
+    );
   });
 });
 
