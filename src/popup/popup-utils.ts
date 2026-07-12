@@ -1,5 +1,5 @@
 import { LintDiagnostic, Paragraph } from '../core/model.js';
-import { RULE_REGISTRY } from '../core/rule-registry.js';
+import { RULE_REGISTRY, DEFAULT_DISABLED_RULES } from '../core/rule-registry.js';
 
 // --- Shared interfaces and constants ---
 
@@ -25,13 +25,7 @@ export interface SessionState {
 }
 
 export const DEFAULT_SETTINGS: QBLintSettings = {
-  disabledRules: [
-    'formatting.smart-quotes',
-    'formatting.no-format-bleeding',
-    'writing.word-replacements',
-    'writing.no-weasel-words',
-    'packet.blank-paragraphs',
-  ],
+  disabledRules: [...DEFAULT_DISABLED_RULES],
   ignoredDiagnostics: [],
   autoFixDisabled: [],
   darkMode: false,
