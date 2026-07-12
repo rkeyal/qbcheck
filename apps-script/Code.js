@@ -3131,10 +3131,17 @@ function truncateAnswer(raw) {
   if (bracketIdx !== -1) {
     text = text.substring(0, bracketIdx).trim();
   }
+  text = text.replace(/\s*\((?:"[^"]*"|'[^']*'|“[^”]*”)\)/g, "").trim();
   if (text.length > ANSWER_PREVIEW_MAX) {
     text = text.substring(0, ANSWER_PREVIEW_MAX) + "…";
   }
   return text;
+}
+function describeQuestion(q) {
+  return {
+    label: `${q.type === "tossup" ? "T" : "B"}${q.number}`,
+    answerPreview: extractAnswerText(q).join(" / ")
+  };
 }
 function enrichDiagnostics(diagnostics, packet) {
   const paraToQuestion = /* @__PURE__ */ new Map();
@@ -3160,6 +3167,13 @@ function enrichDiagnostics(diagnostics, packet) {
     }
   }
 }
+const DEFAULT_DISABLED_RULES = [
+  "formatting.smart-quotes",
+  "formatting.no-format-bleeding",
+  "writing.word-replacements",
+  "writing.no-weasel-words",
+  "packet.blank-paragraphs"
+];
 const RULE_REGISTRY = [
   // packet (8 rules)
   {
@@ -3581,54 +3595,6 @@ const RULE_REGISTRY = [
     defaultSeverity: "warning"
   }
 ];
-function insertCommentsForDiagnostics(diagnostics) {
-  const doc = DocumentApp.getActiveDocument();
-  const docId = doc.getId();
-  const body = doc.getBody();
-  const numChildren = body.getNumChildren();
-  const parIndexToElement = buildParagraphMap(body, numChildren);
-  let inserted = 0;
-  const errors = [];
-  for (const d of diagnostics) {
-    const element = parIndexToElement.get(d.paragraph);
-    if (!element) {
-      errors.push(`Paragraph ${d.paragraph} not found`);
-      continue;
-    }
-    const commentText = formatCommentBody(d);
-    const rawText = element.editAsText().getText();
-    const anchor = findAnchorPosition(d, rawText);
-    try {
-      const quotedContent = rawText.substring(
-        anchor.offset,
-        anchor.offset + Math.min(anchor.length, 200)
-      );
-      if (!quotedContent.trim()) {
-        errors.push(`Empty anchor text for ${d.rule} at paragraph ${d.paragraph}`);
-        continue;
-      }
-      Drive.Comments.create(
-        {
-          content: commentText,
-          quotedFileContent: {
-            value: quotedContent,
-            mimeType: "text/html"
-          }
-        },
-        docId,
-        { fields: "id" }
-      );
-      inserted++;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      errors.push(`Failed to insert comment for ${d.rule}: ${msg}`);
-    }
-  }
-  if (errors.length > 0) {
-    Logger.log("Comment insertion errors: " + errors.join("; "));
-  }
-  return inserted;
-}
 function buildParagraphMap(body, numChildren) {
   const map = /* @__PURE__ */ new Map();
   let paraIndex = 0;
@@ -3641,24 +3607,117 @@ function buildParagraphMap(body, numChildren) {
   }
   return map;
 }
-function formatCommentBody(d) {
-  let body = `[${d.rule}] ${d.message}`;
-  if (d.suggestion) {
-    body += `
-
-Suggested fix: ${d.suggestion}`;
-  } else if (d.fix) {
-    body += `
-
-Suggested fix: replace "${d.fix.oldText}" with "${d.fix.newText}"`;
+function applyFixForDiagnostic(diag) {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  const map = buildParagraphMap(body, body.getNumChildren());
+  const para = map.get(diag.paragraph);
+  if (!para) {
+    return { applied: false, reason: `Paragraph ${diag.paragraph} not found.` };
   }
-  return body;
+  return applyDiagToText(para.editAsText(), diag);
 }
-function findAnchorPosition(d, rawText) {
-  if (d.offset != null && d.length != null && d.length > 0) {
-    return { offset: d.offset, length: d.length };
+function applyFixesForDiagnostics(diagnostics) {
+  const doc = DocumentApp.getActiveDocument();
+  const body = doc.getBody();
+  const map = buildParagraphMap(body, body.getNumChildren());
+  let applied = 0;
+  let failed = 0;
+  const tally = (outcome) => {
+    if (outcome.applied) {
+      applied++;
+    } else {
+      failed++;
+    }
+  };
+  for (const d of diagnostics) {
+    if (d.fix || !d.formatFix) continue;
+    const para = map.get(d.paragraph);
+    if (!para) {
+      failed++;
+      continue;
+    }
+    tally(applyFormatFix(para.editAsText(), d.formatFix));
   }
-  return { offset: 0, length: rawText.length };
+  const textFixesByPara = /* @__PURE__ */ new Map();
+  for (const d of diagnostics) {
+    if (!d.fix) continue;
+    const list = textFixesByPara.get(d.paragraph) ?? [];
+    list.push(d);
+    textFixesByPara.set(d.paragraph, list);
+  }
+  for (const [paraIndex, list] of textFixesByPara) {
+    const para = map.get(paraIndex);
+    if (!para) {
+      failed += list.length;
+      continue;
+    }
+    list.sort((a, b) => b.fix.offset - a.fix.offset);
+    const text = para.editAsText();
+    for (const d of list) {
+      tally(applyTextFix(text, d.fix));
+    }
+  }
+  return { applied, failed };
+}
+function applyDiagToText(text, diag) {
+  if (diag.fix) {
+    return applyTextFix(text, diag.fix);
+  }
+  if (diag.formatFix) {
+    return applyFormatFix(text, diag.formatFix);
+  }
+  return { applied: false, reason: "This issue has no auto-fix." };
+}
+function applyTextFix(text, fix) {
+  const raw = text.getText();
+  const offset = resolveOffset(raw, fix.oldText, fix.offset);
+  if (offset === -1) {
+    return {
+      applied: false,
+      reason: "The text to fix was not found — the document may have changed since linting. Re-lint and try again."
+    };
+  }
+  const endInclusive = offset + fix.oldText.length - 1;
+  text.deleteText(offset, endInclusive);
+  text.insertText(offset, fix.newText);
+  return { applied: true };
+}
+function applyFormatFix(text, formatFix) {
+  const length = text.getText().length;
+  let anyApplied = false;
+  for (const range of formatFix.ranges) {
+    const start = range.offset;
+    const endInclusive = range.offset + range.length - 1;
+    if (start < 0 || endInclusive < start || endInclusive >= length) {
+      continue;
+    }
+    text.setBold(start, endInclusive, false);
+    text.setItalic(start, endInclusive, false);
+    text.setUnderline(start, endInclusive, false);
+    anyApplied = true;
+  }
+  if (!anyApplied) {
+    return {
+      applied: false,
+      reason: "The formatting range is out of bounds — the document may have changed since linting. Re-lint and try again."
+    };
+  }
+  return { applied: true };
+}
+function resolveOffset(raw, oldText, hint) {
+  if (raw.substring(hint, hint + oldText.length) === oldText) {
+    return hint;
+  }
+  let best = -1;
+  let idx = raw.indexOf(oldText);
+  while (idx !== -1) {
+    if (best === -1 || Math.abs(idx - hint) < Math.abs(best - hint)) {
+      best = idx;
+    }
+    idx = raw.indexOf(oldText, idx + 1);
+  }
+  return best;
 }
 const NUMBERED_RE = /^\d+\.\s/;
 const ANSWER_RE = /^ANSWER:/i;
@@ -3721,7 +3780,7 @@ function detectCurrentQuestion() {
   }
   const paragraphs = parseGoogleDocRange(body, startIdx, endIdx + 1);
   const label = inferLabel(rawTexts, startIdx);
-  return { paragraphs, label };
+  return { paragraphs, label, startIndex: startIdx };
 }
 function getRawTexts(body) {
   const texts = [];
@@ -3794,8 +3853,28 @@ function inferLabel(rawTexts, startIdx) {
   return null;
 }
 const CROSS_PACKET_RULES = /* @__PURE__ */ new Set(["tag.consistent-categories"]);
+function computeDisabledRules() {
+  const disabled = new Set(CROSS_PACKET_RULES);
+  const saved = PropertiesService.getUserProperties().getProperty(
+    "disabledRules"
+  );
+  const rules = saved ? JSON.parse(saved) : DEFAULT_DISABLED_RULES;
+  for (const rule of rules) {
+    disabled.add(rule);
+  }
+  return disabled;
+}
 function onOpen() {
-  DocumentApp.getUi().createMenu("qbcheck").addItem("Lint packet", "showSidebar").addToUi();
+  DocumentApp.getUi().createMenu("qbcheck").addItem("Open sidebar", "showSidebar").addToUi();
+}
+function buildRulesMeta() {
+  return RULE_REGISTRY.filter((r) => !CROSS_PACKET_RULES.has(r.id)).map((r) => ({
+    id: r.id,
+    category: r.category,
+    description: r.description
+  }));
+}
+function warmUp() {
 }
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile("Sidebar").setTitle("qbcheck").setWidth(350);
@@ -3809,24 +3888,28 @@ function runLint() {
   Logger.log(
     "runLint: " + packet.tossups.length + " tossups, " + packet.bonuses.length + " bonuses"
   );
-  const disabledRules = /* @__PURE__ */ new Set();
-  for (const rule of CROSS_PACKET_RULES) {
-    disabledRules.add(rule);
-  }
-  const savedDisabled = PropertiesService.getUserProperties().getProperty(
-    "disabledRules"
-  );
-  if (savedDisabled) {
-    for (const rule of JSON.parse(savedDisabled)) {
-      disabledRules.add(rule);
-    }
-  }
-  const diagnostics = lint(packet, disabledRules);
+  const diagnostics = lint(packet, computeDisabledRules());
   Logger.log("runLint: found " + diagnostics.length + " diagnostics");
-  const rulesMeta = RULE_REGISTRY.filter(
-    (r) => !CROSS_PACKET_RULES.has(r.id)
-  ).map((r) => ({ id: r.id, description: r.description }));
-  return { diagnostics, rulesMeta };
+  return {
+    diagnostics,
+    rulesMeta: buildRulesMeta(),
+    questionStarts: collectQuestionStarts(packet)
+  };
+}
+function collectQuestionStarts(packet) {
+  const starts = [];
+  for (const q of packet.tossups) starts.push(q.numberParagraph.index);
+  for (const q of packet.bonuses) starts.push(q.numberParagraph.index);
+  starts.sort((a, b) => a - b);
+  return starts;
+}
+function shortQuestionLabel(label) {
+  if (!label) return null;
+  const m = label.match(/^(Tossup|Bonus|Question)\s+(\d+)$/i);
+  if (!m) return label;
+  const kind = m[1].toLowerCase();
+  const prefix = kind === "tossup" ? "T" : kind === "bonus" ? "B" : "Q";
+  return prefix + m[2];
 }
 function lintCurrentQuestion() {
   Logger.log("lintCurrentQuestion: starting");
@@ -3838,24 +3921,116 @@ function lintCurrentQuestion() {
     "lintCurrentQuestion: detected " + detected.paragraphs.length + " paragraphs, label=" + detected.label
   );
   const packet = segmentPacket(detected.paragraphs);
-  const disabledRules = /* @__PURE__ */ new Set();
-  for (const rule of CROSS_PACKET_RULES) {
-    disabledRules.add(rule);
-  }
-  const savedDisabled = PropertiesService.getUserProperties().getProperty(
-    "disabledRules"
+  const diagnostics = lint(packet, computeDisabledRules());
+  Logger.log("lintCurrentQuestion: found " + diagnostics.length + " diagnostics");
+  const adjusted = diagnostics.map((d) => ({
+    ...d,
+    paragraph: d.paragraph + detected.startIndex
+  }));
+  const questionStarts = collectQuestionStarts(packet).map(
+    (i) => i + detected.startIndex
   );
-  if (savedDisabled) {
-    for (const rule of JSON.parse(savedDisabled)) {
-      disabledRules.add(rule);
+  const question = packet.tossups[0] ?? packet.bonuses[0] ?? null;
+  const answerPreview = question ? describeQuestion(question).answerPreview : "";
+  return {
+    diagnostics: adjusted,
+    label: shortQuestionLabel(detected.label),
+    answerPreview,
+    questionStarts
+  };
+}
+function applyFix(diag) {
+  return applyFixForDiagnostic(diag);
+}
+function paragraphAtOrLast(body, index) {
+  const numChildren = body.getNumChildren();
+  let count = 0;
+  let last = null;
+  for (let i = 0; i < numChildren; i++) {
+    const child = body.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH || type === DocumentApp.ElementType.LIST_ITEM) {
+      last = child.asParagraph();
+      if (count === index) return last;
+      count++;
     }
   }
-  const diagnostics = lint(packet, disabledRules);
-  Logger.log("lintCurrentQuestion: found " + diagnostics.length + " diagnostics");
-  return { diagnostics, label: detected.label };
+  return last;
 }
-function insertComments(selected) {
-  return insertCommentsForDiagnostics(selected);
+function cursorToParagraph(paraIndex) {
+  const doc = DocumentApp.getActiveDocument();
+  const para = paragraphAtOrLast(doc.getBody(), paraIndex);
+  if (!para) {
+    return { revealed: false, reason: "Document has no paragraphs." };
+  }
+  doc.setCursor(doc.newPosition(para.editAsText(), 0));
+  return { revealed: true };
+}
+function currentCursorParagraphIndex(doc) {
+  const cursor = doc.getCursor();
+  if (!cursor) return null;
+  let el = cursor.getElement();
+  while (el && el.getType() !== DocumentApp.ElementType.PARAGRAPH && el.getType() !== DocumentApp.ElementType.LIST_ITEM) {
+    el = el.getParent();
+  }
+  if (!el) return null;
+  const body = doc.getBody();
+  const numChildren = body.getNumChildren();
+  let count = 0;
+  for (let i = 0; i < numChildren; i++) {
+    const child = body.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH || type === DocumentApp.ElementType.LIST_ITEM) {
+      if (body.getChildIndex(el) === i) return count;
+      count++;
+    }
+  }
+  return null;
+}
+function questionStartAtOrBefore(starts, idx) {
+  let best = idx;
+  for (const s of starts) {
+    if (s <= idx) best = s;
+    else break;
+  }
+  return best;
+}
+function questionStartAfter(starts, idx, n = 1) {
+  const ahead = starts.filter((s) => s > idx);
+  if (ahead.length === 0) return Number.MAX_SAFE_INTEGER;
+  return ahead[Math.min(n, ahead.length) - 1];
+}
+function revealNearIssue(diag, questionStarts) {
+  const issueIdx = diag.paragraph;
+  const doc = DocumentApp.getActiveDocument();
+  const currentIdx = currentCursorParagraphIndex(doc);
+  const targetIdx = currentIdx != null && currentIdx > issueIdx ? questionStartAtOrBefore(questionStarts, issueIdx) : questionStartAfter(questionStarts, issueIdx, 2);
+  return cursorToParagraph(targetIdx);
+}
+function applyFixesAndRelint(diags, mode) {
+  const { applied, failed } = applyFixesForDiagnostics(diags);
+  if (mode === "question") {
+    const result2 = lintCurrentQuestion();
+    if ("error" in result2) {
+      return { applied, failed, diagnostics: [], error: result2.error };
+    }
+    return {
+      applied,
+      failed,
+      diagnostics: result2.diagnostics,
+      label: result2.label,
+      answerPreview: result2.answerPreview,
+      questionStarts: result2.questionStarts
+    };
+  }
+  const result = runLint();
+  return {
+    applied,
+    failed,
+    diagnostics: result.diagnostics,
+    rulesMeta: result.rulesMeta,
+    questionStarts: result.questionStarts
+  };
 }
 function saveDisabledRules(rules) {
   PropertiesService.getUserProperties().setProperty(
@@ -3863,7 +4038,10 @@ function saveDisabledRules(rules) {
     JSON.stringify(rules)
   );
 }
-function getDisabledRules() {
+function getSettings() {
   const saved = PropertiesService.getUserProperties().getProperty("disabledRules");
-  return saved ? JSON.parse(saved) : [];
+  return {
+    rulesMeta: buildRulesMeta(),
+    disabledRules: saved ? JSON.parse(saved) : [...DEFAULT_DISABLED_RULES]
+  };
 }

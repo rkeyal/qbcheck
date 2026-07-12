@@ -6,3 +6,7 @@ dist/
 ExamplePackets
 lint-results.json
 dist.zip
+
+# clasp: personal project pointer (scriptId) and credentials
+.clasp.json
+.clasprc.json

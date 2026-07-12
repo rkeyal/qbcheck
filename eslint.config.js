@@ -11,6 +11,8 @@ export default tseslint.config(
       '*.config.js',
       '*.config.ts',
       'ExamplePackets/**',
+      // Generated Apps Script bundle (built by vite.config.apps-script.ts).
+      'apps-script/Code.js',
     ],
   },
   // Base ESLint recommended rules

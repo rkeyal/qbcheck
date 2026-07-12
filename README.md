@@ -222,6 +222,49 @@ npm run lint         # run ESLint (fails on warnings)
 
 Tests use [Vitest](https://vitest.dev/). The test suite covers the parser, segmenter, all rule categories, fixer, and YAPP compatibility rules.
 
+## Google Docs add-on (Apps Script)
+
+The same linter runs inside Google Docs as a sidebar add-on. The core pipeline
+is shared with the Chrome extension; a thin glue layer in `src/apps-script/`
+adapts it to the Apps Script `DocumentApp` API, applies fixes to the live
+document, and lets you click a finding to scroll its question to the top of the
+doc.
+
+The add-on is built with Vite (bundling `src/apps-script/main.ts` into a single
+`apps-script/Code.js`) and deployed with [clasp](https://github.com/google/clasp).
+
+```
+npm run typecheck:apps-script   # type-check the Apps Script sources + shared core
+npm run build:apps-script       # type-check, then bundle into apps-script/Code.js + Sidebar.html
+npm run push:apps-script        # build, then clasp push to the bound script project
+```
+
+The glue layer has integration tests under `test/apps-script/` that run the real
+shipping code against a fake `DocumentApp` runtime (`fake-gas.ts`) — no Google
+account or deployment needed. They run as part of `npm test`.
+
+### One-time clasp setup
+
+1. Enable the Apps Script API: https://script.google.com/home/usersettings
+2. Authorize clasp (stores credentials in `~/.clasprc.json`):
+   ```
+   npm run clasp:login
+   ```
+3. Point clasp at your script project. Copy the template and fill in your
+   script ID (found in the Apps Script editor under **Project Settings**, or in
+   the project URL):
+   ```
+   cp .clasp.json.example .clasp.json
+   # then edit .clasp.json and set "scriptId"
+   ```
+   `.clasp.json` and `.clasprc.json` are gitignored — the script ID and
+   credentials stay local to your machine.
+
+After that, `npm run push:apps-script` builds and uploads in one step. Use
+`npm run clasp:open` to jump to the editor. During iteration, run
+`clasp push -w` in a second terminal alongside `vite build --watch
+--config vite.config.apps-script.ts` for live sync.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) for details.

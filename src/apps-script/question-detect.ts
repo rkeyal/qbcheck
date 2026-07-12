@@ -9,6 +9,12 @@ const TAG_RE = /^<[^>]+,\s*[^>]+>\s*$/;
 export interface DetectedQuestion {
   paragraphs: Paragraph[];
   label: string | null;
+  /**
+   * Absolute paragraph index (counting only paragraph/list-item body children)
+   * where the detected range begins. `paragraphs` is re-indexed from zero, so
+   * callers must add this offset to map a diagnostic back onto the full document.
+   */
+  startIndex: number;
 }
 
 export function detectCurrentQuestion(): DetectedQuestion | null {
@@ -95,7 +101,7 @@ export function detectCurrentQuestion(): DetectedQuestion | null {
 
   const label = inferLabel(rawTexts, startIdx);
 
-  return { paragraphs, label };
+  return { paragraphs, label, startIndex: startIdx };
 }
 
 function getRawTexts(body: GoogleAppsScript.Document.Body): string[] {

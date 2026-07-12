@@ -101,6 +101,33 @@
         border-radius: 6px;
         padding: 8px 10px;
         position: relative;
+        cursor: pointer;
+      }
+      .diag-item:hover {
+        background: #f9fafb;
+      }
+      .diag-item.jumping {
+        background: #eff6ff;
+      }
+      /* A small spinner in the top-right corner while a jump is in flight.
+         The header reserves space for it (see .diag-header padding-right) so it
+         never overlaps the rule text. */
+      .diag-item.jumping::after {
+        content: '';
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #bfdbfe;
+        border-top-color: #1a73e8;
+        border-radius: 50%;
+        animation: diag-spin 0.6s linear infinite;
+      }
+      @keyframes diag-spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
       .diag-item[data-severity='error'] {
         border-left: 3px solid #dc2626;
@@ -119,6 +146,8 @@
         align-items: center;
         gap: 6px;
         margin-bottom: 4px;
+        /* Reserve the top-right corner for the jumping spinner. */
+        padding-right: 18px;
       }
       .diag-label {
         font-weight: 700;
@@ -139,8 +168,11 @@
         background: #f9fafb;
         padding: 4px 6px;
         border-radius: 3px;
-        overflow-x: auto;
-        white-space: pre;
+        /* Wrap the full quoted text vertically so the highlighted span is
+           always visible, rather than scrolling off the right of the narrow
+           sidebar on a single pre-formatted line. */
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
         margin-bottom: 6px;
       }
       .diag-context .highlight {
@@ -155,10 +187,63 @@
         border-radius: 3px;
         margin-bottom: 4px;
       }
-      .diag-check {
-        position: absolute;
-        top: 8px;
-        right: 8px;
+      .diag-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .btn-fix {
+        padding: 3px 10px;
+        font-size: 11px;
+        border: 1px solid #059669;
+        color: #059669;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-fix:hover {
+        background: #ecfdf5;
+      }
+      .btn-fix:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
+      .fix-status {
+        font-size: 11px;
+      }
+      .fix-status.ok {
+        color: #059669;
+        font-weight: 600;
+      }
+      .fix-status.err {
+        color: #dc2626;
+      }
+      .diag-item.fixed {
+        opacity: 0.6;
+      }
+      .diag-item.fixed .diag-message {
+        text-decoration: line-through;
+      }
+
+      /* Fix-all bar */
+      .fixable-bar {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 6px 8px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 6px;
+      }
+      .fixable-bar.visible {
+        display: flex;
+      }
+      .fixable-count {
+        font-size: 11px;
+        color: #065f46;
+        flex: 1;
       }
 
       /* States */
@@ -203,6 +288,26 @@
       .rule-toggle input {
         margin: 0;
       }
+      .settings-category {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6b7280;
+        margin-top: 10px;
+        padding-top: 6px;
+        border-top: 1px solid #e5e7eb;
+      }
+      .settings-category:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+      }
+      .settings-empty {
+        font-size: 11px;
+        color: #888;
+        padding: 4px 0;
+      }
 
       /* Mode label */
       .mode-label {
@@ -214,37 +319,17 @@
         border-radius: 4px;
       }
 
-      /* Comment action bar */
-      .action-bar {
-        position: sticky;
-        bottom: 0;
-        background: #fff;
-        border-top: 1px solid #e5e7eb;
-        padding: 8px 0;
-        margin-top: 12px;
-        display: none;
-      }
-      .action-bar.visible {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .selected-count {
-        font-size: 11px;
-        color: #666;
-      }
     </style>
   </head>
   <body>
-    <h1>qbcheck</h1>
     <p class="subtitle">Quizbowl Packet Style Checker</p>
 
     <div class="controls">
-      <button class="btn btn-primary" id="lint-question-btn" onclick="lintQuestion()">
+      <button class="btn" id="lint-question-btn" onclick="lintQuestion()">
         Lint This Question
       </button>
-      <button class="btn" id="lint-doc-btn" onclick="runLint()">
-        Lint Entire Packet
+      <button class="btn btn-primary" id="lint-doc-btn" onclick="runLint()">
+        Lint Packet
       </button>
       <button class="btn" id="settings-btn" onclick="toggleSettings()">
         &#x2699;
@@ -261,28 +346,35 @@
     </div>
 
     <div id="stats-bar" class="stats-bar" style="display: none"></div>
-    <div id="diag-list" class="diag-list"></div>
-
-    <div id="action-bar" class="action-bar">
-      <span class="selected-count" id="selected-count">0 selected</span>
-      <button class="btn btn-primary" id="comment-btn" onclick="insertComments()">
-        Insert Comments
+    <div id="fixable-bar" class="fixable-bar">
+      <span class="fixable-count" id="fixable-count"></span>
+      <button class="btn btn-primary" id="fix-all-btn" onclick="applyAllFixes()">
+        Fix all
       </button>
     </div>
+    <div id="diag-list" class="diag-list" onmouseenter="warmOnHover()"></div>
 
     <script>
       var diagnostics = [];
       var rulesMeta = [];
+      var questionStarts = [];
       var disabledRules = [];
       var visibleSeverities = { error: true, warning: true, info: true };
+      var fixedIndices = {};
+      var lastMode = null;
+
+      function isFixable(d) {
+        return !!(d.fix || d.formatFix);
+      }
 
       function clearResults() {
         document.getElementById('error').style.display = 'none';
         document.getElementById('empty').style.display = 'none';
         document.getElementById('stats-bar').style.display = 'none';
+        document.getElementById('fixable-bar').className = 'fixable-bar';
         document.getElementById('diag-list').innerHTML = '';
-        document.getElementById('action-bar').className = 'action-bar';
         document.getElementById('mode-label').style.display = 'none';
+        fixedIndices = {};
       }
 
       function showLoading(message) {
@@ -293,6 +385,7 @@
 
       function lintQuestion() {
         clearResults();
+        lastMode = 'question';
         showLoading('Checking current question...');
 
         google.script.run
@@ -312,23 +405,36 @@
         }
 
         diagnostics = result.diagnostics;
+        questionStarts = result.questionStarts || [];
         var modeLabel = document.getElementById('mode-label');
-        modeLabel.textContent = 'Checking: ' + (result.label || 'Current question');
+        modeLabel.textContent = questionDescriptor(result);
         modeLabel.style.display = 'block';
 
         if (diagnostics.length === 0) {
-          document.getElementById('empty').style.display = 'block';
+          var emptyEl = document.getElementById('empty');
+          emptyEl.textContent = 'No issues found.';
+          emptyEl.style.display = 'block';
           return;
         }
 
         renderStats();
         renderDiagnostics();
-        updateActionBar();
+        renderFixableBar();
+      }
+
+      // "T7 “Nevsky Prospekt”" — short label plus the answer preview (if any).
+      function questionDescriptor(result) {
+        var label = result.label || 'Current question';
+        if (result.answerPreview) {
+          return label + ' “' + result.answerPreview + '”';
+        }
+        return label;
       }
 
       function runLint() {
         clearResults();
-        showLoading('Linting entire packet...');
+        lastMode = 'doc';
+        showLoading('Linting packet...');
 
         var modeLabel = document.getElementById('mode-label');
         modeLabel.textContent = 'Checking: Full packet';
@@ -344,15 +450,18 @@
         document.getElementById('loading').style.display = 'none';
         diagnostics = result.diagnostics;
         rulesMeta = result.rulesMeta;
+        questionStarts = result.questionStarts || [];
 
         if (diagnostics.length === 0) {
-          document.getElementById('empty').style.display = 'block';
+          var emptyEl = document.getElementById('empty');
+          emptyEl.textContent = 'No issues found. The packet looks good!';
+          emptyEl.style.display = 'block';
           return;
         }
 
         renderStats();
         renderDiagnostics();
-        updateActionBar();
+        renderFixableBar();
       }
 
       function onLintError(err) {
@@ -396,6 +505,9 @@
         diagnostics.forEach(function (d, i) {
           var contextHtml = '';
           if (d.sourceText && d.offset != null && d.length != null) {
+            // Show a window of context around the highlighted span. The window
+            // wraps vertically (see .diag-context CSS) so the highlight is
+            // always visible rather than scrolling off the right edge.
             var CONTEXT = 40;
             var start = Math.max(0, d.offset - CONTEXT);
             var end = Math.min(d.sourceText.length, d.offset + d.length + CONTEXT);
@@ -416,11 +528,26 @@
               escapeHtml(d.fix.oldText) + '" with "' + escapeHtml(d.fix.newText) + '"</div>';
           }
 
-          var label = d.questionLabel || '';
+          // In question mode every diagnostic belongs to the one question shown
+          // in the header, so the per-card T#/B# label is redundant.
+          var label = lastMode === 'question' ? '' : (d.questionLabel || '');
+          var fixed = !!fixedIndices[i];
+
+          var actionsHtml = '';
+          if (isFixable(d)) {
+            actionsHtml = '<div class="diag-actions">' +
+              '<button class="btn-fix" id="fix-btn-' + i + '" onclick="applyFix(' + i + ')"' +
+                (fixed ? ' disabled' : '') + '>' + (fixed ? '✓ Fixed' : 'Fix') + '</button>' +
+              '<span class="fix-status' + (fixed ? ' ok' : '') + '" id="fix-status-' + i + '">' +
+                (fixed ? 'Applied' : '') + '</span>' +
+            '</div>';
+          }
 
           html += '<div class="diag-item' + (visibleSeverities[d.severity] ? '' : ' hidden') +
-            '" data-severity="' + d.severity + '" data-index="' + i + '">' +
-            '<input type="checkbox" class="diag-check" onchange="updateActionBar()" />' +
+            (fixed ? ' fixed' : '') +
+            '" data-severity="' + d.severity + '" data-index="' + i + '"' +
+            ' title="Click to jump to this in the document"' +
+            ' onclick="onDiagItemClick(event, ' + i + ')">' +
             '<div class="diag-header">' +
               (label ? '<span class="diag-label">' + label + '</span>' : '') +
               '<span class="diag-rule">' + d.rule + '</span>' +
@@ -428,53 +555,268 @@
             '<div class="diag-message">' + escapeHtml(d.message) + '</div>' +
             contextHtml +
             suggestionHtml +
+            actionsHtml +
           '</div>';
         });
 
         list.innerHTML = html;
       }
 
-      function updateActionBar() {
-        var checked = document.querySelectorAll('.diag-check:checked');
-        var bar = document.getElementById('action-bar');
-        var count = document.getElementById('selected-count');
-        if (checked.length > 0) {
-          bar.className = 'action-bar visible';
-          count.textContent = checked.length + ' selected';
-        } else {
-          bar.className = 'action-bar';
+      function renderFixableBar() {
+        var bar = document.getElementById('fixable-bar');
+        var btn = document.getElementById('fix-all-btn');
+        var remaining = 0;
+        diagnostics.forEach(function (d, i) {
+          if (isFixable(d) && !fixedIndices[i]) remaining++;
+        });
+        if (remaining === 0) {
+          bar.className = 'fixable-bar';
+          return;
+        }
+        document.getElementById('fixable-count').textContent =
+          remaining + ' auto-fixable issue' + (remaining === 1 ? '' : 's');
+        // #fix-all-btn is a static element (not recreated on re-lint), so always
+        // reset it to an enabled state here — otherwise a prior "Fix all" leaves
+        // it disabled and it appears permanently unclickable.
+        btn.disabled = false;
+        btn.textContent = 'Fix all ' + remaining;
+        bar.className = 'fixable-bar visible';
+      }
+
+      // Clicking an issue card (but not its Fix button) scrolls the Google Doc
+      // so that issue's question reads from the top of the viewport.
+      function onDiagItemClick(e, index) {
+        if (e.target.closest('.diag-actions')) return;
+        jumpToDiagnostic(index);
+      }
+
+      var lastWarmAt = 0;
+
+      // Ping the server when the cursor enters the issue list so the runtime is
+      // warm by the time an issue is clicked (the jump round-trip is otherwise
+      // slowed by a cold start). Throttled so we don't spam executions.
+      function warmOnHover() {
+        var now = Date.now();
+        if (now - lastWarmAt < 30000) return;
+        lastWarmAt = now;
+        google.script.run.warmUp();
+      }
+
+      function setJumping(index, on) {
+        // Only one issue can be mid-jump; clear any prior marker first.
+        var prev = document.querySelector('.diag-item.jumping');
+        if (prev) prev.classList.remove('jumping');
+        if (on) {
+          var item = document.querySelector(
+            '.diag-item[data-index="' + index + '"]'
+          );
+          if (item) item.classList.add('jumping');
         }
       }
 
-      function insertComments() {
-        var checked = document.querySelectorAll('.diag-check:checked');
-        var selected = [];
-        checked.forEach(function (cb) {
-          var item = cb.closest('.diag-item');
-          var idx = parseInt(item.getAttribute('data-index'), 10);
-          selected.push(diagnostics[idx]);
-        });
+      function jumpToDiagnostic(index) {
+        var d = diagnostics[index];
+        if (!d) return;
 
-        if (selected.length === 0) return;
+        // Immediate visual feedback so the click doesn't feel frozen while the
+        // (unavoidable) server round-trip completes.
+        setJumping(index, true);
 
-        document.getElementById('comment-btn').disabled = true;
-        document.getElementById('comment-btn').textContent = 'Inserting...';
-
+        // A single round-trip: the server reads the cursor and moves it in one
+        // execution, choosing the target by approach direction so the issue
+        // lands in view (see revealNearIssue). questionStarts lets it aim at a
+        // question boundary without re-parsing the document.
         google.script.run
-          .withSuccessHandler(function (count) {
-            document.getElementById('comment-btn').disabled = false;
-            document.getElementById('comment-btn').textContent = 'Insert Comments';
-            // Uncheck inserted items
-            checked.forEach(function (cb) { cb.checked = false; });
-            updateActionBar();
-            alert(count + ' comment(s) inserted.');
+          .withSuccessHandler(function () {
+            setJumping(index, false);
           })
           .withFailureHandler(function (err) {
-            document.getElementById('comment-btn').disabled = false;
-            document.getElementById('comment-btn').textContent = 'Insert Comments';
-            alert('Error inserting comments: ' + (err.message || err));
+            setJumping(index, false);
+            reportJumpError(index, err);
           })
-          .insertComments(selected);
+          .revealNearIssue(d, questionStarts);
+      }
+
+      function reportJumpError(index, err) {
+        // Navigation is best-effort; surface quietly without blocking.
+        var status = document.getElementById('fix-status-' + index);
+        if (status) {
+          status.className = 'fix-status err';
+          status.textContent = 'Could not jump: ' + (err.message || err);
+        }
+      }
+
+      function applyFix(index) {
+        var d = diagnostics[index];
+        if (!d || !isFixable(d) || fixedIndices[index]) return;
+
+        var btn = document.getElementById('fix-btn-' + index);
+        var status = document.getElementById('fix-status-' + index);
+        btn.disabled = true;
+        btn.textContent = 'Fixing…';
+        status.className = 'fix-status';
+        status.textContent = '';
+
+        google.script.run
+          .withSuccessHandler(function (outcome) {
+            if (outcome && outcome.applied) {
+              markItemFixed(index);
+            } else {
+              btn.disabled = false;
+              btn.textContent = 'Fix';
+              status.className = 'fix-status err';
+              status.textContent =
+                (outcome && outcome.reason) || 'Could not apply fix.';
+            }
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = 'Fix';
+            status.className = 'fix-status err';
+            status.textContent = 'Error: ' + (err.message || err);
+          })
+          .applyFix(d);
+      }
+
+      function markItemFixed(index) {
+        fixedIndices[index] = true;
+        var item = document.querySelector('.diag-item[data-index="' + index + '"]');
+        if (item) item.className += ' fixed';
+        var btn = document.getElementById('fix-btn-' + index);
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = '✓ Fixed';
+        }
+        var status = document.getElementById('fix-status-' + index);
+        if (status) {
+          status.className = 'fix-status ok';
+          status.textContent = 'Applied';
+        }
+        renderFixableBar();
+      }
+
+      function applyAllFixes() {
+        var pending = [];
+        diagnostics.forEach(function (d, i) {
+          if (isFixable(d) && !fixedIndices[i]) pending.push(d);
+        });
+        if (pending.length === 0) return;
+
+        var btn = document.getElementById('fix-all-btn');
+        btn.disabled = true;
+        btn.textContent = 'Fixing ' + pending.length + '…';
+        showLoading(
+          'Applying ' + pending.length + ' fix' +
+            (pending.length === 1 ? '' : 'es') + '…'
+        );
+
+        // A single server round-trip both applies every fix and re-lints (see
+        // applyFixesAndRelint), instead of an apply call followed by a separate
+        // re-lint call. This halves the latency of "Fix all".
+        google.script.run
+          .withSuccessHandler(onApplyAllSuccess)
+          .withFailureHandler(function (err) {
+            document.getElementById('loading').style.display = 'none';
+            btn.disabled = false;
+            renderFixableBar();
+            alert('Error applying fixes: ' + (err.message || err));
+          })
+          .applyFixesAndRelint(
+            pending,
+            lastMode === 'question' ? 'question' : 'doc'
+          );
+      }
+
+      function onApplyAllSuccess(result) {
+        document.getElementById('loading').style.display = 'none';
+
+        // The document was re-linted server-side, so the old fixed-state map no
+        // longer lines up with these fresh diagnostics.
+        fixedIndices = {};
+
+        if (result.error) {
+          clearResults();
+          var el = document.getElementById('error');
+          el.textContent = result.error;
+          el.style.display = 'block';
+          return;
+        }
+
+        diagnostics = result.diagnostics || [];
+        if (result.rulesMeta) rulesMeta = result.rulesMeta;
+        if (result.questionStarts) questionStarts = result.questionStarts;
+
+        document.getElementById('empty').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('diag-list').innerHTML = '';
+
+        var modeLabel = document.getElementById('mode-label');
+        modeLabel.textContent =
+          lastMode === 'question'
+            ? questionDescriptor(result)
+            : 'Checking: Full packet';
+        modeLabel.style.display = 'block';
+
+        if (diagnostics.length === 0) {
+          document.getElementById('stats-bar').style.display = 'none';
+          document.getElementById('fixable-bar').className = 'fixable-bar';
+          var emptyEl = document.getElementById('empty');
+          emptyEl.textContent =
+            lastMode === 'question'
+              ? 'No issues found.'
+              : 'No issues found. The packet looks good!';
+          emptyEl.style.display = 'block';
+          return;
+        }
+
+        renderStats();
+        renderDiagnostics();
+        renderFixableBar();
+      }
+
+      var settingsLoaded = false;
+      var settingsLoading = false;
+      var settingsWaiters = [];
+
+      // Prefetch rules + disabled state once so opening the panel is instant
+      // (no per-open server round-trip). Called on load below.
+      //
+      // Idempotent: if a request is already in flight (e.g. the on-load
+      // prefetch), a gear click just waits on it instead of firing a second
+      // getSettings. That matters because both calls hit PropertiesService,
+      // which serializes executions per user — a duplicate call would queue
+      // behind the first and make the panel slower, not faster.
+      function fetchSettings(cb) {
+        if (settingsLoaded) {
+          if (cb) cb();
+          return;
+        }
+        if (cb) settingsWaiters.push(cb);
+        if (settingsLoading) return;
+
+        settingsLoading = true;
+        google.script.run
+          .withSuccessHandler(function (data) {
+            rulesMeta = data.rulesMeta || [];
+            disabledRules = data.disabledRules || [];
+            settingsLoaded = true;
+            settingsLoading = false;
+            flushSettingsWaiters();
+          })
+          .withFailureHandler(function () {
+            // Leave settingsLoaded false so the next open retries.
+            settingsLoading = false;
+            flushSettingsWaiters();
+          })
+          .getSettings();
+      }
+
+      function flushSettingsWaiters() {
+        var waiters = settingsWaiters;
+        settingsWaiters = [];
+        waiters.forEach(function (w) {
+          w();
+        });
       }
 
       function toggleSettings() {
@@ -484,24 +826,52 @@
           return;
         }
 
-        google.script.run
-          .withSuccessHandler(function (saved) {
-            disabledRules = saved || [];
-            renderSettings();
-            panel.className = 'settings-panel open';
-          })
-          .getDisabledRules();
+        if (settingsLoaded) {
+          renderSettings();
+          panel.className = 'settings-panel open';
+          return;
+        }
+
+        // Prefetch not done yet — open with a placeholder and fill in on arrival.
+        panel.innerHTML = '<div class="settings-empty">Loading settings…</div>';
+        panel.className = 'settings-panel open';
+        fetchSettings(function () {
+          if (panel.className.indexOf('open') >= 0) renderSettings();
+        });
       }
 
       function renderSettings() {
         var panel = document.getElementById('settings-panel');
-        var html = '';
+        if (!rulesMeta || rulesMeta.length === 0) {
+          panel.innerHTML =
+            '<div class="settings-empty">No rules available.</div>';
+          return;
+        }
+
+        // Group rules by category (packet, question, answerline, …), preserving
+        // the order they arrive in, with a divider heading before each group.
+        var order = [];
+        var byCategory = {};
         rulesMeta.forEach(function (r) {
-          var checked = disabledRules.indexOf(r.id) === -1;
-          html += '<label class="rule-toggle">' +
-            '<input type="checkbox" ' + (checked ? 'checked' : '') +
-            ' onchange="onRuleToggle(\'' + r.id + '\', this.checked)" />' +
-            '<span>' + r.id + '</span></label>';
+          var cat = r.category || r.id.split('.')[0];
+          if (!byCategory[cat]) {
+            byCategory[cat] = [];
+            order.push(cat);
+          }
+          byCategory[cat].push(r);
+        });
+
+        var html = '';
+        order.forEach(function (cat) {
+          html += '<div class="settings-category">' + escapeHtml(cat) + '</div>';
+          byCategory[cat].forEach(function (r) {
+            var checked = disabledRules.indexOf(r.id) === -1;
+            html += '<label class="rule-toggle" title="' +
+              escapeHtml(r.description || '') + '">' +
+              '<input type="checkbox" ' + (checked ? 'checked' : '') +
+              ' onchange="onRuleToggle(\'' + r.id + '\', this.checked)" />' +
+              '<span>' + escapeHtml(r.id) + '</span></label>';
+          });
         });
         panel.innerHTML = html;
       }
@@ -520,6 +890,9 @@
         div.textContent = text;
         return div.innerHTML;
       }
+
+      // Warm the settings cache immediately so the gear opens without a wait.
+      fetchSettings();
     </script>
   </body>
 </html>
