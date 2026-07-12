@@ -405,6 +405,84 @@ function sliceRuns(runs, startChar, endChar) {
   }
   return result;
 }
+function findBracketSpans(rawText) {
+  const spans = [];
+  for (const m of rawText.matchAll(/\[([^\]]*)\]/g)) {
+    spans.push({
+      start: m.index,
+      end: m.index + m[0].length - 1,
+      content: m[1]
+    });
+  }
+  return spans;
+}
+function parseSubDirectives(bracket, _rawText) {
+  const results = [];
+  const innerStart = bracket.start + 1;
+  const parts = bracket.content.split(";");
+  let offset = innerStart;
+  for (const part of parts) {
+    const trimmed = part.trimStart();
+    const leadingSpaces = part.length - trimmed.length;
+    const partStart = offset + leadingSpaces;
+    const trimmedEnd = trimmed.trimEnd();
+    const patterns = [
+      { type: "do not accept or prompt on", regex: /^do\s+not\s+accept\s+or\s+prompt\s+(on\s+)?/i },
+      { type: "do not accept", regex: /^do\s+not\s+accept\s+/i },
+      { type: "do not prompt", regex: /^do\s+not\s+prompt\s+/i },
+      { type: "anti-prompt", regex: /^anti-?prompt\s+(on\s+)?/i },
+      { type: "prompt", regex: /^prompt\s+(on\s+)?/i },
+      { type: "accept", regex: /^accept\s+/i },
+      { type: "reject", regex: /^reject\s+/i },
+      { type: "or", regex: /^or\s+/i }
+    ];
+    let matched = false;
+    for (const p of patterns) {
+      const m = trimmedEnd.match(p.regex);
+      if (m) {
+        const contentStartInPart = m[0].length;
+        results.push({
+          type: p.type,
+          contentStart: partStart + contentStartInPart,
+          contentEnd: partStart + trimmedEnd.length,
+          contentText: trimmedEnd.slice(contentStartInPart),
+          fullText: trimmedEnd,
+          fullStart: partStart
+        });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched && trimmedEnd.length > 0) {
+      results.push({
+        type: "unknown",
+        contentStart: partStart,
+        contentEnd: partStart + trimmedEnd.length,
+        contentText: trimmedEnd,
+        fullText: trimmedEnd,
+        fullStart: partStart
+      });
+    }
+    offset += part.length + 1;
+  }
+  return results;
+}
+function isMetaInstruction(content) {
+  const normalized = content.trim().toLowerCase();
+  return /^(either|any|both|all)\b/.test(normalized) || /^(in\s+(either|any)\s+order|names?\s+in\s+(either|any)\s+order)\b/.test(
+    normalized
+  ) || /^answers?\s+in\s+(either|any)\s+order\b/.test(normalized) || /\b(partial|equivalent|reasonable|similar|obvious|clear|specific|either|any)\s+(answer|response|mention|description|form)s?\b/.test(
+    normalized
+  ) || /\b(equivalents|partial answers?|either answer|any answer|word forms?)\b/.test(
+    normalized
+  ) || // Substitution instructions: "X" in place of "Y" or "X" instead of "Y"
+  /\b(in\s+place\s+of|instead\s+of)\b/.test(normalized) || // Descriptive class-level accepts: "answers (that) describe/indicating/mentioning X"
+  /^(answers?|other\s+answers?|the\s+aforementioned\s+answers?)\s+(that\s+)?(describ|indicat|mention|involv|such\s+as)\w*\b/.test(
+    normalized
+  ) || // "other answers" without qualification is always meta
+  /^other\s+answers?\b/.test(normalized);
+}
+const DOUBLE_QUOTE_CHARS = '"“”';
 function stripQuotedText(text) {
   return text.replace(/\u201c[^\u201d]*\u201d/g, (m) => " ".repeat(m.length)).replace(/"[^"]*"/g, (m) => " ".repeat(m.length)).replace(/\u2018[^\u2019]*\u2019/g, (m) => " ".repeat(m.length));
 }
@@ -450,6 +528,15 @@ function getAnswerLines(packet) {
   }
   return lines;
 }
+function* iterateSubDirectives(packet) {
+  for (const para of getAnswerLines(packet)) {
+    for (const bracket of findBracketSpans(para.rawText)) {
+      for (const sub of parseSubDirectives(bracket, para.rawText)) {
+        yield { para, bracket, sub };
+      }
+    }
+  }
+}
 function getQuestionParagraphs(packet, filter) {
   const paras = [];
   for (const q of allQuestions(packet)) {
@@ -487,13 +574,17 @@ function createDiagnostic(rule, para, message, opts) {
     fix: opts == null ? void 0 : opts.fix
   };
 }
+const formattingMapCache = /* @__PURE__ */ new WeakMap();
 function buildFormattingMap(runs) {
+  const cached = formattingMapCache.get(runs);
+  if (cached) return cached;
   const map = [];
   for (const run of runs) {
     for (let i = 0; i < run.text.length; i++) {
       map.push({ bold: run.bold, underline: run.underline });
     }
   }
+  formattingMapCache.set(runs, map);
   return map;
 }
 function hasBoldUnderline(fmtMap, startIdx, endIdx, rawText) {
@@ -679,13 +770,14 @@ function checkNumberingSequence(packet) {
   ]) {
     for (let i = 1; i < questions.length; i++) {
       if (questions[i].number <= questions[i - 1].number) {
-        diags.push({
-          rule: "packet.numbering-sequence",
-          severity: "error",
-          paragraph: questions[i].numberParagraph.index,
-          message: `${label} ${questions[i].number} does not increase from previous ${label.toLowerCase()} ${questions[i - 1].number}. Downstream parsers use number resets to detect the tossup/bonus boundary.`,
-          sourceText: questions[i].numberParagraph.rawText
-        });
+        diags.push(
+          createDiagnostic(
+            "packet.numbering-sequence",
+            questions[i].numberParagraph,
+            `${label} ${questions[i].number} does not increase from previous ${label.toLowerCase()} ${questions[i - 1].number}. Downstream parsers use number resets to detect the tossup/bonus boundary.`,
+            { severity: "error" }
+          )
+        );
       }
     }
   }
@@ -708,36 +800,38 @@ function checkFtpFormat(packet) {
     if (ftenMatch && !/for 10 points/i.test(text)) {
       const orig = ftenMatch[0];
       const fixNew = orig[0] === orig[0].toUpperCase() ? "For 10 points" : "for 10 points";
-      diags.push({
-        rule: "question.ftp-format",
-        severity: "error",
-        paragraph: q.numberParagraph.index,
-        message: 'Use "For 10 points" with numerals, not "For ten points".',
-        sourceText: text,
-        offset: ftenMatch.index,
-        length: ftenMatch[0].length,
-        fix: { oldText: orig, newText: fixNew, offset: ftenMatch.index }
-      });
+      diags.push(
+        createDiagnostic(
+          "question.ftp-format",
+          q.numberParagraph,
+          'Use "For 10 points" with numerals, not "For ten points".',
+          {
+            severity: "error",
+            offset: ftenMatch.index,
+            length: ftenMatch[0].length,
+            fix: { oldText: orig, newText: fixNew, offset: ftenMatch.index }
+          }
+        )
+      );
     } else if (!/for 10 points/i.test(text)) {
-      diags.push({
-        rule: "question.ftp-format",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: 'Tossup is missing "For 10 points" marker.',
-        sourceText: text
-      });
+      diags.push(
+        createDiagnostic(
+          "question.ftp-format",
+          q.numberParagraph,
+          'Tossup is missing "For 10 points" marker.'
+        )
+      );
     }
     const ftpMatch = text.match(/For 10 points([^,])/i);
     if (ftpMatch && ftpMatch[1] !== ",") {
-      diags.push({
-        rule: "question.ftp-format",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: '"For 10 points" should be followed by a comma.',
-        sourceText: text,
-        offset: ftpMatch.index,
-        length: ftpMatch[0].length
-      });
+      diags.push(
+        createDiagnostic(
+          "question.ftp-format",
+          q.numberParagraph,
+          '"For 10 points" should be followed by a comma.',
+          { offset: ftpMatch.index, length: ftpMatch[0].length }
+        )
+      );
     }
   }
   return diags;
@@ -747,13 +841,13 @@ function checkFtpePlacement(packet) {
   for (const q of packet.bonuses) {
     const text = q.numberParagraph.rawText;
     if (!/for 10 points each/i.test(text)) {
-      diags.push({
-        rule: "question.ftpe-format",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: 'Bonus lead-in should contain "For 10 points each".',
-        sourceText: text
-      });
+      diags.push(
+        createDiagnostic(
+          "question.ftpe-format",
+          q.numberParagraph,
+          'Bonus lead-in should contain "For 10 points each".'
+        )
+      );
     }
   }
   return diags;
@@ -794,27 +888,30 @@ function checkPowerMark(packet) {
     const powerIdx = text.indexOf("(*)");
     if (powerIdx === -1) {
       if (packetUsesPower) {
-        diags.push({
-          rule: "question.power-mark",
-          severity: "info",
-          paragraph: q.numberParagraph.index,
-          message: "Tossup has no power mark (*).",
-          sourceText: text
-        });
+        diags.push(
+          createDiagnostic(
+            "question.power-mark",
+            q.numberParagraph,
+            "Tossup has no power mark (*).",
+            { severity: "info" }
+          )
+        );
       }
       continue;
     }
     if (powerIdx > 0 && text[powerIdx - 1] !== " ") {
-      diags.push({
-        rule: "question.power-mark",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: "Power mark (*) should be preceded by a space.",
-        sourceText: text,
-        offset: powerIdx,
-        length: 3,
-        fix: { oldText: "(*)", newText: " (*)", offset: powerIdx }
-      });
+      diags.push(
+        createDiagnostic(
+          "question.power-mark",
+          q.numberParagraph,
+          "Power mark (*) should be preceded by a space.",
+          {
+            offset: powerIdx,
+            length: 3,
+            fix: { oldText: "(*)", newText: " (*)", offset: powerIdx }
+          }
+        )
+      );
     }
   }
   return diags;
@@ -927,15 +1024,14 @@ function checkFtpMidSentence(packet) {
     const afterFtp = text.substring(ftpIdx + ftpMatch[0].length);
     const hasSentenceAfter = /[.!?]\s+[A-Z]/.test(afterFtp);
     if (hasSentenceAfter) {
-      diags.push({
-        rule: "question.no-ftp-midsentence",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: 'Do not interject "for 10 points" in the middle of the tossup. It should appear in the final sentence.',
-        sourceText: text,
-        offset: ftpIdx,
-        length: ftpMatch[0].length
-      });
+      diags.push(
+        createDiagnostic(
+          "question.no-ftp-midsentence",
+          q.numberParagraph,
+          'Do not interject "for 10 points" in the middle of the tossup. It should appear in the final sentence.',
+          { offset: ftpIdx, length: ftpMatch[0].length }
+        )
+      );
     }
   }
   return diags;
@@ -968,13 +1064,14 @@ function checkMultilineAnswer(packet) {
     const unbalanced = depth !== 0;
     const looksLikeContinuation = unbalanced || /^[a-z]/.test(nextText) || /^\[/.test(nextText) || /^(accept|or|prompt|reject)\b/i.test(nextText);
     if (looksLikeContinuation) {
-      diags.push({
-        rule: "question.multiline-answer",
-        severity: "error",
-        paragraph: next.index,
-        message: "This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.",
-        sourceText: next.rawText
-      });
+      diags.push(
+        createDiagnostic(
+          "question.multiline-answer",
+          next,
+          "This line appears to be a continuation of the previous answer. Answer lines must be a single paragraph; downstream parsers cannot handle multi-line answers.",
+          { severity: "error" }
+        )
+      );
     }
   }
   return diags;
@@ -1013,15 +1110,14 @@ function checkPreQuestionNoteItalics(packet) {
         charPos = runEnd;
       }
       if (!isItalic) {
-        diags.push({
-          rule: "question.note-formatting",
-          severity: "info",
-          paragraph: q.numberParagraph.index,
-          message: `Pre-question notes like "${noteText}" should be italicized.`,
-          sourceText: text,
-          offset: noteStart,
-          length: noteText.length
-        });
+        diags.push(
+          createDiagnostic(
+            "question.note-formatting",
+            q.numberParagraph,
+            `Pre-question notes like "${noteText}" should be italicized.`,
+            { severity: "info", offset: noteStart, length: noteText.length }
+          )
+        );
         break;
       }
     }
@@ -1041,13 +1137,14 @@ function checkBonusPartOrder(packet) {
       const isAnswer = ANSWER.test(text);
       if (isPart && expectingAnswer) {
         partCount++;
-        diags.push({
-          rule: "question.bonus-part-order",
-          severity: "error",
-          paragraph: para.index,
-          message: `Bonus ${q.number}, part ${partCount}: appears before part ${partCount - 1}’s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
-          sourceText: para.rawText
-        });
+        diags.push(
+          createDiagnostic(
+            "question.bonus-part-order",
+            para,
+            `Bonus ${q.number}, part ${partCount}: appears before part ${partCount - 1}’s answer line. Each [value] part must be followed by its ANSWER: before the next part.`,
+            { severity: "error" }
+          )
+        );
         expectingAnswer = true;
       } else if (isPart) {
         partCount++;
@@ -1067,7 +1164,10 @@ function checkPostQuestionNote(packet) {
       parasToCheck.push({ para: q.numberParagraph });
     } else {
       for (let i = 0; i < q.parts.length; i++) {
-        parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
+        parasToCheck.push({
+          para: q.parts[i].textParagraph,
+          partLabel: `part ${i + 1}`
+        });
       }
     }
     for (const { para, partLabel } of parasToCheck) {
@@ -1099,15 +1199,14 @@ function checkPostQuestionNote(packet) {
         if (issues.length > 0) {
           const prefix = partLabel ? `Bonus ${q.number}, ${partLabel}: ` : "";
           const message = `${prefix}Post-question note should be styled as a sentence: ${issues.join(" and ")}.`;
-          diags.push({
-            rule: "question.post-question-note-sentence",
-            severity: "warning",
-            paragraph: para.index,
-            message,
-            sourceText: text,
-            offset: match.index,
-            length: fullMatch.length
-          });
+          diags.push(
+            createDiagnostic(
+              "question.post-question-note-sentence",
+              para,
+              message,
+              { offset: match.index, length: fullMatch.length }
+            )
+          );
         }
       }
     }
@@ -1137,13 +1236,13 @@ function checkSeparateNoteParagraph(packet) {
     }
     const hasExtraBody = q.paragraphs.some((p) => !specialParas.has(p.index));
     if (hasExtraBody) {
-      diags.push({
-        rule: "question.separate-note-paragraph",
-        severity: "warning",
-        paragraph: q.numberParagraph.index,
-        message: "Pre-question note should be on the same line as the question text, not a separate paragraph.",
-        sourceText: text
-      });
+      diags.push(
+        createDiagnostic(
+          "question.separate-note-paragraph",
+          q.numberParagraph,
+          "Pre-question note should be on the same line as the question text, not a separate paragraph."
+        )
+      );
     }
   }
   return diags;
@@ -1162,7 +1261,10 @@ function checkNoteToModeratorFormat(packet) {
       { para: q.numberParagraph }
     ];
     for (let i = 0; i < q.parts.length; i++) {
-      parasToCheck.push({ para: q.parts[i].textParagraph, partLabel: `part ${i + 1}` });
+      parasToCheck.push({
+        para: q.parts[i].textParagraph,
+        partLabel: `part ${i + 1}`
+      });
     }
     for (const { para, partLabel } of parasToCheck) {
       const text = para.rawText;
@@ -1175,15 +1277,13 @@ function checkNoteToModeratorFormat(packet) {
         const isReader = label === "Note to reader:";
         const prefix = q.type === "bonus" && partLabel ? `Bonus ${q.number}, ${partLabel}: ` : "";
         const message = isReader ? `${prefix}Use "Note to moderator:" instead of "${m[1]}" — the person reading the question is the moderator.` : `${prefix}Use "Note to moderator:" instead of "${m[1]}".`;
-        diags.push({
-          rule: "question.note-formatting",
-          severity: "info",
-          paragraph: para.index,
-          message,
-          sourceText: text,
-          offset: noteStart,
-          length: m[1].length
-        });
+        diags.push(
+          createDiagnostic("question.note-formatting", para, message, {
+            severity: "info",
+            offset: noteStart,
+            length: m[1].length
+          })
+        );
         break;
       }
     }
@@ -1281,15 +1381,14 @@ function checkMissingPronoun(packet) {
       const pronounRe = isFtp ? FTP_PRONOUN : CLUE_PRONOUN;
       if (!pronounRe.test(strippedSent)) {
         const absOffset = numPrefixLen + sent.offset;
-        diags.push({
-          rule: "question.missing-pronoun",
-          severity: "info",
-          paragraph: q.numberParagraph.index,
-          message: isFtp ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.' : 'Clue sentence lacks a pronoun ("this"/"these") referring to the answer.',
-          sourceText: rawText,
-          offset: absOffset,
-          length: sent.text.trimEnd().length
-        });
+        diags.push(
+          createDiagnostic(
+            "question.missing-pronoun",
+            q.numberParagraph,
+            isFtp ? 'FTP sentence lacks a pronoun ("this"/"what") referring to the answer.' : 'Clue sentence lacks a pronoun ("this"/"these") referring to the answer.',
+            { offset: absOffset, length: sent.text.trimEnd().length }
+          )
+        );
       }
     }
   }
@@ -1303,15 +1402,14 @@ function checkMissingPronoun(packet) {
       const stripped = stripItalicOnly(part.textParagraph);
       const strippedBody = stripped.substring(markerLen);
       if (!FTP_PRONOUN.test(strippedBody)) {
-        diags.push({
-          rule: "question.missing-pronoun",
-          severity: "info",
-          paragraph: part.textParagraph.index,
-          message: 'Bonus part lacks a pronoun ("this"/"what") referring to the answer.',
-          sourceText: rawText,
-          offset: markerLen,
-          length: body.trimEnd().length
-        });
+        diags.push(
+          createDiagnostic(
+            "question.missing-pronoun",
+            part.textParagraph,
+            'Bonus part lacks a pronoun ("this"/"what") referring to the answer.',
+            { offset: markerLen, length: body.trimEnd().length }
+          )
+        );
       }
     }
   }
@@ -1333,83 +1431,6 @@ const questionRules = [
   checkSeparateNoteParagraph,
   checkMissingPronoun
 ];
-function findBracketSpans(rawText) {
-  const spans = [];
-  for (const m of rawText.matchAll(/\[([^\]]*)\]/g)) {
-    spans.push({
-      start: m.index,
-      end: m.index + m[0].length - 1,
-      content: m[1]
-    });
-  }
-  return spans;
-}
-function parseSubDirectives(bracket, _rawText) {
-  const results = [];
-  const innerStart = bracket.start + 1;
-  const parts = bracket.content.split(";");
-  let offset = innerStart;
-  for (const part of parts) {
-    const trimmed = part.trimStart();
-    const leadingSpaces = part.length - trimmed.length;
-    const partStart = offset + leadingSpaces;
-    const trimmedEnd = trimmed.trimEnd();
-    const patterns = [
-      { type: "do not accept or prompt on", regex: /^do\s+not\s+accept\s+or\s+prompt\s+(on\s+)?/i },
-      { type: "do not accept", regex: /^do\s+not\s+accept\s+/i },
-      { type: "do not prompt", regex: /^do\s+not\s+prompt\s+/i },
-      { type: "anti-prompt", regex: /^anti-?prompt\s+(on\s+)?/i },
-      { type: "prompt", regex: /^prompt\s+(on\s+)?/i },
-      { type: "accept", regex: /^accept\s+/i },
-      { type: "reject", regex: /^reject\s+/i },
-      { type: "or", regex: /^or\s+/i }
-    ];
-    let matched = false;
-    for (const p of patterns) {
-      const m = trimmedEnd.match(p.regex);
-      if (m) {
-        const contentStartInPart = m[0].length;
-        results.push({
-          type: p.type,
-          contentStart: partStart + contentStartInPart,
-          contentEnd: partStart + trimmedEnd.length,
-          contentText: trimmedEnd.slice(contentStartInPart),
-          fullText: trimmedEnd,
-          fullStart: partStart
-        });
-        matched = true;
-        break;
-      }
-    }
-    if (!matched && trimmedEnd.length > 0) {
-      results.push({
-        type: "unknown",
-        contentStart: partStart,
-        contentEnd: partStart + trimmedEnd.length,
-        contentText: trimmedEnd,
-        fullText: trimmedEnd,
-        fullStart: partStart
-      });
-    }
-    offset += part.length + 1;
-  }
-  return results;
-}
-function isMetaInstruction(content) {
-  const normalized = content.trim().toLowerCase();
-  return /^(either|any|both|all)\b/.test(normalized) || /^(in\s+(either|any)\s+order|names?\s+in\s+(either|any)\s+order)\b/.test(
-    normalized
-  ) || /^answers?\s+in\s+(either|any)\s+order\b/.test(normalized) || /\b(partial|equivalent|reasonable|similar|obvious|clear|specific|either|any)\s+(answer|response|mention|description|form)s?\b/.test(
-    normalized
-  ) || /\b(equivalents|partial answers?|either answer|any answer|word forms?)\b/.test(
-    normalized
-  ) || // Substitution instructions: "X" in place of "Y" or "X" instead of "Y"
-  /\b(in\s+place\s+of|instead\s+of)\b/.test(normalized) || // Descriptive class-level accepts: "answers (that) describe/indicating/mentioning X"
-  /^(answers?|other\s+answers?|the\s+aforementioned\s+answers?)\s+(that\s+)?(describ|indicat|mention|involv|such\s+as)\w*\b/.test(
-    normalized
-  ) || // "other answers" without qualification is always meta
-  /^other\s+answers?\b/.test(normalized);
-}
 function checkAnswerPrefix(packet) {
   const diags = [];
   for (const para of getAnswerLines(packet)) {
@@ -1595,140 +1616,153 @@ function checkAcceptRejectFormat(packet) {
 }
 function checkAcceptFormatting(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "accept" && sub.type !== "or") continue;
+    if (isMetaInstruction(sub.contentText)) continue;
     const fmtMap = buildFormattingMap(para.runs);
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "accept" && sub.type !== "or") continue;
-        if (isMetaInstruction(sub.contentText)) continue;
-        const foundBoldUnderline = hasBoldUnderline(
-          fmtMap,
-          sub.contentStart,
-          sub.contentEnd,
-          para.rawText
-        );
-        if (!foundBoldUnderline) {
-          const directive = sub.type === "or" ? "or" : "accept";
-          diags.push({
-            rule: "answerline.accept-formatting",
-            severity: "warning",
-            paragraph: para.index,
-            message: `Text in [${directive}] directive should have bold and underlined formatting: "${sub.contentText}".`,
-            sourceText: para.rawText,
-            offset: sub.fullStart,
-            length: sub.fullText.length
-          });
-        }
-      }
+    const foundBoldUnderline = hasBoldUnderline(
+      fmtMap,
+      sub.contentStart,
+      sub.contentEnd,
+      para.rawText
+    );
+    if (!foundBoldUnderline) {
+      const directive = sub.type === "or" ? "or" : "accept";
+      diags.push({
+        rule: "answerline.accept-formatting",
+        severity: "warning",
+        paragraph: para.index,
+        message: `Text in [${directive}] directive should have bold and underlined formatting: "${sub.contentText}".`,
+        sourceText: para.rawText,
+        offset: sub.fullStart,
+        length: sub.fullText.length
+      });
     }
   }
   return diags;
 }
 function checkPromptFormatting(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+    if (isMetaInstruction(sub.contentText)) continue;
+    const byAskingMatch = sub.contentText.match(/\s+by\s+asking\s+/i);
+    const checkEnd = byAskingMatch ? sub.contentStart + byAskingMatch.index : sub.contentEnd;
     const fmtMap = buildFormattingMap(para.runs);
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
-        if (isMetaInstruction(sub.contentText)) continue;
-        const byAskingMatch = sub.contentText.match(/\s+by\s+asking\s+/i);
-        const checkEnd = byAskingMatch ? sub.contentStart + byAskingMatch.index : sub.contentEnd;
-        const foundUnderline = hasUnderline(
-          fmtMap,
-          sub.contentStart,
-          checkEnd,
-          para.rawText
-        );
-        if (!foundUnderline) {
-          const directive = sub.type === "anti-prompt" ? "anti-prompt" : "prompt";
-          diags.push({
-            rule: "answerline.prompt-formatting",
-            severity: "warning",
-            paragraph: para.index,
-            message: `Text in [${directive}] directive should have underlined formatting: "${sub.contentText}".`,
-            sourceText: para.rawText,
-            offset: sub.fullStart,
-            length: sub.fullText.length
-          });
-        }
-      }
+    const foundUnderline = hasUnderline(
+      fmtMap,
+      sub.contentStart,
+      checkEnd,
+      para.rawText
+    );
+    if (!foundUnderline) {
+      const directive = sub.type === "anti-prompt" ? "anti-prompt" : "prompt";
+      diags.push({
+        rule: "answerline.prompt-formatting",
+        severity: "warning",
+        paragraph: para.index,
+        message: `Text in [${directive}] directive should have underlined formatting: "${sub.contentText}".`,
+        sourceText: para.rawText,
+        offset: sub.fullStart,
+        length: sub.fullText.length
+      });
     }
   }
   return diags;
 }
+const REJECT_LIST_ALLOWED_WORDS = /* @__PURE__ */ new Set([
+  "or",
+  "and",
+  "nor",
+  "etc",
+  "equivalent",
+  "equivalents",
+  "word",
+  "words",
+  "form",
+  "forms",
+  "similar",
+  "answer",
+  "answers",
+  "synonym",
+  "synonyms",
+  "other",
+  "any",
+  "alone"
+]);
+const DOUBLE_QUOTE_RE = new RegExp(`[${DOUBLE_QUOTE_CHARS}]`);
+const DOUBLE_QUOTE_SPAN_RE = new RegExp(
+  `[${DOUBLE_QUOTE_CHARS}][^${DOUBLE_QUOTE_CHARS}]*[${DOUBLE_QUOTE_CHARS}]`,
+  "g"
+);
+function textOutsideQuotes(content) {
+  return content.replace(/\([^)]*\)/g, " ").replace(DOUBLE_QUOTE_SPAN_RE, " ");
+}
+function isQuotedAnswerList(content) {
+  const leftover = textOutsideQuotes(content).replace(/[.,;/]/g, " ").trim().split(/\s+/).filter(Boolean);
+  return leftover.every((w) => REJECT_LIST_ALLOWED_WORDS.has(w.toLowerCase()));
+}
 function checkRejectQuotes(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "reject" && sub.type !== "do not accept") continue;
-        const content = sub.contentText.trim();
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        if (/^answers?\s+(like|that|describing|mentioning|involving|such\s+as)\b/.test(
-          lower
-        ))
-          continue;
-        if (/[\u201c\u201d"'].*[\u201c\u201d"']/.test(content) && !/^[\u201c\u201d"']/.test(content))
-          continue;
-        if (/^[\u201c\u201d"'][^"'\u201c\u201d]+[\u201c\u201d"']\s+(alone|without)\b/.test(
-          content
-        ))
-          continue;
-        if (/\bor\s+(other|any)\b/.test(lower)) continue;
-        if (/\buntil\b.*\bread\b/.test(lower)) continue;
-        if (/^partial\s+answers?\b/.test(lower)) continue;
-        const quotePattern = /^[\u201c\u201d"'].+[\u201c\u201d"']$/;
-        if (!quotePattern.test(content)) {
-          const directive = sub.type === "do not accept" ? "do not accept" : "reject";
-          diags.push({
-            rule: "answerline.reject-quotes",
-            severity: "warning",
-            paragraph: para.index,
-            message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
-            sourceText: para.rawText,
-            offset: sub.contentStart,
-            length: sub.contentText.length
-          });
-        }
-      }
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "reject" && sub.type !== "do not accept") continue;
+    const content = sub.contentText.trim();
+    if (!content) continue;
+    const directive = sub.type === "do not accept" ? "do not accept" : "reject";
+    const lower = content.toLowerCase();
+    if (isMetaInstruction(content)) continue;
+    if (/^(the\s+|a\s+|an\s+)?(answers?|descriptions?|synonyms?|specific|other|phrases?)\b/.test(
+      lower
+    ))
+      continue;
+    if (/\bsuch\s+as\b/.test(lower)) continue;
+    if (/\buntil\b.*\bread\b/.test(lower)) continue;
+    if (DOUBLE_QUOTE_RE.test(content)) {
+      if (isQuotedAnswerList(content)) continue;
+      const message = DOUBLE_QUOTE_RE.test(textOutsideQuotes(content)) ? `Unbalanced quotes in the [${directive}] directive; make sure each quoted answer is closed: "${content}".` : `A [${directive}] directive should contain only the quoted answer(s) (joined by connectors like "or"); move any other text outside it: "${content}".`;
+      diags.push({
+        rule: "answerline.reject-quotes",
+        severity: "warning",
+        paragraph: para.index,
+        message,
+        sourceText: para.rawText,
+        offset: sub.contentStart,
+        length: sub.contentText.length
+      });
+      continue;
     }
+    diags.push({
+      rule: "answerline.reject-quotes",
+      severity: "warning",
+      paragraph: para.index,
+      message: `Text in [${directive}] directive should be wrapped in quotes: "${content}".`,
+      sourceText: para.rawText,
+      offset: sub.contentStart,
+      length: sub.contentText.length
+    });
   }
   return diags;
 }
 function checkPromptQuestionQuotes(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
-        const byAskingMatch = sub.contentText.match(/by\s+asking\s+(.*)/i);
-        if (!byAskingMatch) continue;
-        const askingContent = byAskingMatch[1].trim();
-        if (!askingContent) continue;
-        const quotePattern = /^[\u201c\u201d"'].+[\u201c\u201d"']$/;
-        if (!quotePattern.test(askingContent)) {
-          const askingOffset = sub.contentStart + byAskingMatch.index + byAskingMatch[0].length - byAskingMatch[1].length;
-          diags.push({
-            rule: "answerline.prompt-question-quotes",
-            severity: "warning",
-            paragraph: para.index,
-            message: `The "by asking" question should be wrapped in quotes: "${askingContent}".`,
-            sourceText: para.rawText,
-            offset: askingOffset,
-            length: askingContent.length
-          });
-        }
-      }
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+    const byAskingMatch = sub.contentText.match(/by\s+asking\s+(.*)/i);
+    if (!byAskingMatch) continue;
+    const askingContent = byAskingMatch[1].trim();
+    if (!askingContent) continue;
+    if (!/^[,\s]*[\u201c\u201d"']/.test(askingContent)) {
+      const askingOffset = sub.contentStart + byAskingMatch.index + byAskingMatch[0].length - byAskingMatch[1].length;
+      const message = DOUBLE_QUOTE_RE.test(askingContent) ? `The "by asking" question has an unbalanced quote; open and close the quoted question: "${askingContent}".` : `The "by asking" question should be wrapped in quotes: "${askingContent}".`;
+      diags.push({
+        rule: "answerline.prompt-question-quotes",
+        severity: "warning",
+        paragraph: para.index,
+        message,
+        sourceText: para.rawText,
+        offset: askingOffset,
+        length: askingContent.length
+      });
     }
   }
   return diags;
@@ -1749,7 +1783,7 @@ function checkPostNotes(packet) {
         rule: "answerline.post-notes",
         severity: "info",
         paragraph: para.index,
-        message: `Text after the last bracket should be wrapped in parentheses: "${trimmed}".`,
+        message: `Text after the last bracket should be wrapped in parentheses: "${trimmed}"`,
         sourceText: text,
         offset: noteOffset !== -1 ? noteOffset : void 0,
         length: noteOffset !== -1 ? trimmed.length : void 0
@@ -1900,45 +1934,40 @@ function checkParentheticalOptional(packet) {
 }
 function checkPromptWithNotByAsking(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
-        const withMatch = sub.contentText.match(/\s+with\s+[\u201c\u201d"']/i);
-        if (withMatch) {
-          diags.push({
-            rule: "answerline.prompt-with-not-by-asking",
-            severity: "info",
-            paragraph: para.index,
-            message: 'Directed prompts should use "by asking" instead of "with".',
-            sourceText: para.rawText
-          });
-        }
-      }
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+    const withMatch = sub.contentText.match(/\s+(with)\s+[\u201c\u201d"']/i);
+    if (withMatch) {
+      const withOffset = sub.contentStart + withMatch.index + withMatch[0].indexOf(withMatch[1]);
+      diags.push({
+        rule: "answerline.prompt-with-not-by-asking",
+        severity: "info",
+        paragraph: para.index,
+        message: 'Directed prompts should use "by asking" instead of "with".',
+        sourceText: para.rawText,
+        offset: withOffset,
+        length: withMatch[1].length
+      });
     }
   }
   return diags;
 }
 function checkPromptPartialAnswers(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
-        if (/\bpartial\s+answers?\b/i.test(sub.contentText)) {
-          diags.push({
-            rule: "answerline.prompt-partial-answers",
-            severity: "info",
-            paragraph: para.index,
-            message: 'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
-            sourceText: para.rawText
-          });
-        }
-      }
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "prompt" && sub.type !== "anti-prompt") continue;
+    const partialMatch = sub.contentText.match(/\b(partial\s+answers?)\b/i);
+    if (partialMatch) {
+      const partialOffset = sub.contentStart + partialMatch.index;
+      diags.push({
+        rule: "answerline.prompt-partial-answers",
+        severity: "warning",
+        paragraph: para.index,
+        message: 'Avoid "prompt on partial answers". Spell out what exactly is promptable.',
+        sourceText: para.rawText,
+        offset: partialOffset,
+        length: partialMatch[1].length
+      });
     }
   }
   return diags;
@@ -1991,16 +2020,18 @@ function checkDirectiveSeparator(packet) {
         while (j >= 0 && content[j] === " ") j--;
         if (j >= 0 && content[j] === ";") continue;
         if (j < 0) continue;
+        const isWordChar = (c) => /\w/.test(c) || c === "'" || c === "’";
         let tokenBefore = "";
-        if (/\w/.test(content[j]) || content[j] === "'") {
-          while (j >= 0 && (/\w/.test(content[j]) || content[j] === "'")) {
+        if (isWordChar(content[j])) {
+          while (j >= 0 && isWordChar(content[j])) {
             tokenBefore = content[j] + tokenBefore;
             j--;
           }
         } else {
           tokenBefore = content[j];
         }
-        if (DIRECTIVE_SKIP_WORDS.has(tokenBefore.toLowerCase())) continue;
+        const normalizedToken = tokenBefore.toLowerCase().replace(/’/g, "'");
+        if (DIRECTIVE_SKIP_WORDS.has(normalizedToken)) continue;
         const absPos = bracket.start + 1 + matchPos;
         const directiveName = match[1].toLowerCase().trim();
         diags.push({
@@ -2019,36 +2050,30 @@ function checkDirectiveSeparator(packet) {
 }
 function checkRejectAlone(packet) {
   const diags = [];
-  for (const para of getAnswerLines(packet)) {
-    const brackets = findBracketSpans(para.rawText);
-    for (const bracket of brackets) {
-      const subs = parseSubDirectives(bracket, para.rawText);
-      for (const sub of subs) {
-        if (sub.type !== "reject" && sub.type !== "do not accept") continue;
-        const content = sub.contentText.trim();
-        if (!content) continue;
-        const aloneMatch = content.match(
-          /^[\u201c\u201d"']([^"'\u201c\u201d]+)[\u201c\u201d"']\s+alone$/i
-        );
-        if (aloneMatch) {
-          const directive = sub.type === "do not accept" ? "do not accept" : "reject";
-          const fixedContent = content.replace(/\s+alone$/i, "");
-          diags.push({
-            rule: "answerline.reject-no-alone",
-            severity: "warning",
-            paragraph: para.index,
-            message: `The word "alone" should not appear after a quoted phrase in [${directive}] directive. Remove "alone".`,
-            sourceText: para.rawText,
-            offset: sub.contentStart,
-            length: content.length,
-            fix: {
-              oldText: content,
-              newText: fixedContent,
-              offset: sub.contentStart
-            }
-          });
+  for (const { para, sub } of iterateSubDirectives(packet)) {
+    if (sub.type !== "reject" && sub.type !== "do not accept") continue;
+    const content = sub.contentText.trim();
+    if (!content) continue;
+    const aloneMatch = content.match(
+      /^[\u201c\u201d"']([^"'\u201c\u201d]+)[\u201c\u201d"']\s+alone$/i
+    );
+    if (aloneMatch) {
+      const directive = sub.type === "do not accept" ? "do not accept" : "reject";
+      const fixedContent = content.replace(/\s+alone$/i, "");
+      diags.push({
+        rule: "answerline.reject-no-alone",
+        severity: "warning",
+        paragraph: para.index,
+        message: `The word "alone" should not appear after a quoted phrase in [${directive}] directive. Remove "alone".`,
+        sourceText: para.rawText,
+        offset: sub.contentStart,
+        length: content.length,
+        fix: {
+          oldText: content,
+          newText: fixedContent,
+          offset: sub.contentStart
         }
-      }
+      });
     }
   }
   return diags;
@@ -2116,16 +2141,18 @@ function checkPronunciationDelimiters(packet) {
       if (content.includes("-") || /^[a-zA-Z\s-]+$/.test(content)) {
         const oldText = match[0];
         const newText = `("${content}")`;
-        diags.push({
-          rule: "pronunciation.paren-delimiter",
-          severity: "warning",
-          paragraph: para.index,
-          message: `Pronunciation guide should use parentheses with double quotes: ("${content}"), not ["${content}"].`,
-          sourceText: text,
-          offset: match.index,
-          length: oldText.length,
-          fix: { oldText, newText, offset: match.index }
-        });
+        diags.push(
+          createDiagnostic(
+            "pronunciation.paren-delimiter",
+            para,
+            `Pronunciation guide should use parentheses with double quotes: ("${content}"), not ["${content}"].`,
+            {
+              offset: match.index,
+              length: oldText.length,
+              fix: { oldText, newText, offset: match.index }
+            }
+          )
+        );
       }
     }
   }
@@ -2140,15 +2167,14 @@ function checkTrailingPunctuation(packet) {
       const content = match[1];
       if (content.includes("-") || /^[a-zA-Z\s-]+[.,;:!?]$/.test(content)) {
         const lastChar = content[content.length - 1];
-        diags.push({
-          rule: "pronunciation.trailing-punct",
-          severity: "info",
-          paragraph: para.index,
-          message: `Punctuation "${lastChar}" should come after the pronunciation guide, not inside it.`,
-          sourceText: text,
-          offset: match.index,
-          length: match[0].length
-        });
+        diags.push(
+          createDiagnostic(
+            "pronunciation.trailing-punct",
+            para,
+            `Punctuation "${lastChar}" should come after the pronunciation guide, not inside it.`,
+            { severity: "info", offset: match.index, length: match[0].length }
+          )
+        );
       }
     }
   }
@@ -2167,16 +2193,18 @@ function checkPronunciationQuotes(packet) {
       if (content.includes("-") || /^[A-Z]+$/.test(content)) {
         const oldText = match[0];
         const newText = `("${content}")`;
-        diags.push({
-          rule: "pronunciation.quotes-required",
-          severity: "warning",
-          paragraph: para.index,
-          message: `Pronunciation guide should have quotes around it: ("${content}"), not (${content}).`,
-          sourceText: text,
-          offset: match.index,
-          length: match[0].length,
-          fix: { oldText, newText, offset: match.index }
-        });
+        diags.push(
+          createDiagnostic(
+            "pronunciation.quotes-required",
+            para,
+            `Pronunciation guide should have quotes around it: ("${content}"), not (${content}).`,
+            {
+              offset: match.index,
+              length: match[0].length,
+              fix: { oldText, newText, offset: match.index }
+            }
+          )
+        );
       }
     }
   }
@@ -2190,15 +2218,14 @@ function checkPossessivePronunciation(packet) {
     for (const match of possessiveMatches) {
       const pgContent = match[1];
       if (!/['']s$|[sz]$/i.test(pgContent)) {
-        diags.push({
-          rule: "pronunciation.possessive-ending",
-          severity: "warning",
-          paragraph: para.index,
-          message: `Pronunciation guide following a possessive ('s) should end with 's, s, or z: "${pgContent}".`,
-          sourceText: text,
-          offset: match.index,
-          length: match[0].length
-        });
+        diags.push(
+          createDiagnostic(
+            "pronunciation.possessive-ending",
+            para,
+            `Pronunciation guide following a possessive ('s) should end with 's, s, or z: "${pgContent}".`,
+            { offset: match.index, length: match[0].length }
+          )
+        );
       }
     }
   }
@@ -2233,15 +2260,18 @@ function checkSmartQuotes(packet) {
     if (new RegExp("(?<![(\\w])'(?![)\\w])").test(withoutPron) || withoutPron.includes("'")) {
       if (withoutPron.includes("'")) {
         const idx = text.indexOf("'");
-        diags.push({
-          rule: "formatting.smart-quotes",
-          severity: "info",
-          paragraph: para.index,
-          message: "Possible straight apostrophe detected. Use typographic (curly) apostrophe ’ instead.",
-          sourceText: text,
-          offset: idx !== -1 ? idx : void 0,
-          length: idx !== -1 ? 1 : void 0
-        });
+        diags.push(
+          createDiagnostic(
+            "formatting.smart-quotes",
+            para,
+            "Possible straight apostrophe detected. Use typographic (curly) apostrophe ’ instead.",
+            {
+              severity: "info",
+              offset: idx !== -1 ? idx : void 0,
+              length: idx !== -1 ? 1 : void 0
+            }
+          )
+        );
       }
     }
   }
@@ -2264,17 +2294,19 @@ function checkEmDash(packet) {
       const fixOld = oldText;
       const fixNew = newText.replace(/ {2,}/g, " ");
       const fixOffset = hasPrecedingSpace ? idx - 1 : idx;
-      diags.push({
-        rule: "formatting.no-em-dash",
-        severity: "warning",
-        paragraph: para.index,
-        message: "Use spaced en dashes (–) instead of em dashes (—) for parenthetical breaks.",
-        suggestion: "Replace — with – (en dash)",
-        sourceText: text,
-        offset: idx,
-        length: 1,
-        fix: { oldText: fixOld, newText: fixNew, offset: fixOffset }
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.no-em-dash",
+          para,
+          "Use spaced en dashes (–) instead of em dashes (—) for parenthetical breaks.",
+          {
+            suggestion: "Replace — with – (en dash)",
+            offset: idx,
+            length: 1,
+            fix: { oldText: fixOld, newText: fixNew, offset: fixOffset }
+          }
+        )
+      );
     }
   }
   return diags;
@@ -2287,15 +2319,14 @@ function checkSubscriptSuperscript(packet) {
       if (run.superscript || run.subscript) {
         const kind = run.superscript ? "Superscripts" : "Subscripts";
         const example = run.superscript ? "x-squared" : "x-sub-two";
-        diags.push({
-          rule: "formatting.no-sub-superscript",
-          severity: "warning",
-          paragraph: para.index,
-          message: `${kind} should not be used. Write out in prose instead (e.g. "${example}").`,
-          sourceText: para.rawText,
-          offset: charPos,
-          length: run.text.length
-        });
+        diags.push(
+          createDiagnostic(
+            "formatting.no-sub-superscript",
+            para,
+            `${kind} should not be used. Write out in prose instead (e.g. "${example}").`,
+            { offset: charPos, length: run.text.length }
+          )
+        );
         break;
       }
       charPos += run.text.length;
@@ -2333,15 +2364,14 @@ function checkSpellOutNumbers(packet) {
         "9": "nine",
         "10": "ten"
       };
-      diags.push({
-        rule: "formatting.spell-out-small-numbers",
-        severity: "info",
-        paragraph: para.index,
-        message: `Consider spelling out number ${num} as "${words[num]}".`,
-        sourceText: text,
-        offset: match.index,
-        length: num.length
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.spell-out-small-numbers",
+          para,
+          `Consider spelling out number ${num} as "${words[num]}".`,
+          { severity: "info", offset: match.index, length: num.length }
+        )
+      );
     }
   }
   return diags;
@@ -2354,41 +2384,49 @@ function checkNoAmpersand(packet) {
     const stripped = stripTitleText(para);
     if (stripped.includes("&") && !stripped.includes("&amp;")) {
       const idx = stripped.indexOf("&");
-      diags.push({
-        rule: "formatting.no-ampersand",
-        severity: "info",
-        paragraph: para.index,
-        message: `Avoid ampersands (&). Use "and" unless it's part of an official name.`,
-        sourceText: text,
-        offset: idx,
-        length: 1
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.no-ampersand",
+          para,
+          `Avoid ampersands (&). Use "and" unless it's part of an official name.`,
+          { severity: "info", offset: idx, length: 1 }
+        )
+      );
     }
   }
   return diags;
 }
 function checkPoetrySlash(packet) {
   const diags = [];
-  for (const para of getQuestionParagraphs(packet, "non-answer")) {
+  for (const para of getQuestionParagraphs(packet, "text-only")) {
     const text = para.rawText;
     const stripped = stripItalicOnly(para);
-    const slashCount = (stripped.match(/\//g) || []).length;
-    if (slashCount >= 2) {
-      const unspaced = [...stripped.matchAll(/(\S)\/(\S)/g)].filter(
+    const quotes = [...stripped.matchAll(/[“"](.*?)[”"]/g)];
+    if (quotes.length === 0) continue;
+    for (const quote of quotes) {
+      const passage = quote[1];
+      const slashCount = (passage.match(/\//g) || []).length;
+      if (slashCount < 2) continue;
+      const unspaced = [...passage.matchAll(/(\S)\/(\S)/g)].filter(
         (m) => !/^\d\/\d/.test(m[0])
       );
-      for (const match of unspaced) {
-        diags.push({
-          rule: "formatting.poetry-slash",
-          severity: "info",
-          paragraph: para.index,
-          message: 'Poetry line breaks should use spaced slashes: " / " not "/".',
-          sourceText: text,
-          offset: match.index,
-          length: match[0].length
-        });
-        break;
-      }
+      if (unspaced.length === 0) continue;
+      const match = unspaced[0];
+      const offsetInStripped = quote.index + 1 + match.index;
+      const offsetInRaw = findOffsetInRawText(text, match[0], offsetInStripped);
+      diags.push(
+        createDiagnostic(
+          "formatting.poetry-slash",
+          para,
+          'Poetry line breaks should use spaced slashes: " / " not "/".',
+          {
+            severity: "info",
+            offset: offsetInRaw !== -1 ? offsetInRaw : offsetInStripped,
+            length: match[0].length
+          }
+        )
+      );
+      break;
     }
   }
   return diags;
@@ -2399,16 +2437,19 @@ function checkDoubleSpaces(packet) {
     const text = para.rawText;
     const idx = text.indexOf("  ");
     if (idx !== -1) {
-      diags.push({
-        rule: "formatting.no-double-spaces",
-        severity: "warning",
-        paragraph: para.index,
-        message: "Do not use two spaces after a period, or anywhere else.",
-        sourceText: text,
-        offset: idx,
-        length: 2,
-        fix: { oldText: "  ", newText: " ", offset: idx }
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.no-double-spaces",
+          para,
+          "Do not use two spaces after a period, or anywhere else.",
+          {
+            severity: "info",
+            offset: idx,
+            length: 2,
+            fix: { oldText: "  ", newText: " ", offset: idx }
+          }
+        )
+      );
     }
   }
   return diags;
@@ -2422,16 +2463,18 @@ function checkAbbreviationPeriods(packet) {
     ];
     for (const match of matches) {
       const without = match[1].replace(/\./g, "");
-      diags.push({
-        rule: "formatting.no-abbreviation-periods",
-        severity: "warning",
-        paragraph: para.index,
-        message: `Omit periods in "${match[1]}". Use "${without}" instead, since periods often cause confusion over the end of a sentence.`,
-        sourceText: para.rawText,
-        offset: match.index,
-        length: match[1].length,
-        fix: { oldText: match[1], newText: without, offset: match.index }
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.no-abbreviation-periods",
+          para,
+          `Omit periods in "${match[1]}". Use "${without}" instead, since periods often cause confusion over the end of a sentence.`,
+          {
+            offset: match.index,
+            length: match[1].length,
+            fix: { oldText: match[1], newText: without, offset: match.index }
+          }
+        )
+      );
     }
   }
   return diags;
@@ -2439,7 +2482,7 @@ function checkAbbreviationPeriods(packet) {
 function checkBceCeSystem(packet) {
   const diags = [];
   for (const para of getQuestionParagraphs(packet)) {
-    const text = para.rawText;
+    para.rawText;
     const stripped = stripTitleText(para);
     const bceMatch = stripped.match(/\b(\d+)\s+BC\b(?!E)/) || stripped.match(/\bAD\s+(\d+)\b/) || stripped.match(/\b(\d+)\s+AD\b/);
     if (bceMatch) {
@@ -2451,20 +2494,22 @@ function checkBceCeSystem(packet) {
       } else {
         fixNew = `${year} CE`;
       }
-      diags.push({
-        rule: "formatting.bce-ce-system",
-        severity: "warning",
-        paragraph: para.index,
-        message: "Use the BCE/CE system for years instead of BC/AD.",
-        sourceText: text,
-        offset: bceMatch.index,
-        length: bceMatch[0].length,
-        fix: {
-          oldText: matchText,
-          newText: fixNew,
-          offset: bceMatch.index
-        }
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.bce-ce-system",
+          para,
+          "Use the BCE/CE system for years instead of BC/AD.",
+          {
+            offset: bceMatch.index,
+            length: bceMatch[0].length,
+            fix: {
+              oldText: matchText,
+              newText: fixNew,
+              offset: bceMatch.index
+            }
+          }
+        )
+      );
     }
   }
   return diags;
@@ -2483,15 +2528,12 @@ function checkLatinAbbreviations(packet) {
     for (const [re, msg] of latinAbbrevs) {
       const m = text.match(re);
       if (m) {
-        diags.push({
-          rule: "formatting.no-latin-abbrev",
-          severity: "warning",
-          paragraph: para.index,
-          message: msg,
-          sourceText: para.rawText,
-          offset: m.index,
-          length: m[0].length
-        });
+        diags.push(
+          createDiagnostic("formatting.no-latin-abbrev", para, msg, {
+            offset: m.index,
+            length: m[0].length
+          })
+        );
       }
     }
   }
@@ -2506,15 +2548,18 @@ function checkPunctuationInsideQuotes(packet) {
     const piqMatch = withoutPron.match(new RegExp('(?<![?!])[\\u201d"][.,]'));
     if (piqMatch) {
       const origMatch = text.match(new RegExp('(?<![?!])[\\u201d"][.,]'));
-      diags.push({
-        rule: "formatting.punctuation-inside-quotes",
-        severity: "info",
-        paragraph: para.index,
-        message: "Commas and periods should go inside closing quotation marks (American style).",
-        sourceText: text,
-        offset: origMatch ? origMatch.index : void 0,
-        length: origMatch ? 2 : void 0
-      });
+      diags.push(
+        createDiagnostic(
+          "formatting.punctuation-inside-quotes",
+          para,
+          "Commas and periods should go inside closing quotation marks (American style).",
+          {
+            severity: "info",
+            offset: origMatch ? origMatch.index : void 0,
+            length: origMatch ? 2 : void 0
+          }
+        )
+      );
     }
   }
   return diags;
@@ -2651,6 +2696,7 @@ const VALID_CATEGORIES = /* @__PURE__ */ new Set([
   "Painting & Sculpture",
   "Music",
   "Classical Music",
+  "Classical Music and Opera",
   "Other Fine Arts",
   "Other Arts",
   "Architecture",
@@ -2748,7 +2794,7 @@ function checkTagExists(packet) {
         rule: "tag.tag-present",
         severity: "warning",
         paragraph: q.numberParagraph.index,
-        message: `${q.type === "tossup" ? "Tossup" : "Bonus"} ${q.number} has no tag line.`
+        message: `${q.type === "tossup" ? "Tossup" : "Bonus"} ${q.number} has no tag.`
       });
     }
   }
@@ -2978,13 +3024,8 @@ function checkAbsoluteTime(packet) {
           Math.max(0, match.index - 20),
           match.index
         );
-        const after = stripped.substring(
-          match.index + match[1].length,
-          match.index + match[1].length + 20
-        );
         if (/\b(in|during|of|from|since)\s*$/i.test(before)) continue;
-        if (/\b(name|what|identify)\b/i.test(before) || /\b(name|what|identify)\b/i.test(after))
-          continue;
+        if (/\b(name|what|identify)\s+this\s+year\b/i.test(stripped)) continue;
       }
       if (word === "recently") {
         const context = stripped.substring(
@@ -2999,7 +3040,7 @@ function checkAbsoluteTime(packet) {
       const offset = findOffsetInRawText(para.rawText, match[1], match.index);
       diags.push({
         rule: "writing.absolute-time",
-        severity: "warning",
+        severity: "info",
         paragraph: para.index,
         message: `Use absolute dates instead of "${match[1]}".`,
         sourceText: para.rawText,
@@ -3145,15 +3186,17 @@ function describeQuestion(q) {
 }
 function enrichDiagnostics(diagnostics, packet) {
   const paraToQuestion = /* @__PURE__ */ new Map();
+  const singleTossup = packet.tossups.length === 1;
+  const singleBonus = packet.bonuses.length === 1;
   for (const q of packet.tossups) {
-    const label = `T${q.number}`;
+    const label = singleTossup ? "Tossup" : `T${q.number}`;
     const answers = extractAnswerText(q);
     for (const p of q.paragraphs) {
       paraToQuestion.set(p.index, { label, answers });
     }
   }
   for (const q of packet.bonuses) {
-    const label = `B${q.number}`;
+    const label = singleBonus ? "Bonus" : `B${q.number}`;
     const answers = extractAnswerText(q);
     for (const p of q.paragraphs) {
       paraToQuestion.set(p.index, { label, answers });
@@ -3303,7 +3346,7 @@ const RULE_REGISTRY = [
     id: "question.missing-pronoun",
     category: "question",
     description: "Clue sentence or FTP references the answer with a pronoun",
-    defaultSeverity: "info"
+    defaultSeverity: "warning"
   },
   // answerline (16 rules)
   {
@@ -3365,7 +3408,7 @@ const RULE_REGISTRY = [
     id: "answerline.prompt-partial-answers",
     category: "answerline",
     description: "Avoid 'prompt on partial answers'",
-    defaultSeverity: "info"
+    defaultSeverity: "warning"
   },
   {
     id: "answerline.post-notes",
@@ -3579,7 +3622,7 @@ const RULE_REGISTRY = [
     id: "writing.absolute-time",
     category: "writing",
     description: "No absolute time references (currently)",
-    defaultSeverity: "warning"
+    defaultSeverity: "info"
   },
   {
     id: "writing.answer-some-questions",
@@ -3864,8 +3907,11 @@ function computeDisabledRules() {
   }
   return disabled;
 }
-function onOpen() {
-  DocumentApp.getUi().createMenu("qbcheck").addItem("Open sidebar", "showSidebar").addToUi();
+function onOpen(_e) {
+  DocumentApp.getUi().createAddonMenu().addItem("Open sidebar", "showSidebar").addToUi();
+}
+function onInstall(_e) {
+  onOpen();
 }
 function buildRulesMeta() {
   return RULE_REGISTRY.filter((r) => !CROSS_PACKET_RULES.has(r.id)).map((r) => ({

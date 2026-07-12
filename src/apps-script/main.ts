@@ -30,11 +30,23 @@ function computeDisabledRules(): Set<string> {
   return disabled;
 }
 
-export function onOpen(): void {
+export function onOpen(
+  _e?: GoogleAppsScript.Events.DocsOnOpen
+): void {
   DocumentApp.getUi()
-    .createMenu('qbcheck')
+    .createAddonMenu()
     .addItem('Open sidebar', 'showSidebar')
     .addToUi();
+}
+
+/**
+ * Runs once when a user installs the add-on. Building the menu here means it
+ * appears immediately after install without the user having to reopen the
+ * document. Google Workspace Marketplace editor add-ons are expected to provide
+ * this trigger.
+ */
+export function onInstall(_e?: GoogleAppsScript.Events.AddonOnInstall): void {
+  onOpen();
 }
 
 /** Rule metadata for the sidebar, excluding cross-packet-only rules. */

@@ -75,10 +75,20 @@ project bound to your Google Doc (**Extensions → Apps Script** from the doc):
 - Copy `apps-script/appsscript.json` into the project manifest (enable
   **Show "appsscript.json" manifest file** under Project Settings first).
 
-Then reload the doc and open the add-on from the **qbcheck** menu.
+Then reload the doc and open the add-on from **Extensions → qbcheck → Open
+sidebar**.
+
+To publish the add-on to the Google Workspace Marketplace, see
+[docs/marketplace-listing.md](docs/marketplace-listing.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE) for details.
 
 jszip is used under the MIT license. See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+
+## Privacy & Terms
+
+The Google Docs add-on runs entirely within Google's Apps Script environment on
+the open document only — no data leaves Google. See [PRIVACY.md](PRIVACY.md) and
+[TERMS.md](TERMS.md).
