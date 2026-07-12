@@ -1,6 +1,6 @@
 {
   "name": "qblint-chrome",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "lint-packets": "npx tsx scripts/lint-packets.ts",
     "typecheck:apps-script": "tsc --noEmit -p src/apps-script/tsconfig.json",
-    "build:apps-script": "tsc --noEmit -p src/apps-script/tsconfig.json && vite build --config vite.config.apps-script.ts"
+    "build:apps-script": "tsc --noEmit -p src/apps-script/tsconfig.json && vite build --config vite.config.apps-script.ts",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "jszip": "^3.10.1"

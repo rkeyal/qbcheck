@@ -356,6 +356,9 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
   const trimmed =
     end === paragraphs.length ? paragraphs : paragraphs.slice(0, end);
 
+  const pStyle =
+    'margin:0;page-break-inside:avoid;orphans:2;widows:2';
+
   const lines = trimmed.map((p) => {
     return p.runs
       .map((r) => {
@@ -363,14 +366,17 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
         if (r.bold) styles.push('font-weight:bold');
         if (r.italic) styles.push('font-style:italic');
         if (r.underline) styles.push('text-decoration:underline');
-        if (r.superscript)
-          styles.push('vertical-align:super', 'font-size:smaller');
-        if (r.subscript) styles.push('vertical-align:sub', 'font-size:smaller');
 
         const text = escapeHtml(r.text);
-        return styles.length > 0
-          ? `<span style="${styles.join(';')}">${text}</span>`
-          : text;
+        let html =
+          styles.length > 0
+            ? `<span style="${styles.join(';')}">${text}</span>`
+            : text;
+
+        if (r.superscript) html = `<sup>${html}</sup>`;
+        if (r.subscript) html = `<sub>${html}</sub>`;
+
+        return html;
       })
       .join('');
   });
@@ -383,7 +389,7 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
   // Empty paragraphs use <br> content so Google Docs renders a blank line.
   const parts: string[] = [];
   for (let i = 0; i < lines.length - 1; i++) {
-    parts.push(`<p style="margin:0">${lines[i] || '\u00A0'}</p>`);
+    parts.push(`<p style="${pStyle}">${lines[i] || '\u00A0'}</p>`);
   }
   parts.push(lines[lines.length - 1]);
   return parts.join('\n');

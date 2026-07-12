@@ -80,6 +80,7 @@ export interface PopupDeps {
     };
   };
   clipboard: {
+    read(): Promise<ClipboardItems>;
     write(items: ClipboardItem[]): Promise<void>;
     writeText(text: string): Promise<void>;
   };
@@ -98,6 +99,7 @@ export class PopupController {
   lastFixedParagraphs: Paragraph[] | null = null;
   lastAppliedFixes: LintDiagnostic[] = [];
   isPasteMode = false;
+  private suppressSessionSave = false;
   needsRelint = false;
   resetConfirmTimeout: number | null = null;
   toastTimeout: number | null = null;
@@ -156,6 +158,7 @@ export class PopupController {
   // --- Session persistence ---
 
   async saveSession(): Promise<void> {
+    if (this.suppressSessionSave) return;
     if (this.packetResults.length === 0) {
       await this.clearSession();
       return;
@@ -237,23 +240,65 @@ export class PopupController {
     );
 
     if (session) {
-      // Restore UI state
+      // Restore saved session (file uploads and paste results)
       this.packetResults = session.packetResults;
       this.currentIndex = session.currentIndex;
       this.isPasteMode = session.mode === 'paste';
 
-      // Show results UI
       this.el.uploadArea.hidden = true;
       this.el.resultsArea.hidden = false;
       this.populatePacketSelect();
       this.showCurrentPacket();
 
-      // Restore scroll position after render
       setTimeout(() => {
         this.el.diagnosticsList.scrollTop = session.scrollPosition || 0;
       }, 0);
+    } else if (await this.consumeLintClipboardFlag()) {
+      // Opened via keyboard shortcut — auto-lint clipboard
+      await this.autoLintClipboard();
     } else {
-      // No session to restore — auto-focus paste target so Ctrl+V works immediately
+      this.el.pasteTarget.focus();
+    }
+  }
+
+  private async consumeLintClipboardFlag(): Promise<boolean> {
+    try {
+      const result = await this.deps.chromeStorage.session.get(
+        'lintClipboardPending'
+      );
+      if (result.lintClipboardPending) {
+        await this.deps.chromeStorage.session.remove('lintClipboardPending');
+        return true;
+      }
+    } catch {
+      // Ignore — flag not set
+    }
+    return false;
+  }
+
+  private async autoLintClipboard(): Promise<void> {
+    try {
+      const items = await this.deps.clipboard.read();
+      let html = '';
+      let plainText = '';
+
+      for (const item of items) {
+        if (item.types.includes('text/html')) {
+          const blob = await item.getType('text/html');
+          html = await blob.text();
+        }
+        if (item.types.includes('text/plain')) {
+          const blob = await item.getType('text/plain');
+          plainText = await blob.text();
+        }
+      }
+
+      if (html || plainText) {
+        this.handlePaste(html, plainText, { ephemeral: true });
+      } else {
+        this.el.pasteTarget.focus();
+      }
+    } catch {
       this.el.pasteTarget.focus();
     }
   }
@@ -398,6 +443,7 @@ export class PopupController {
                 <li>When you <strong>paste</strong> questions, some issues are auto-fixed. Click <strong>Copy</strong> to get the corrected text.</li>
                 <li>Click <strong>&#x2026;</strong> on any issue to ignore it or disable that rule.</li>
                 <li>Click an issue to expand it and see the surrounding text.</li>
+                <li>Click <strong>&#x2913;</strong> to export a plain-text report of all diagnostics.</li>
               </ul>
             </div>
           </div>
@@ -431,6 +477,10 @@ export class PopupController {
             <div class="shortcut-section">
               <h3>Actions</h3>
               <div class="shortcut-row">
+                <kbd>${navigator.platform.includes('Mac') ? '⌃' : 'Alt'}</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd>
+                <span>Open &amp; lint clipboard</span>
+              </div>
+              <div class="shortcut-row">
                 <kbd>Esc</kbd>
                 <span>Close settings/menus</span>
               </div>
@@ -439,6 +489,7 @@ export class PopupController {
                 <span>Show this help</span>
               </div>
             </div>
+            <p class="shortcut-hint">Remap the open shortcut at chrome://extensions/shortcuts</p>
           </div>
         </div>
       </div>
@@ -607,7 +658,13 @@ export class PopupController {
     this.saveSession();
   }
 
-  handlePaste(html: string, plainText: string): void {
+  handlePaste(
+    html: string,
+    plainText: string,
+    opts?: { ephemeral?: boolean }
+  ): void {
+    this.suppressSessionSave = opts?.ephemeral ?? false;
+
     if (!html && !plainText) {
       this.showToast('No text found in clipboard. Copy some questions first.');
       return;
@@ -667,8 +724,8 @@ export class PopupController {
 
         this.populatePacketSelect();
         this.showCurrentPacket();
-        this.saveSession();
       } catch (e) {
+        this.suppressSessionSave = false;
         console.warn('Failed to process pasted text:', e);
         this.showToast('Failed to process pasted text. Please try again.');
         this.el.uploadArea.hidden = false;

@@ -147,7 +147,7 @@ describe('paste flow – empty paragraph between questions', () => {
     const outputHtml = paragraphsToHtml(result.fixedParagraphs);
 
     // Should contain a <p>\u00A0</p> for the blank line
-    expect(outputHtml).toContain('<p style="margin:0">\u00A0</p>');
+    expect(outputHtml).toContain('<p style="margin:0;page-break-inside:avoid;orphans:2;widows:2">\u00A0</p>');
 
     // All but last paragraph wrapped in <p>; last is inline
     const pCount = (outputHtml.match(/<p /g) || []).length;
@@ -168,7 +168,7 @@ describe('paste flow – empty paragraph between questions', () => {
     const outputHtml = paragraphsToHtml(result.fixedParagraphs);
 
     // Should contain a <p>\u00A0</p> for the blank line between questions
-    expect(outputHtml).toContain('<p style="margin:0">\u00A0</p>');
+    expect(outputHtml).toContain('<p style="margin:0;page-break-inside:avoid;orphans:2;widows:2">\u00A0</p>');
 
     // Last paragraph should be inline (no trailing <p>)
     expect(outputHtml).not.toMatch(/<\/p>$/);

@@ -1,5 +1,5 @@
 import { Packet, LintDiagnostic, LintRule } from '../model.js';
-import { allQuestions } from './utils.js';
+import { allQuestions, createDiagnostic } from './utils.js';
 
 function checkSectionHeaders(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
@@ -206,13 +206,14 @@ function checkNumberingSequence(packet: Packet): LintDiagnostic[] {
   ] as const) {
     for (let i = 1; i < questions.length; i++) {
       if (questions[i].number <= questions[i - 1].number) {
-        diags.push({
-          rule: 'packet.numbering-sequence',
-          severity: 'error',
-          paragraph: questions[i].numberParagraph.index,
-          message: `${label} ${questions[i].number} does not increase from previous ${label.toLowerCase()} ${questions[i - 1].number}. Downstream parsers use number resets to detect the tossup/bonus boundary.`,
-          sourceText: questions[i].numberParagraph.rawText,
-        });
+        diags.push(
+          createDiagnostic(
+            'packet.numbering-sequence',
+            questions[i].numberParagraph,
+            `${label} ${questions[i].number} does not increase from previous ${label.toLowerCase()} ${questions[i - 1].number}. Downstream parsers use number resets to detect the tossup/bonus boundary.`,
+            { severity: 'error' }
+          )
+        );
       }
     }
   }

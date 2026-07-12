@@ -84,7 +84,7 @@ describe('lint()', () => {
     const diags = lint(packet);
     const withLabel = diags.filter((d) => d.questionLabel);
     expect(withLabel.length).toBeGreaterThan(0);
-    expect(withLabel[0].questionLabel).toBe('T3');
+    expect(withLabel[0].questionLabel).toBe('Tossup');
   });
 });
 
