@@ -38,7 +38,7 @@ diverge only at the two ends of the pipeline:
 | **Multi-packet**     | Yes — multiple `.docx`, cross-packet category rule     | No — one open document                                        |
 | **State/settings**   | `chrome.storage.local` / `.session`                    | `PropertiesService.getUserProperties()`                       |
 | **Build**            | `vite build` → `dist/` (root `src/popup`)              | `vite build` (lib) → `apps-script/Code.js` + `Sidebar.html`   |
-| **Distribution**     | Load `dist/` unpacked (or Web Store), MV3 manifest     | `clasp push` to a bound/standalone Apps Script project        |
+| **Distribution**     | Load `dist/` unpacked (or Web Store), MV3 manifest     | Copy build outputs into a bound/standalone Apps Script project |
 | **Permissions**      | `storage`, `clipboardRead`                             | OAuth: `documents.currentonly`, `script.container.ui`         |
 | **`.qblintignore`**  | N/A (CLI uses it; extension does not)                  | N/A (disabled rules via UserProperties instead)              |
 
@@ -189,8 +189,8 @@ src/apps-script/sidebar.html  ──(copy)──►  apps-script/Sidebar.html
 ```
 
 - `npm run build:apps-script` → `tsc --noEmit -p src/apps-script/tsconfig.json && vite build --config vite.config.apps-script.ts`.
-- `npm run push:apps-script` → build then `clasp push -f` to the Apps Script
-  project (`.clasp.json`, see `.clasp.json.example`).
+- Deploy by copying `apps-script/Code.js`, `Sidebar.html`, and `appsscript.json`
+  into a bound Apps Script project (see the README for step-by-step).
 - `jszip` is marked **external** — the Apps Script bundle relies on `DocumentApp`,
   not the docx/HTML parsers, so the zip dependency is never pulled in.
 
