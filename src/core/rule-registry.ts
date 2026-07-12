@@ -151,7 +151,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'question.missing-pronoun',
     category: 'question',
     description: 'Clue sentence or FTP references the answer with a pronoun',
-    defaultSeverity: 'info',
+    defaultSeverity: 'warning',
   },
   // answerline (16 rules)
   {
@@ -213,7 +213,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'answerline.prompt-partial-answers',
     category: 'answerline',
     description: "Avoid 'prompt on partial answers'",
-    defaultSeverity: 'info',
+    defaultSeverity: 'warning',
   },
   {
     id: 'answerline.post-notes',
@@ -427,7 +427,7 @@ export const RULE_REGISTRY: RuleMeta[] = [
     id: 'writing.absolute-time',
     category: 'writing',
     description: 'No absolute time references (currently)',
-    defaultSeverity: 'warning',
+    defaultSeverity: 'info',
   },
   {
     id: 'writing.answer-some-questions',

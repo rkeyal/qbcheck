@@ -1,12 +1,27 @@
 {
   "manifest_version": 3,
   "name": "qbcheck",
-  "version": "0.1.0",
-  "description": "Lint quizbowl question packets for QMOS style violations",
-  "permissions": ["storage", "clipboardRead"],
+  "version": "0.2.0",
+  "description": "Check quizbowl packets for formatting and style issues",
+  "permissions": [
+    "storage",
+    "clipboardRead"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "qbcheck"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "lint-clipboard": {
+      "suggested_key": {
+        "default": "Alt+Shift+Q",
+        "mac": "MacCtrl+Shift+Q"
+      },
+      "description": "Lint clipboard contents"
+    }
   },
   "icons": {
     "16": "icons/icon16.png",

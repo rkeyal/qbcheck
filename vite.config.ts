@@ -26,6 +26,10 @@ export default defineConfig({
           resolve(__dirname, 'dist/manifest.json')
         );
         copyFileSync(
+          resolve(__dirname, 'background.js'),
+          resolve(__dirname, 'dist/background.js')
+        );
+        copyFileSync(
           resolve(__dirname, 'THIRD_PARTY_NOTICES'),
           resolve(__dirname, 'dist/THIRD_PARTY_NOTICES')
         );

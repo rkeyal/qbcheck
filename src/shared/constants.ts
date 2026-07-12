@@ -39,6 +39,7 @@ export const VALID_CATEGORIES = new Set([
   'Painting & Sculpture',
   'Music',
   'Classical Music',
+  'Classical Music and Opera',
   'Other Fine Arts',
   'Other Arts',
   'Architecture',

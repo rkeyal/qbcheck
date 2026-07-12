@@ -156,6 +156,30 @@ elements.pasteTarget.addEventListener('paste', (e) => {
   controller.handlePaste(html, plainText);
 });
 
+// Paste-anywhere: accept paste on the results screen without needing to focus paste target
+document.addEventListener('paste', (e) => {
+  // Skip if paste target already handled it, or if user is in an input field
+  const target = e.target as HTMLElement;
+  if (
+    target === elements.pasteTarget ||
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+
+  if (!elements.resultsArea.hidden) {
+    e.preventDefault();
+    const clipboardData = (e as ClipboardEvent).clipboardData;
+    if (!clipboardData) return;
+
+    const html = clipboardData.getData('text/html');
+    const plainText = clipboardData.getData('text/plain');
+    controller.handlePaste(html, plainText);
+  }
+});
+
 // Help button
 elements.helpBtn.addEventListener('click', () => controller.showKeyboardHelp());
 

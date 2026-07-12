@@ -144,6 +144,15 @@ describe('writing.absolute-time', () => {
     const diags = lint(packet);
     expect(hasDiag(diags, 'writing.absolute-time')).toBe(false);
   });
+
+  it('passes all "this year" when question is about a year', () => {
+    const t = tossupWith(
+      'A sequel about this year was published in 2024. For 10 points, name this year.'
+    );
+    const packet = makePacket({ tossups: [t], allParagraphs: t.paragraphs });
+    const diags = lint(packet);
+    expect(hasDiag(diags, 'writing.absolute-time')).toBe(false);
+  });
 });
 
 describe('writing.answer-some-questions', () => {

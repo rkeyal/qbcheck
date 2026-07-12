@@ -1,6 +1,6 @@
 {
   "name": "qblint-chrome",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -18,7 +18,8 @@
     "build:apps-script": "tsc --noEmit -p src/apps-script/tsconfig.json && vite build --config vite.config.apps-script.ts",
     "clasp:login": "clasp login",
     "clasp:open": "clasp open-script",
-    "push:apps-script": "npm run build:apps-script && clasp push -f"
+    "push:apps-script": "npm run build:apps-script && clasp push -f",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "jszip": "^3.10.1"

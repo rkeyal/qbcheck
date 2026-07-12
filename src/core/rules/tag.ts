@@ -55,7 +55,7 @@ function checkTagExists(packet: Packet): LintDiagnostic[] {
         rule: 'tag.tag-present',
         severity: 'warning',
         paragraph: q.numberParagraph.index,
-        message: `${q.type === 'tossup' ? 'Tossup' : 'Bonus'} ${q.number} has no tag line.`,
+        message: `${q.type === 'tossup' ? 'Tossup' : 'Bonus'} ${q.number} has no tag.`,
       });
     }
   }

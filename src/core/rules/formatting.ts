@@ -4,6 +4,7 @@ import {
   stripItalicOnly,
   getQuestionParagraphs,
   createDiagnostic,
+  findOffsetInRawText,
 } from './utils.js';
 
 function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
@@ -37,16 +38,18 @@ function checkSmartQuotes(packet: Packet): LintDiagnostic[] {
       // More nuanced: check for actual straight apostrophes
       if (withoutPron.includes("'")) {
         const idx = text.indexOf("'");
-        diags.push({
-          rule: 'formatting.smart-quotes',
-          severity: 'info',
-          paragraph: para.index,
-          message:
+        diags.push(
+          createDiagnostic(
+            'formatting.smart-quotes',
+            para,
             'Possible straight apostrophe detected. Use typographic (curly) apostrophe \u2019 instead.',
-          sourceText: text,
-          offset: idx !== -1 ? idx : undefined,
-          length: idx !== -1 ? 1 : undefined,
-        });
+            {
+              severity: 'info',
+              offset: idx !== -1 ? idx : undefined,
+              length: idx !== -1 ? 1 : undefined,
+            }
+          )
+        );
       }
     }
   }
@@ -79,18 +82,19 @@ function checkEmDash(packet: Packet): LintDiagnostic[] {
       const fixNew = newText.replace(/ {2,}/g, ' ');
       const fixOffset = hasPrecedingSpace ? idx - 1 : idx;
 
-      diags.push({
-        rule: 'formatting.no-em-dash',
-        severity: 'warning',
-        paragraph: para.index,
-        message:
+      diags.push(
+        createDiagnostic(
+          'formatting.no-em-dash',
+          para,
           'Use spaced en dashes (\u2013) instead of em dashes (\u2014) for parenthetical breaks.',
-        suggestion: 'Replace \u2014 with \u2013 (en dash)',
-        sourceText: text,
-        offset: idx,
-        length: 1,
-        fix: { oldText: fixOld, newText: fixNew, offset: fixOffset },
-      });
+          {
+            suggestion: 'Replace \u2014 with \u2013 (en dash)',
+            offset: idx,
+            length: 1,
+            fix: { oldText: fixOld, newText: fixNew, offset: fixOffset },
+          }
+        )
+      );
     }
   }
 
@@ -105,18 +109,15 @@ function checkSubscriptSuperscript(packet: Packet): LintDiagnostic[] {
     for (const run of para.runs) {
       if (run.superscript || run.subscript) {
         const kind = run.superscript ? 'Superscripts' : 'Subscripts';
-        const example = run.superscript
-          ? 'x-squared'
-          : 'x-sub-two';
-        diags.push({
-          rule: 'formatting.no-sub-superscript',
-          severity: 'warning',
-          paragraph: para.index,
-          message: `${kind} should not be used. Write out in prose instead (e.g. "${example}").`,
-          sourceText: para.rawText,
-          offset: charPos,
-          length: run.text.length,
-        });
+        const example = run.superscript ? 'x-squared' : 'x-sub-two';
+        diags.push(
+          createDiagnostic(
+            'formatting.no-sub-superscript',
+            para,
+            `${kind} should not be used. Write out in prose instead (e.g. "${example}").`,
+            { offset: charPos, length: run.text.length }
+          )
+        );
         break; // One per paragraph
       }
       charPos += run.text.length;
@@ -164,15 +165,14 @@ function checkSpellOutNumbers(packet: Packet): LintDiagnostic[] {
         '10': 'ten',
       };
 
-      diags.push({
-        rule: 'formatting.spell-out-small-numbers',
-        severity: 'info',
-        paragraph: para.index,
-        message: `Consider spelling out number ${num} as "${words[num]}".`,
-        sourceText: text,
-        offset: match.index!,
-        length: num.length,
-      });
+      diags.push(
+        createDiagnostic(
+          'formatting.spell-out-small-numbers',
+          para,
+          `Consider spelling out number ${num} as "${words[num]}".`,
+          { severity: 'info', offset: match.index!, length: num.length }
+        )
+      );
     }
   }
 
@@ -189,16 +189,14 @@ function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
     const stripped = stripTitleText(para);
     if (stripped.includes('&') && !stripped.includes('&amp;')) {
       const idx = stripped.indexOf('&');
-      diags.push({
-        rule: 'formatting.no-ampersand',
-        severity: 'info',
-        paragraph: para.index,
-        message:
+      diags.push(
+        createDiagnostic(
+          'formatting.no-ampersand',
+          para,
           'Avoid ampersands (&). Use "and" unless it\'s part of an official name.',
-        sourceText: text,
-        offset: idx,
-        length: 1,
-      });
+          { severity: 'info', offset: idx, length: 1 }
+        )
+      );
     }
   }
 
@@ -208,35 +206,41 @@ function checkNoAmpersand(packet: Packet): LintDiagnostic[] {
 function checkPoetrySlash(packet: Packet): LintDiagnostic[] {
   const diags: LintDiagnostic[] = [];
 
-  for (const para of getQuestionParagraphs(packet, 'non-answer')) {
+  for (const para of getQuestionParagraphs(packet, 'text-only')) {
     const text = para.rawText;
-    // Only strip italic text (titles), not quoted text — poetry slashes
-    // appear inside quoted passages
     const stripped = stripItalicOnly(para);
 
-    // Look for slashes between text that look like poetry line breaks
-    // but aren't spaced properly (e.g., "foo/bar" instead of "foo / bar")
-    // This is too noisy for general text — only flag if the question is about poetry
-    // or contains multiple slashes suggesting poetry quotation
-    const slashCount = (stripped.match(/\//g) || []).length;
-    if (slashCount >= 2) {
-      // Skip slashes that are fractions/ratios (digit/digit) or single-char/single-char
-      const unspaced = [...stripped.matchAll(/(\S)\/(\S)/g)].filter(
+    // Extract quoted passages (curly or straight quotes)
+    const quotes = [...stripped.matchAll(/[“"](.*?)[”"]/g)];
+    if (quotes.length === 0) continue;
+
+    for (const quote of quotes) {
+      const passage = quote[1];
+      const slashCount = (passage.match(/\//g) || []).length;
+      if (slashCount < 2) continue;
+
+      const unspaced = [...passage.matchAll(/(\S)\/(\S)/g)].filter(
         (m) => !/^\d\/\d/.test(m[0])
       );
-      for (const match of unspaced) {
-        diags.push({
-          rule: 'formatting.poetry-slash',
-          severity: 'info',
-          paragraph: para.index,
-          message:
-            'Poetry line breaks should use spaced slashes: " / " not "/".',
-          sourceText: text,
-          offset: match.index!,
-          length: match[0].length,
-        });
-        break; // One diagnostic per paragraph
-      }
+      if (unspaced.length === 0) continue;
+
+      const match = unspaced[0];
+      const offsetInStripped = quote.index! + 1 + match.index!;
+      const offsetInRaw = findOffsetInRawText(text, match[0], offsetInStripped);
+
+      diags.push(
+        createDiagnostic(
+          'formatting.poetry-slash',
+          para,
+          'Poetry line breaks should use spaced slashes: " / " not "/".',
+          {
+            severity: 'info',
+            offset: offsetInRaw !== -1 ? offsetInRaw : offsetInStripped,
+            length: match[0].length,
+          }
+        )
+      );
+      break;
     }
   }
 
@@ -250,16 +254,19 @@ function checkDoubleSpaces(packet: Packet): LintDiagnostic[] {
     const text = para.rawText;
     const idx = text.indexOf('  ');
     if (idx !== -1) {
-      diags.push({
-        rule: 'formatting.no-double-spaces',
-        severity: 'warning',
-        paragraph: para.index,
-        message: 'Do not use two spaces after a period, or anywhere else.',
-        sourceText: text,
-        offset: idx,
-        length: 2,
-        fix: { oldText: '  ', newText: ' ', offset: idx },
-      });
+      diags.push(
+        createDiagnostic(
+          'formatting.no-double-spaces',
+          para,
+          'Do not use two spaces after a period, or anywhere else.',
+          {
+            severity: 'info',
+            offset: idx,
+            length: 2,
+            fix: { oldText: '  ', newText: ' ', offset: idx },
+          }
+        )
+      );
     }
   }
 
@@ -277,16 +284,18 @@ function checkAbbreviationPeriods(packet: Packet): LintDiagnostic[] {
     ];
     for (const match of matches) {
       const without = match[1].replace(/\./g, '');
-      diags.push({
-        rule: 'formatting.no-abbreviation-periods',
-        severity: 'warning',
-        paragraph: para.index,
-        message: `Omit periods in "${match[1]}". Use "${without}" instead, since periods often cause confusion over the end of a sentence.`,
-        sourceText: para.rawText,
-        offset: match.index!,
-        length: match[1].length,
-        fix: { oldText: match[1], newText: without, offset: match.index! },
-      });
+      diags.push(
+        createDiagnostic(
+          'formatting.no-abbreviation-periods',
+          para,
+          `Omit periods in "${match[1]}". Use "${without}" instead, since periods often cause confusion over the end of a sentence.`,
+          {
+            offset: match.index!,
+            length: match[1].length,
+            fix: { oldText: match[1], newText: without, offset: match.index! },
+          }
+        )
+      );
     }
   }
 
@@ -316,20 +325,22 @@ function checkBceCeSystem(packet: Packet): LintDiagnostic[] {
         fixNew = `${year} CE`;
       }
 
-      diags.push({
-        rule: 'formatting.bce-ce-system',
-        severity: 'warning',
-        paragraph: para.index,
-        message: 'Use the BCE/CE system for years instead of BC/AD.',
-        sourceText: text,
-        offset: bceMatch.index!,
-        length: bceMatch[0].length,
-        fix: {
-          oldText: matchText,
-          newText: fixNew,
-          offset: bceMatch.index!,
-        },
-      });
+      diags.push(
+        createDiagnostic(
+          'formatting.bce-ce-system',
+          para,
+          'Use the BCE/CE system for years instead of BC/AD.',
+          {
+            offset: bceMatch.index!,
+            length: bceMatch[0].length,
+            fix: {
+              oldText: matchText,
+              newText: fixNew,
+              offset: bceMatch.index!,
+            },
+          }
+        )
+      );
     }
   }
 
@@ -353,15 +364,12 @@ function checkLatinAbbreviations(packet: Packet): LintDiagnostic[] {
     for (const [re, msg] of latinAbbrevs) {
       const m = text.match(re);
       if (m) {
-        diags.push({
-          rule: 'formatting.no-latin-abbrev',
-          severity: 'warning',
-          paragraph: para.index,
-          message: msg,
-          sourceText: para.rawText,
-          offset: m.index!,
-          length: m[0].length,
-        });
+        diags.push(
+          createDiagnostic('formatting.no-latin-abbrev', para, msg, {
+            offset: m.index!,
+            length: m[0].length,
+          })
+        );
       }
     }
   }
@@ -391,16 +399,18 @@ function checkPunctuationInsideQuotes(packet: Packet): LintDiagnostic[] {
     if (piqMatch) {
       // Find the match position in the original text (may differ due to stripping)
       const origMatch = text.match(/(?<![?!])[\u201d"][.,]/);
-      diags.push({
-        rule: 'formatting.punctuation-inside-quotes',
-        severity: 'info',
-        paragraph: para.index,
-        message:
+      diags.push(
+        createDiagnostic(
+          'formatting.punctuation-inside-quotes',
+          para,
           'Commas and periods should go inside closing quotation marks (American style).',
-        sourceText: text,
-        offset: origMatch ? origMatch.index! : undefined,
-        length: origMatch ? 2 : undefined,
-      });
+          {
+            severity: 'info',
+            offset: origMatch ? origMatch.index! : undefined,
+            length: origMatch ? 2 : undefined,
+          }
+        )
+      );
     }
   }
 

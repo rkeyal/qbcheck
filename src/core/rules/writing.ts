@@ -176,18 +176,10 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
           Math.max(0, match.index! - 20),
           match.index!
         );
-        const after = stripped.substring(
-          match.index! + match[1].length,
-          match.index! + match[1].length + 20
-        );
         // Skip "in this year", "during this year", etc. (temporal context clues)
         if (/\b(in|during|of|from|since)\s*$/i.test(before)) continue;
-        // Skip when it appears to be the answer (near "Name" or "What")
-        if (
-          /\b(name|what|identify)\b/i.test(before) ||
-          /\b(name|what|identify)\b/i.test(after)
-        )
-          continue;
+        // Skip when the paragraph uses "this year" as a demonstrative (the answer is a year)
+        if (/\b(name|what|identify)\s+this\s+year\b/i.test(stripped)) continue;
       }
 
       // Skip "recently" in past-tense historical narrative
@@ -211,7 +203,7 @@ function checkAbsoluteTime(packet: Packet): LintDiagnostic[] {
 
       diags.push({
         rule: 'writing.absolute-time',
-        severity: 'warning',
+        severity: 'info',
         paragraph: para.index,
         message: `Use absolute dates instead of "${match[1]}".`,
         sourceText: para.rawText,
